@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickBooks Invoice Upload - Bulk Upload to QuickBooks Online</title>
+    <meta name="description" content="Bulk upload invoices and bills to QuickBooks Online with OAuth2 authentication and detailed success/failure logging.">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #0077C5;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --light-bg: #f8f9fa;
+        }
+        
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), #005a9e);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn-upload {
+            background: linear-gradient(45deg, var(--success-color), #20c997);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-upload:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            color: white;
+        }
+        
+        .btn-upload:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .auth-card {
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .result-item {
+            border-left: 4px solid transparent;
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 4px;
+        }
+        
+        .result-success {
+            border-left-color: var(--success-color);
+            background-color: rgba(40, 167, 69, 0.1);
+        }
+        
+        .result-failed {
+            border-left-color: var(--danger-color);
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .form-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .section-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="fas fa-upload me-3"></i>QuickBooks Invoice Upload</h1>
+                    <p class="mb-0">Bulk upload invoices and bills to QuickBooks Online</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    {% if is_authenticated %}
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-check-circle me-1"></i>Connected to QuickBooks
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning fs-6">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Not Connected
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Authentication Status -->
+        {% if not is_authenticated %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card auth-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">
+                            <i class="fab fa-quickbooks me-2" style="color: var(--primary-color);"></i>
+                            Connect to QuickBooks Online
+                        </h5>
+                        <p class="card-text">You need to authenticate with QuickBooks Online to upload invoices and bills.</p>
+                        <a href="/auth/quickbooks" class="btn btn-primary">
+                            <i class="fas fa-link me-2"></i>Connect to QuickBooks
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="stat-card">
+                        <div class="stat-number text-primary" id="invoice-count">{{ invoice_count }}</div>
+                        <div class="text-muted">
+                            <i class="fas fa-file-invoice me-1"></i>Invoices (AR)
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="stat-card">
+                        <div class="stat-number text-info" id="bill-count">{{ bill_count }}</div>
+                        <div class="text-muted">
+                            <i class="fas fa-file-invoice-dollar me-1"></i>Bills (AP)
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="stat-card">
+                        <div class="stat-number text-success" id="uploaded-count">0</div>
+                        <div class="text-muted">
+                            <i class="fas fa-check-circle me-1"></i>Uploaded
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="stat-card">
+                        <div class="stat-number text-danger" id="failed-count">0</div>
+                        <div class="text-muted">
+                            <i class="fas fa-times-circle me-1"></i>Failed
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Upload Section -->
+        {% if is_authenticated %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h3 class="card-title">
+                            <i class="fas fa-cloud-upload-alt me-2"></i>Bulk Upload
+                        </h3>
+                        <p class="card-text">Upload all pending invoices and bills to QuickBooks Online</p>
+                        
+                        <button id="upload-btn" class="btn btn-upload btn-lg" onclick="uploadAll()">
+                            <i class="fas fa-upload me-2"></i>Upload All to QuickBooks
+                        </button>
+                        
+                        <div id="upload-progress" class="mt-3" style="display: none;">
+                            <div class="loading me-2"></div>
+                            <span>Uploading to QuickBooks...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Results Section -->
+        <div id="results-section" class="row mt-4" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title">
+                            <i class="fas fa-chart-bar me-2"></i>Upload Results
+                        </h4>
+                        <div id="results-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Entry Forms -->
+        {% if is_authenticated %}
+        <div class="row mt-5">
+            <!-- Invoice Entry Form -->
+            <div class="col-md-6">
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-plus-circle me-2"></i>Add New Invoice (AR)
+                    </h3>
+                    <form id="invoice-form">
+                        <div class="mb-3">
+                            <label class="form-label">Customer Name</label>
+                            <input type="text" class="form-control" name="customer_name" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Invoice Date</label>
+                                <input type="date" class="form-control" name="invoice_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Due Date</label>
+                                <input type="date" class="form-control" name="due_date">
+                            </div>
+                        </div>
+                        <div class="mb-3 mt-3">
+                            <label class="form-label">Invoice Number</label>
+                            <input type="text" class="form-control" name="invoice_number" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Line Description</label>
+                            <textarea class="form-control" name="line_description" rows="3" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label class="form-label">Amount</label>
+                                <input type="number" class="form-control" name="amount" step="0.01" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Tax Code</label>
+                                <input type="text" class="form-control" name="tax_code" placeholder="NON">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus me-2"></i>Add Invoice
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Bill Entry Form -->
+            <div class="col-md-6">
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-plus-circle me-2"></i>Add New Bill (AP)
+                    </h3>
+                    <form id="bill-form">
+                        <div class="mb-3">
+                            <label class="form-label">Vendor Name</label>
+                            <input type="text" class="form-control" name="vendor_name" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Bill Date</label>
+                                <input type="date" class="form-control" name="bill_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Due Date</label>
+                                <input type="date" class="form-control" name="due_date">
+                            </div>
+                        </div>
+                        <div class="mb-3 mt-3">
+                            <label class="form-label">Bill Number</label>
+                            <input type="text" class="form-control" name="bill_number" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Line Description</label>
+                            <textarea class="form-control" name="line_description" rows="3" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Amount</label>
+                                <input type="number" class="form-control" name="amount" step="0.01" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Expense Account</label>
+                                <input type="text" class="form-control" name="expense_account" placeholder="Office Supplies" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus me-2"></i>Add Bill
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Upload all invoices and bills to QuickBooks
+        async function uploadAll() {
+            const uploadBtn = document.getElementById('upload-btn');
+            const uploadProgress = document.getElementById('upload-progress');
+            const resultsSection = document.getElementById('results-section');
+            
+            // Show loading state
+            uploadBtn.disabled = true;
+            uploadProgress.style.display = 'block';
+            resultsSection.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/upload-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResults(data);
+                    updateStatistics(data);
+                } else {
+                    showError(data.error || 'Upload failed');
+                }
+                
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                // Hide loading state
+                uploadBtn.disabled = false;
+                uploadProgress.style.display = 'none';
+            }
+        }
+        
+        // Display upload results
+        function displayResults(data) {
+            const resultsSection = document.getElementById('results-section');
+            const resultsContent = document.getElementById('results-content');
+            
+            let html = `
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="alert alert-info">
+                            <strong>Total Processed:</strong> ${data.results.summary.total_processed}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-success">
+                            <strong>Successful:</strong> ${data.results.summary.total_successful}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-danger">
+                            <strong>Failed:</strong> ${data.results.summary.total_failed}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Invoice results
+            if (data.results.invoices.details.length > 0) {
+                html += '<h5><i class="fas fa-file-invoice me-2"></i>Invoices</h5>';
+                data.results.invoices.details.forEach(invoice => {
+                    const statusClass = invoice.status === 'success' ? 'result-success' : 'result-failed';
+                    const icon = invoice.status === 'success' ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-danger';
+                    
+                    html += `
+                        <div class="result-item ${statusClass}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="${icon} me-2"></i>
+                                    <strong>${invoice.invoice_number}</strong> - ${invoice.customer_name} ($${invoice.amount})
+                                </div>
+                                <small class="text-muted">${invoice.message}</small>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            // Bill results
+            if (data.results.bills.details.length > 0) {
+                html += '<h5 class="mt-4"><i class="fas fa-file-invoice-dollar me-2"></i>Bills</h5>';
+                data.results.bills.details.forEach(bill => {
+                    const statusClass = bill.status === 'success' ? 'result-success' : 'result-failed';
+                    const icon = bill.status === 'success' ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-danger';
+                    
+                    html += `
+                        <div class="result-item ${statusClass}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="${icon} me-2"></i>
+                                    <strong>${bill.bill_number}</strong> - ${bill.vendor_name} ($${bill.amount})
+                                </div>
+                                <small class="text-muted">${bill.message}</small>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            resultsContent.innerHTML = html;
+            resultsSection.style.display = 'block';
+        }
+        
+        // Update statistics counters
+        function updateStatistics(data) {
+            document.getElementById('uploaded-count').textContent = data.results.summary.total_successful;
+            document.getElementById('failed-count').textContent = data.results.summary.total_failed;
+        }
+        
+        // Show error message
+        function showError(message) {
+            const resultsSection = document.getElementById('results-section');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+            resultsSection.style.display = 'block';
+        }
+        
+        // Handle invoice form submission
+        document.getElementById('invoice-form')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/invoices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Invoice added successfully!');
+                    this.reset();
+                    location.reload(); // Refresh to update counters
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        });
+        
+        // Handle bill form submission
+        document.getElementById('bill-form')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/bills', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Bill added successfully!');
+                    this.reset();
+                    location.reload(); // Refresh to update counters
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        });
+        
+        // Set default dates to today
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelectorAll('input[name="invoice_date"], input[name="bill_date"]').forEach(input => {
+                if (!input.value) input.value = today;
+            });
+        });
+    </script>
+</body>
+</html>
