@@ -91,7 +91,7 @@ export default function Dashboard() {
   });
 
   const handleConnectQuickBooks = () => {
-    setLocation("/quickbooks-auth");
+    setLocation("/auth/quickbooks");
   };
 
   const handleDisconnectQuickBooks = () => {
