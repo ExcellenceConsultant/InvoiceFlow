@@ -3,7 +3,9 @@ import { Plus, Download, Link as LinkIcon, DollarSign, History, Gift, Warehouse,
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS } from "@/lib/constants";
 import StatsCards from "@/components/stats-cards";
 import InvoiceForm from "@/components/invoice-form";
@@ -14,6 +16,9 @@ export default function Dashboard() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showSchemeModal, setShowSchemeModal] = useState(false);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: user } = useQuery({
     queryKey: ["/api/users", DEFAULT_USER_ID],
@@ -53,6 +58,47 @@ export default function Dashboard() {
   });
 
   const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quickbooksAccessToken: null,
+          quickbooksRefreshToken: null,
+          quickbooksCompanyId: null,
+          quickbooksTokenExpiry: null,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to disconnect");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", DEFAULT_USER_ID] });
+      toast({
+        title: "Success",
+        description: "QuickBooks account disconnected successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect QuickBooks account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleConnectQuickBooks = () => {
+    setLocation("/quickbooks-auth");
+  };
+
+  const handleDisconnectQuickBooks = () => {
+    if (confirm("Are you sure you want to disconnect your QuickBooks account? This will stop all synchronization.")) {
+      disconnectMutation.mutate();
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -110,11 +156,21 @@ export default function Dashboard() {
                   </div>
                 </div>
                 {isQuickBooksConnected ? (
-                  <Button variant="outline" size="sm" className="text-destructive border-destructive hover:bg-destructive/10" data-testid="button-disconnect-quickbooks">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-destructive border-destructive hover:bg-destructive/10" 
+                    data-testid="button-disconnect-quickbooks"
+                    onClick={handleDisconnectQuickBooks}
+                  >
                     Disconnect
                   </Button>
                 ) : (
-                  <Button size="sm" data-testid="button-connect-quickbooks">
+                  <Button 
+                    size="sm" 
+                    data-testid="button-connect-quickbooks"
+                    onClick={handleConnectQuickBooks}
+                  >
                     Connect
                   </Button>
                 )}

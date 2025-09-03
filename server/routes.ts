@@ -40,7 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { code, realmId, state } = req.query;
       
       if (!code || !realmId || !state) {
-        return res.status(400).json({ message: "Missing required parameters" });
+        return res.redirect("/#/quickbooks-auth?error=missing_params");
       }
 
       const tokens = await quickBooksService.exchangeCodeForTokens(
@@ -56,9 +56,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      res.json({ success: true, companyId: tokens.companyId });
+      res.redirect("/#/quickbooks-auth?success=true");
     } catch (error) {
-      res.status(500).json({ message: "Failed to complete QuickBooks authentication" });
+      console.error("QuickBooks callback error:", error);
+      res.redirect("/#/quickbooks-auth?error=auth_failed");
     }
   });
 

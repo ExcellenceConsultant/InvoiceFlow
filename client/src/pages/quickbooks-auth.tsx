@@ -94,42 +94,36 @@ export default function QuickBooksAuth() {
 
   // Handle OAuth callback
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const realmId = urlParams.get('realmId');
-    const state = urlParams.get('state');
+    const urlParams = new URLSearchParams(window.location.hash.substring(1)); // Remove the # and parse
+    const success = urlParams.get('success');
     const error = urlParams.get('error');
 
-    if (error) {
-      setAuthError(`QuickBooks authentication failed: ${error}`);
+    if (success === 'true') {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", DEFAULT_USER_ID] });
+      toast({
+        title: "Success",
+        description: "QuickBooks connected successfully!",
+      });
       setIsConnecting(false);
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
 
-    if (code && realmId && state) {
-      // Handle successful callback
-      fetch(`/api/auth/quickbooks/callback?code=${code}&realmId=${realmId}&state=${state}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            queryClient.invalidateQueries({ queryKey: ["/api/users", DEFAULT_USER_ID] });
-            toast({
-              title: "Success",
-              description: "QuickBooks connected successfully!",
-            });
-            setLocation("/"); // Redirect to dashboard
-          } else {
-            setAuthError("Failed to complete QuickBooks authentication");
-          }
-        })
-        .catch(() => {
-          setAuthError("Failed to complete QuickBooks authentication");
-        })
-        .finally(() => {
-          setIsConnecting(false);
-        });
+    if (error) {
+      let errorMessage = "QuickBooks authentication failed";
+      if (error === 'missing_params') {
+        errorMessage = "Missing required parameters from QuickBooks";
+      } else if (error === 'auth_failed') {
+        errorMessage = "Failed to complete QuickBooks authentication";
+      }
+      setAuthError(errorMessage);
+      setIsConnecting(false);
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
     }
-  }, [queryClient, toast, setLocation]);
+  }, [queryClient, toast]);
 
   if (isLoading) {
     return (
