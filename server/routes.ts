@@ -1,0 +1,380 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { z } from "zod";
+import { storage } from "./storage";
+import { quickBooksService } from "./services/quickbooks";
+import { insertCustomerSchema, insertProductSchema, insertProductVariantSchema, 
+         insertProductSchemeSchema, insertInvoiceSchema, insertInvoiceLineItemSchema } from "@shared/schema";
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // User routes
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // QuickBooks OAuth routes
+  app.get("/api/auth/quickbooks", async (req, res) => {
+    try {
+      const state = req.query.userId as string;
+      if (!state) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const authUrl = quickBooksService.getAuthorizationUrl(state);
+      res.json({ authUrl });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+
+  app.get("/api/auth/quickbooks/callback", async (req, res) => {
+    try {
+      const { code, realmId, state } = req.query;
+      
+      if (!code || !realmId || !state) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+
+      const tokens = await quickBooksService.exchangeCodeForTokens(
+        code as string,
+        realmId as string
+      );
+
+      // Update user with QuickBooks tokens
+      await storage.updateUser(state as string, {
+        quickbooksCompanyId: tokens.companyId,
+        quickbooksAccessToken: tokens.accessToken,
+        quickbooksRefreshToken: tokens.refreshToken,
+        quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
+      });
+
+      res.json({ success: true, companyId: tokens.companyId });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to complete QuickBooks authentication" });
+    }
+  });
+
+  // Customer routes
+  app.get("/api/customers", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+      
+      const customers = await storage.getCustomers(userId);
+      res.json(customers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  app.post("/api/customers", async (req, res) => {
+    try {
+      const validation = insertCustomerSchema.extend({
+        userId: z.string(),
+      }).safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid customer data", errors: validation.error.errors });
+      }
+
+      const customer = await storage.createCustomer(validation.data);
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+
+  // Product routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+      
+      const products = await storage.getProducts(userId);
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const validation = insertProductSchema.extend({
+        userId: z.string(),
+      }).safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid product data", errors: validation.error.errors });
+      }
+
+      const product = await storage.createProduct(validation.data);
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  // Product variant routes
+  app.get("/api/products/:productId/variants", async (req, res) => {
+    try {
+      const variants = await storage.getProductVariants(req.params.productId);
+      res.json(variants);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch product variants" });
+    }
+  });
+
+  app.post("/api/variants", async (req, res) => {
+    try {
+      const validation = insertProductVariantSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid variant data", errors: validation.error.errors });
+      }
+
+      const variant = await storage.createVariant(validation.data);
+      res.json(variant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create variant" });
+    }
+  });
+
+  // Product scheme routes
+  app.get("/api/schemes", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+      
+      const schemes = await storage.getProductSchemes(userId);
+      res.json(schemes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch schemes" });
+    }
+  });
+
+  app.post("/api/schemes", async (req, res) => {
+    try {
+      const validation = insertProductSchemeSchema.extend({
+        userId: z.string(),
+      }).safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid scheme data", errors: validation.error.errors });
+      }
+
+      const scheme = await storage.createScheme(validation.data);
+      res.json(scheme);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create scheme" });
+    }
+  });
+
+  app.delete("/api/schemes/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteScheme(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Scheme not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete scheme" });
+    }
+  });
+
+  // Invoice routes
+  app.get("/api/invoices", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+      
+      const invoices = await storage.getInvoices(userId);
+      res.json(invoices);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.post("/api/invoices", async (req, res) => {
+    try {
+      const { invoice, lineItems } = req.body;
+      
+      const invoiceValidation = insertInvoiceSchema.extend({
+        userId: z.string(),
+      }).safeParse(invoice);
+      
+      if (!invoiceValidation.success) {
+        return res.status(400).json({ message: "Invalid invoice data", errors: invoiceValidation.error.errors });
+      }
+
+      // Create invoice
+      const createdInvoice = await storage.createInvoice(invoiceValidation.data);
+      
+      // Create line items with scheme application
+      const createdLineItems = [];
+      for (const item of lineItems) {
+        const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
+          ...item,
+          invoiceId: createdInvoice.id,
+        });
+        
+        if (lineItemValidation.success) {
+          const lineItem = await storage.createLineItem(lineItemValidation.data);
+          createdLineItems.push(lineItem);
+          
+          // Check for applicable schemes
+          if (item.productId) {
+            const schemes = await storage.getProductSchemes(invoice.userId);
+            const applicableScheme = schemes.find(
+              scheme => scheme.productId === item.productId && 
+                       scheme.isActive && 
+                       item.quantity >= scheme.buyQuantity
+            );
+            
+            if (applicableScheme) {
+              const freeQuantity = Math.floor(item.quantity / applicableScheme.buyQuantity) * applicableScheme.freeQuantity;
+              if (freeQuantity > 0) {
+                const freeLineItem = await storage.createLineItem({
+                  invoiceId: createdInvoice.id,
+                  productId: item.productId,
+                  variantId: item.variantId,
+                  description: `${item.description} (Free from scheme)`,
+                  quantity: freeQuantity,
+                  unitPrice: "0.00",
+                  lineTotal: "0.00",
+                  isFreeFromScheme: true,
+                  schemeId: applicableScheme.id,
+                });
+                createdLineItems.push(freeLineItem);
+              }
+            }
+          }
+        }
+      }
+
+      res.json({ invoice: createdInvoice, lineItems: createdLineItems });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      const user = await storage.getUser(invoice.userId!);
+      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        return res.status(400).json({ message: "QuickBooks not connected" });
+      }
+
+      const customer = await storage.getCustomer(invoice.customerId!);
+      if (!customer) {
+        return res.status(400).json({ message: "Customer not found" });
+      }
+
+      const lineItems = await storage.getInvoiceLineItems(invoice.id);
+      
+      // Transform to QuickBooks format
+      const qbInvoiceData = {
+        CustomerRef: { value: customer.quickbooksCustomerId || "1" },
+        Line: lineItems.map(item => ({
+          Amount: parseFloat(item.lineTotal),
+          DetailType: "SalesItemLineDetail",
+          SalesItemLineDetail: {
+            ItemRef: { value: "1", name: item.description },
+            UnitPrice: parseFloat(item.unitPrice),
+            Qty: item.quantity,
+          },
+        })),
+      };
+
+      const qbInvoice = await quickBooksService.createInvoice(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId,
+        qbInvoiceData
+      );
+
+      // Update invoice with QuickBooks ID
+      await storage.updateInvoice(invoice.id, {
+        quickbooksInvoiceId: qbInvoice.Id,
+        status: "sent",
+      });
+
+      res.json({ success: true, quickbooksInvoiceId: qbInvoice.Id });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to sync invoice with QuickBooks" });
+    }
+  });
+
+  // Dashboard stats
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const invoices = await storage.getInvoices(userId);
+      const products = await storage.getProducts(userId);
+      const schemes = await storage.getProductSchemes(userId);
+      
+      // Calculate total revenue
+      const totalRevenue = invoices.reduce((sum, invoice) => 
+        sum + parseFloat(invoice.total), 0
+      );
+
+      // Count active invoices
+      const activeInvoices = invoices.filter(invoice => 
+        invoice.status === "sent" || invoice.status === "draft"
+      ).length;
+
+      // Count products in stock
+      let totalStock = 0;
+      let lowStockCount = 0;
+      
+      for (const product of products) {
+        const variants = await storage.getProductVariants(product.id);
+        for (const variant of variants) {
+          totalStock += variant.stockQuantity || 0;
+          if ((variant.stockQuantity || 0) <= (variant.lowStockThreshold || 10)) {
+            lowStockCount++;
+          }
+        }
+      }
+
+      // Count active schemes
+      const activeSchemes = schemes.filter(scheme => scheme.isActive).length;
+
+      res.json({
+        totalRevenue: totalRevenue.toFixed(2),
+        activeInvoices,
+        productsInStock: totalStock,
+        lowStockCount,
+        activeSchemes,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
