@@ -399,6 +399,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
+    let customerName = "Unknown Customer"; // Define in broader scope
+    
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -410,18 +412,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
-      // Get customer and check if it's synced to QuickBooks (required for journal entries)
+      // Get customer information
       const customer = await storage.getCustomer(invoice.customerId!);
-      const customerName = customer?.name || "Unknown Customer";
+      customerName = customer?.name || "Unknown Customer";
       
-      // Customer must be synced to QuickBooks to create journal entries with AR account
-      if (!customer || !customer.quickbooksCustomerId) {
-        return res.status(400).json({ 
-          message: "Customer must be synced to QuickBooks before creating journal entries. Please sync the customer first in the QuickBooks Sync page.",
-          requiresCustomerSync: true,
-          customerId: invoice.customerId
-        });
-      }
+      console.log("Processing journal entry for customer:", { 
+        customerName, 
+        hasQuickBooksId: !!customer?.quickbooksCustomerId 
+      });
 
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
@@ -439,16 +437,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
         Line: [
           {
-            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
+            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable - ${customerName}`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: AR_ACCOUNT_ID },
-              Entity: {
-                Type: "Customer",
-                EntityRef: { value: customer.quickbooksCustomerId }
-              }
+              AccountRef: { value: AR_ACCOUNT_ID }
             }
           },
           {
@@ -490,19 +484,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (error.response?.data?.Fault?.Error?.[0]) {
         const qbError = error.response.data.Fault.Error[0];
-        errorMessage = qbError.Detail || qbError.code || errorMessage;
+        
+        // Check if this is the customer name validation error
+        if (qbError.code === "6000" && qbError.Detail?.includes("choose a customer in the Name field")) {
+          errorMessage = `Please manually create a customer named "${customerName}" in your QuickBooks account first, then try syncing this invoice again.`;
+          fullErrorDetails = {
+            code: qbError.code,
+            detail: qbError.Detail,
+            customerName: customerName,
+            solution: "Create customer in QuickBooks manually"
+          };
+        } else {
+          errorMessage = qbError.Detail || qbError.code || errorMessage;
+          fullErrorDetails = {
+            code: qbError.code,
+            detail: qbError.Detail,
+            element: qbError.element || null,
+            accountIds: {
+              accountsReceivable: "1150040004",
+              sales: "135"
+            }
+          };
+        }
+        
         console.error("QuickBooks Error Code:", qbError.code);
         console.error("QuickBooks Error Detail:", qbError.Detail);
-        
-        fullErrorDetails = {
-          code: qbError.code,
-          detail: qbError.Detail,
-          element: qbError.element || null,
-          accountIds: {
-            accountsReceivable: "1150040004",
-            sales: "135"
-          }
-        };
       }
       
       res.status(500).json({ 
