@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download } from "lucide-react";
+import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,30 @@ export default function Invoices() {
     },
   });
 
+  const bulkSyncMutation = useMutation({
+    mutationFn: async (invoiceIds: string[]) => {
+      const promises = invoiceIds.map(id => 
+        apiRequest("POST", `/api/invoices/${id}/sync-quickbooks`, {}).then(r => r.json())
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      const successCount = results.filter(r => r.success).length;
+      toast({
+        title: "Bulk Sync Complete",
+        description: `${successCount} invoices synced to QuickBooks successfully`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Some invoices failed to sync to QuickBooks",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredInvoices = invoices?.filter((invoice: any) => {
     const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
@@ -76,6 +100,20 @@ export default function Invoices() {
     syncToQuickBooksMutation.mutate(invoiceId);
   };
 
+  const handleBulkSync = () => {
+    const unsyncedInvoices = filteredInvoices.filter((invoice: any) => !invoice.quickbooksInvoiceId);
+    if (unsyncedInvoices.length === 0) {
+      toast({
+        title: "No Action Needed",
+        description: "All invoices are already synced to QuickBooks",
+      });
+      return;
+    }
+    
+    const invoiceIds = unsyncedInvoices.map((invoice: any) => invoice.id);
+    bulkSyncMutation.mutate(invoiceIds);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -90,6 +128,15 @@ export default function Invoices() {
             <Button variant="secondary" data-testid="button-export-invoices">
               <Download className="mr-2" size={16} />
               Export
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleBulkSync}
+              disabled={bulkSyncMutation.isPending}
+              data-testid="button-bulk-sync-quickbooks"
+            >
+              <Upload className="mr-2" size={16} />
+              {bulkSyncMutation.isPending ? "Syncing..." : "Sync All to QB"}
             </Button>
             <Button onClick={() => setShowInvoiceForm(true)} data-testid="button-create-invoice">
               <Plus className="mr-2" size={16} />
