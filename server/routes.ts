@@ -307,8 +307,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
+      // Create unique name to avoid conflicts
+      const timestamp = Date.now();
       const qbCustomerData = {
-        Name: customer.name,
+        Name: `${customer.name}_${timestamp}`,
       };
 
       const qbCustomer = await quickBooksService.createCustomer(
@@ -325,7 +327,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, quickbooksCustomerId: qbCustomer.Id });
     } catch (error: any) {
       console.error("QuickBooks customer sync error:", error.response?.data || error.message);
-      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync customer with QuickBooks";
+      console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
+      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || error.response?.data?.Fault?.Error?.[0]?.code || "Failed to sync customer with QuickBooks";
       res.status(500).json({ message: errorMessage });
     }
   });
@@ -342,10 +345,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
+      // Create unique name to avoid conflicts
+      const timestamp = Date.now();
       const qbItemData = {
-        Name: product.name,
+        Name: `${product.name}_${timestamp}`,
         Type: "Service",
-        UnitPrice: parseFloat(product.basePrice),
       };
 
       const qbItem = await quickBooksService.createItem(
