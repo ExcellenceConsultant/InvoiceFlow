@@ -225,6 +225,8 @@ export class QuickBooksService {
     journalData: any
   ): Promise<any> {
     try {
+      console.log('Creating journal entry with data:', JSON.stringify(journalData, null, 2));
+      
       const response = await axios.post(
         `${this.sandboxBaseUrl}/v3/company/${companyId}/journalentry`,
         journalData,
@@ -238,8 +240,17 @@ export class QuickBooksService {
       );
 
       return response.data.QueryResponse?.JournalEntry?.[0] || response.data.JournalEntry;
-    } catch (error) {
-      console.error('QuickBooks journal entry creation failed:', error);
+    } catch (error: any) {
+      console.error('QuickBooks journal entry creation failed:', error.response?.data || error.message);
+      console.error('Request data that failed:', JSON.stringify(journalData, null, 2));
+      
+      // Preserve the original error structure for better error handling
+      if (error.response) {
+        const enhancedError = new Error('Failed to create journal entry in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
       throw new Error('Failed to create journal entry in QuickBooks');
     }
   }
