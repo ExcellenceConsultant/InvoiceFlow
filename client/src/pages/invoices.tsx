@@ -50,8 +50,8 @@ export default function Invoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({
-        title: "Success",
-        description: "Invoice synced to QuickBooks successfully",
+        title: "Journal Entry Posted",
+        description: "Invoice journal entry created in QuickBooks (Debit AR, Credit Sales)",
       });
     },
     onError: (error: any) => {
@@ -132,8 +132,8 @@ export default function Invoices() {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       const successCount = results.filter(r => r.success).length;
       toast({
-        title: "Bulk Sync Complete",
-        description: `${successCount} invoices synced to QuickBooks successfully`,
+        title: "Journal Entries Posted",
+        description: `${successCount} invoice journal entries created in QuickBooks`,
       });
     },
     onError: () => {
@@ -198,9 +198,10 @@ export default function Invoices() {
               onClick={handleBulkSync}
               disabled={bulkSyncMutation.isPending}
               data-testid="button-bulk-sync-quickbooks"
+              title="Create journal entries in QuickBooks for all invoices (Debit AR, Credit Sales)"
             >
               <Upload className="mr-2" size={16} />
-              {bulkSyncMutation.isPending ? "Syncing..." : "Sync All to QB"}
+              {bulkSyncMutation.isPending ? "Creating Journal Entries..." : "Post Journal Entries to QB"}
             </Button>
             <Button onClick={() => setShowInvoiceForm(true)} data-testid="button-create-invoice">
               <Plus className="mr-2" size={16} />
@@ -270,7 +271,7 @@ export default function Invoices() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">QuickBooks</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Journal Entry</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -304,11 +305,11 @@ export default function Invoices() {
                       <td className="py-3 px-4">
                         {invoice.quickbooksInvoiceId ? (
                           <Badge className="bg-accent text-accent-foreground" data-testid={`quickbooks-synced-${invoice.id}`}>
-                            Synced
+                            Journal Entry Posted
                           </Badge>
                         ) : (
                           <Badge variant="outline" data-testid={`quickbooks-not-synced-${invoice.id}`}>
-                            Not Synced
+                            No Journal Entry
                           </Badge>
                         )}
                       </td>
@@ -339,6 +340,7 @@ export default function Invoices() {
                               onClick={() => handleSyncToQuickBooks(invoice.id)}
                               disabled={syncToQuickBooksMutation.isPending}
                               data-testid={`button-sync-quickbooks-${invoice.id}`}
+                              title="Post journal entry to QuickBooks (Debit AR, Credit Sales)"
                             >
                               <Send size={14} />
                             </Button>
