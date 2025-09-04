@@ -421,6 +421,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const AR_ACCOUNT_ID = "1150040004";  // Accounts Receivable
       const SALES_ACCOUNT_ID = "135";      // Income/Sales
 
+      console.log("Using Account IDs:", { AR_ACCOUNT_ID, SALES_ACCOUNT_ID, totalAmount });
+
       // Create journal entry for the invoice
       // Debit Accounts Receivable, Credit Sales Revenue
       const journalEntryData = {
@@ -428,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
         Line: [
           {
-            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
+            Description: invoice.description || `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
@@ -437,7 +439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           },
           {
-            Description: `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
+            Description: invoice.description || `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
@@ -471,16 +473,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Extract detailed error information
       let errorMessage = "Failed to sync invoice to QuickBooks";
+      let fullErrorDetails = null;
+      
       if (error.response?.data?.Fault?.Error?.[0]) {
         const qbError = error.response.data.Fault.Error[0];
         errorMessage = qbError.Detail || qbError.code || errorMessage;
         console.error("QuickBooks Error Code:", qbError.code);
         console.error("QuickBooks Error Detail:", qbError.Detail);
+        
+        fullErrorDetails = {
+          code: qbError.code,
+          detail: qbError.Detail,
+          element: qbError.element || null,
+          accountIds: {
+            accountsReceivable: "1150040004",
+            sales: "135"
+          }
+        };
       }
       
       res.status(500).json({ 
         message: errorMessage,
-        details: error.response?.data?.Fault?.Error?.[0] || null
+        errorDetails: fullErrorDetails
       });
     }
   });

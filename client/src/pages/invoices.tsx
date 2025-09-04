@@ -55,9 +55,40 @@ export default function Invoices() {
       });
     },
     onError: (error: any) => {
+      console.error("Invoice sync error:", error);
+      
+      const showDetails = () => {
+        const errorData = error.response?.data || error;
+        if (errorData.errorDetails) {
+          alert(`QuickBooks Error Details:
+          
+Code: ${errorData.errorDetails.code}
+Detail: ${errorData.errorDetails.detail}
+          
+Account IDs Used:
+- Accounts Receivable: ${errorData.errorDetails.accountIds.accountsReceivable}
+- Sales: ${errorData.errorDetails.accountIds.sales}
+
+This shows exactly what data was sent to QuickBooks and which accounts were used.`);
+        } else {
+          alert(`Error: ${errorData.message || error.message}\n\nNo detailed error information available.`);
+        }
+      };
+
+      const errorData = error.response?.data || error;
       toast({
         title: "Journal Entry Failed",
-        description: error.message || "Failed to create journal entry in QuickBooks",
+        description: (
+          <div>
+            <p>{errorData.message || "Failed to create journal entry in QuickBooks"}</p>
+            <button 
+              onClick={showDetails}
+              className="mt-2 text-xs underline text-blue-400 hover:text-blue-300"
+            >
+              Show Error Details
+            </button>
+          </div>
+        ),
         variant: "destructive",
       });
     },
