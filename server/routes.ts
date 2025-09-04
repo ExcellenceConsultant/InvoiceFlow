@@ -20,6 +20,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      // Handle null values for QuickBooks disconnection by converting to undefined
+      if (updateData.quickbooksAccessToken === null) {
+        updateData.quickbooksAccessToken = undefined;
+      }
+      if (updateData.quickbooksRefreshToken === null) {
+        updateData.quickbooksRefreshToken = undefined;
+      }
+      if (updateData.quickbooksCompanyId === null) {
+        updateData.quickbooksCompanyId = undefined;
+      }
+      if (updateData.quickbooksTokenExpiry === null) {
+        updateData.quickbooksTokenExpiry = undefined;
+      }
+      
+      const user = await storage.updateUser(id, updateData);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
   // QuickBooks OAuth routes
   app.get("/api/auth/quickbooks", async (req, res) => {
     try {
