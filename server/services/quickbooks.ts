@@ -219,6 +219,29 @@ export class QuickBooksService {
     }
   }
 
+  async findCustomerByName(accessToken: string, companyId: string, customerName: string): Promise<any> {
+    try {
+      // Escape single quotes in the customer name for the SQL query
+      const escapedName = customerName.replace(/'/g, "''");
+      
+      const response = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE Name = '${escapedName}'`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const customers = response.data.QueryResponse?.Customer || [];
+      return customers.length > 0 ? customers[0] : null;
+    } catch (error) {
+      console.error('QuickBooks customer search failed:', error);
+      return null; // Return null instead of throwing to handle gracefully
+    }
+  }
+
   async createJournalEntry(
     accessToken: string,
     companyId: string,

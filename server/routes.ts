@@ -413,13 +413,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get customer information
-      const customer = await storage.getCustomer(invoice.customerId!);
+      let customer = await storage.getCustomer(invoice.customerId!);
       customerName = customer?.name || "Unknown Customer";
       
       console.log("Processing journal entry for customer:", { 
         customerName, 
         hasQuickBooksId: !!customer?.quickbooksCustomerId 
       });
+
+      // If customer doesn't have QuickBooks ID, try to find it in QuickBooks
+      if (!customer?.quickbooksCustomerId) {
+        console.log("Customer not linked to QuickBooks, searching for existing customer...");
+        
+        const qbCustomer = await quickBooksService.findCustomerByName(
+          user.quickbooksAccessToken,
+          user.quickbooksCompanyId,
+          customerName
+        );
+        
+        if (qbCustomer) {
+          console.log("Found existing QuickBooks customer:", { id: qbCustomer.Id, name: qbCustomer.Name });
+          
+          // Update local customer with QuickBooks ID
+          await storage.updateCustomer(customer!.id, {
+            quickbooksCustomerId: qbCustomer.Id,
+          });
+          
+          // Refresh customer data
+          customer = await storage.getCustomer(invoice.customerId!);
+        } else {
+          console.log("Customer not found in QuickBooks");
+        }
+      }
 
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
@@ -442,7 +467,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: AR_ACCOUNT_ID }
+              AccountRef: { value: AR_ACCOUNT_ID },
+              // Include customer reference if available
+              ...(customer?.quickbooksCustomerId && {
+                Entity: {
+                  EntityRef: { value: customer.quickbooksCustomerId },
+                  Type: "Customer"
+                }
+              })
             }
           },
           {
