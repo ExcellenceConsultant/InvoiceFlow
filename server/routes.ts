@@ -309,21 +309,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const qbCustomerData = {
         Name: customer.name,
-        FullyQualifiedName: customer.name,
-        ...(customer.address && {
-          BillAddr: {
-            Line1: customer.address.street,
-            City: customer.address.city,
-            CountrySubDivisionCode: customer.address.state,
-            PostalCode: customer.address.zipCode,
-          }
-        }),
-        ...(customer.email && {
-          PrimaryEmailAddr: { Address: customer.email }
-        }),
-        ...(customer.phone && {
-          PrimaryPhone: { FreeFormNumber: customer.phone }
-        }),
       };
 
       const qbCustomer = await quickBooksService.createCustomer(
@@ -359,10 +344,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const qbItemData = {
         Name: product.name,
-        Type: "NonInventory",
-        IncomeAccountRef: { value: "79" },
+        Type: "Service",
         UnitPrice: parseFloat(product.basePrice),
-        ...(product.description && { Description: product.description }),
       };
 
       const qbItem = await quickBooksService.createItem(
