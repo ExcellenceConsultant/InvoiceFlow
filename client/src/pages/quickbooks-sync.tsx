@@ -17,6 +17,11 @@ export default function QuickBooksSync() {
 
   const { data: user } = useQuery({
     queryKey: ["/api/users", DEFAULT_USER_ID],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error("Failed to fetch user");
+      return response.json();
+    },
   });
 
   const { data: customers } = useQuery({
@@ -96,7 +101,7 @@ export default function QuickBooksSync() {
     },
   });
 
-  const isConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
+  const isConnected = user && user.quickbooksAccessToken && user.quickbooksCompanyId;
   const syncedCustomers = customers?.filter((c: any) => c.quickbooksCustomerId) || [];
   const syncedProducts = products?.filter((p: any) => p.quickbooksItemId) || [];
   const syncedInvoices = invoices?.filter((i: any) => i.quickbooksInvoiceId) || [];

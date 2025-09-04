@@ -410,9 +410,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
-      // Get customer for reference only (not required to be synced)
+      // Get customer and check if it's synced to QuickBooks (required for journal entries)
       const customer = await storage.getCustomer(invoice.customerId!);
       const customerName = customer?.name || "Unknown Customer";
+      
+      // Customer must be synced to QuickBooks to create journal entries with AR account
+      if (!customer || !customer.quickbooksCustomerId) {
+        return res.status(400).json({ 
+          message: "Customer must be synced to QuickBooks before creating journal entries. Please sync the customer first in the QuickBooks Sync page.",
+          requiresCustomerSync: true,
+          customerId: invoice.customerId
+        });
+      }
 
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
@@ -435,7 +444,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: AR_ACCOUNT_ID }
+              AccountRef: { value: AR_ACCOUNT_ID },
+              Entity: {
+                Type: "Customer",
+                EntityRef: { value: customer.quickbooksCustomerId }
+              }
             }
           },
           {
