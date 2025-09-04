@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle, AlertCircle, Upload, Users, Package, FileText, ArrowRight } from "lucide-react";
+import { CheckCircle, AlertCircle, Upload, Users, Package, FileText, ArrowRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { DEFAULT_USER_ID } from "@/lib/constants";
 export default function QuickBooksSync() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showAccounts, setShowAccounts] = useState(false);
+  const [accounts, setAccounts] = useState([]);
 
   const { data: user } = useQuery({
     queryKey: ["/api/users", DEFAULT_USER_ID],
@@ -99,6 +101,32 @@ export default function QuickBooksSync() {
   const syncedProducts = products?.filter((p: any) => p.quickbooksItemId) || [];
   const syncedInvoices = invoices?.filter((i: any) => i.quickbooksInvoiceId) || [];
 
+  const checkAccountsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/quickbooks/accounts');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch accounts");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setAccounts(data.accounts || []);
+      setShowAccounts(true);
+      toast({
+        title: "Accounts Retrieved",
+        description: `Found ${data.totalAccounts} QuickBooks accounts`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch QuickBooks accounts",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -119,7 +147,66 @@ export default function QuickBooksSync() {
         <p className="text-muted-foreground">
           Sync your customers, products, and invoices to QuickBooks in the correct order.
         </p>
+        
+        {/* Debug: Check QuickBooks Accounts */}
+        <div className="flex gap-4 mt-4">
+          <Button 
+            onClick={() => checkAccountsMutation.mutate()}
+            disabled={checkAccountsMutation.isPending}
+            variant="outline"
+            size="sm"
+          >
+            <Search className="mr-2 h-4 w-4" />
+            {checkAccountsMutation.isPending ? "Loading..." : "Debug: Check QB Accounts"}
+          </Button>
+          {showAccounts && (
+            <Button 
+              onClick={() => setShowAccounts(false)}
+              variant="ghost"
+              size="sm"
+            >
+              Hide Accounts
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* QuickBooks Accounts Display */}
+      {showAccounts && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>QuickBooks Chart of Accounts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">Account ID</th>
+                    <th className="text-left p-2">Account Name</th>
+                    <th className="text-left p-2">Account Type</th>
+                    <th className="text-left p-2">Sub Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.map((account: any, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="p-2 font-mono">{account.id}</td>
+                      <td className="p-2">{account.name}</td>
+                      <td className="p-2">
+                        <Badge variant={account.type === 'Accounts Receivable' || account.type === 'Income' ? 'default' : 'secondary'}>
+                          {account.type}
+                        </Badge>
+                      </td>
+                      <td className="p-2 text-muted-foreground">{account.subType}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sync Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
