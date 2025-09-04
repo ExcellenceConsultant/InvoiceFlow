@@ -274,6 +274,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/invoices/:id", async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.get("/api/invoices/:id/line-items", async (req, res) => {
+    try {
+      const lineItems = await storage.getInvoiceLineItems(req.params.id);
+      res.json(lineItems);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch line items" });
+    }
+  });
+
   app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
@@ -296,15 +317,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Transform to QuickBooks format
       const qbInvoiceData = {
         CustomerRef: { value: customer.quickbooksCustomerId || "1" },
-        Line: lineItems.map(item => ({
+        Line: lineItems.map((item, index) => ({
           Amount: parseFloat(item.lineTotal),
           DetailType: "SalesItemLineDetail",
           SalesItemLineDetail: {
-            ItemRef: { value: "1", name: item.description },
+            ItemRef: { value: "1", name: item.description || `Item ${index + 1}` },
             UnitPrice: parseFloat(item.unitPrice),
             Qty: item.quantity,
           },
         })),
+        TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+        DocNumber: invoice.invoiceNumber,
       };
 
       const qbInvoice = await quickBooksService.createInvoice(
@@ -321,7 +344,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ success: true, quickbooksInvoiceId: qbInvoice.Id });
     } catch (error) {
-      res.status(500).json({ message: "Failed to sync invoice with QuickBooks" });
+      console.error("QuickBooks sync error:", error.response?.data || error.message);
+      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync invoice with QuickBooks";
+      res.status(500).json({ message: errorMessage });
     }
   });
 

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import Invoices from "@/pages/invoices";
+import InvoiceView from "@/pages/invoice-view";
 import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import QuickBooksAuth from "@/pages/quickbooks-auth";
@@ -18,6 +19,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/invoices" component={Invoices} />
+        <Route path="/invoices/:id" component={InvoiceView} />
         <Route path="/inventory" component={Inventory} />
         <Route path="/schemes" component={Schemes} />
         <Route path="/auth/quickbooks" component={QuickBooksAuth} />

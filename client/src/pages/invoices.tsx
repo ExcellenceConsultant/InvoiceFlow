@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
 import InvoiceForm from "@/components/invoice-form";
@@ -17,6 +18,7 @@ export default function Invoices() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ["/api/invoices"],
@@ -254,6 +256,7 @@ export default function Invoices() {
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0"
+                            onClick={() => setLocation(`/invoices/${invoice.id}`)}
                             data-testid={`button-view-invoice-${invoice.id}`}
                           >
                             <Eye size={14} />
