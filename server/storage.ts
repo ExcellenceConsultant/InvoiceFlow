@@ -209,7 +209,17 @@ export class MemStorage implements IStorage {
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
     const user = this.users.get(id);
     if (!user) return undefined;
-    const updatedUser = { ...user, ...updates };
+    
+    // Handle undefined values explicitly (for QuickBooks disconnection)
+    const updatedUser = { ...user };
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        updatedUser[key as keyof User] = null as any;
+      } else {
+        updatedUser[key as keyof User] = value as any;
+      }
+    }
+    
     this.users.set(id, updatedUser);
     return updatedUser;
   }
