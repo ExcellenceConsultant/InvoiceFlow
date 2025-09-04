@@ -461,31 +461,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalAmount = parseFloat(invoice.total);
 
       // Use the correct account IDs from your QuickBooks sandbox
-      const AR_ACCOUNT_ID = "1150040004";  // Accounts Receivable
+      const COGS_ACCOUNT_ID = "173";       // Cost of Goods Sold
       const SALES_ACCOUNT_ID = "135";      // Income/Sales
 
-      console.log("Using Account IDs:", { AR_ACCOUNT_ID, SALES_ACCOUNT_ID, totalAmount });
+      console.log("Using Account IDs:", { COGS_ACCOUNT_ID, SALES_ACCOUNT_ID, totalAmount });
 
       // Create journal entry for the invoice
-      // Debit Accounts Receivable, Credit Sales Revenue
+      // Debit Cost of Goods Sold, Credit Sales Revenue (testing without AR account)
       const journalEntryData = {
         TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
         PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
         Line: [
           {
-            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable - ${customerName}`,
+            Description: `Invoice ${invoice.invoiceNumber} - Cost of Goods Sold`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: AR_ACCOUNT_ID },
-              // Include customer reference if available
-              ...(customer?.quickbooksCustomerId && {
-                Entity: {
-                  EntityRef: { value: customer.quickbooksCustomerId },
-                  Type: "Customer"
-                }
-              })
+              AccountRef: { value: COGS_ACCOUNT_ID }
             }
           },
           {
