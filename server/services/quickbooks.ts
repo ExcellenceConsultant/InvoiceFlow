@@ -221,8 +221,10 @@ export class QuickBooksService {
 
   async findCustomerByName(accessToken: string, companyId: string, customerName: string): Promise<any> {
     try {
-      // Escape single quotes in the customer name for the SQL query
+      // First try exact name match
       const escapedName = customerName.replace(/'/g, "''");
+      
+      console.log(`Searching for customer with exact name: "${customerName}"`);
       
       const response = await axios.get(
         `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE Name = '${escapedName}'`,
@@ -235,9 +237,54 @@ export class QuickBooksService {
       );
 
       const customers = response.data.QueryResponse?.Customer || [];
-      return customers.length > 0 ? customers[0] : null;
-    } catch (error) {
-      console.error('QuickBooks customer search failed:', error);
+      if (customers.length > 0) {
+        console.log(`Found customer by exact match:`, customers[0]);
+        return customers[0];
+      }
+
+      console.log('Exact match failed, trying to list all customers...');
+      
+      // If exact match fails, try to get all customers and find by name
+      const allCustomersResponse = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const allCustomers = allCustomersResponse.data.QueryResponse?.Customer || [];
+      console.log(`Found ${allCustomers.length} total customers`);
+      
+      // Try to find customer by name (case insensitive)
+      const matchingCustomer = allCustomers.find((customer: any) => 
+        customer.Name?.toLowerCase() === customerName.toLowerCase()
+      );
+      
+      if (matchingCustomer) {
+        console.log(`Found customer by case-insensitive match:`, matchingCustomer);
+        return matchingCustomer;
+      }
+
+      // Try partial match
+      const partialMatch = allCustomers.find((customer: any) => 
+        customer.Name?.toLowerCase().includes(customerName.toLowerCase()) ||
+        customerName.toLowerCase().includes(customer.Name?.toLowerCase())
+      );
+      
+      if (partialMatch) {
+        console.log(`Found customer by partial match:`, partialMatch);
+        return partialMatch;
+      }
+
+      console.log('No customer found with any matching approach');
+      return null;
+      
+    } catch (error: any) {
+      console.error('QuickBooks customer search failed:', error.response?.data || error.message);
+      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
       return null; // Return null instead of throwing to handle gracefully
     }
   }

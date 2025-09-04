@@ -443,6 +443,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customer = await storage.getCustomer(invoice.customerId!);
         } else {
           console.log("Customer not found in QuickBooks");
+          
+          // If we still can't find the customer, we can't create a proper journal entry
+          // Return an error asking the user to sync the customer first
+          return res.status(400).json({
+            message: `Customer "${customerName}" needs to be synced with QuickBooks first. Please go to the Customers page and sync this customer, then try syncing the invoice again.`,
+            errorDetails: {
+              code: "CUSTOMER_NOT_SYNCED",
+              customerName: customerName,
+              solution: "Sync customer with QuickBooks first"
+            }
+          });
         }
       }
 
