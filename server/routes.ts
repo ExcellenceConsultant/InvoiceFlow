@@ -410,10 +410,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
+      // Get customer for reference only (not required to be synced)
       const customer = await storage.getCustomer(invoice.customerId!);
-      if (!customer) {
-        return res.status(400).json({ message: "Customer not found" });
-      }
+      const customerName = customer?.name || "Unknown Customer";
 
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
@@ -422,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Debit Accounts Receivable, Credit Sales Revenue
       const journalEntryData = {
         TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-        PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customer.name}`,
+        PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
         Line: [
           {
             Id: "0",

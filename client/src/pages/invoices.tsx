@@ -55,19 +55,9 @@ export default function Invoices() {
       });
     },
     onError: (error: any) => {
-      let message = "Failed to sync invoice to QuickBooks";
-      
-      if (error.requiresCustomerSync) {
-        message = "Please sync the customer to QuickBooks first, then try again.";
-      } else if (error.requiresProductSync) {
-        message = "Please sync all products to QuickBooks first, then try again.";
-      } else if (error.message) {
-        message = error.message;
-      }
-      
       toast({
-        title: "Sync Required",
-        description: message,
+        title: "Journal Entry Failed",
+        description: error.message || "Failed to create journal entry in QuickBooks",
         variant: "destructive",
       });
     },
