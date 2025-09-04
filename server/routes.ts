@@ -309,16 +309,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const qbCustomerData = {
         Name: customer.name,
-        CompanyName: customer.name,
-        BillAddr: customer.address ? {
-          Line1: customer.address.street,
-          City: customer.address.city,
-          CountrySubDivisionCode: customer.address.state,
-          PostalCode: customer.address.zipCode,
-          Country: customer.address.country || "US",
-        } : undefined,
-        PrimaryEmailAddr: customer.email ? { Address: customer.email } : undefined,
-        PrimaryPhone: customer.phone ? { FreeFormNumber: customer.phone } : undefined,
+        FullyQualifiedName: customer.name,
+        ...(customer.address && {
+          BillAddr: {
+            Line1: customer.address.street,
+            City: customer.address.city,
+            CountrySubDivisionCode: customer.address.state,
+            PostalCode: customer.address.zipCode,
+          }
+        }),
+        ...(customer.email && {
+          PrimaryEmailAddr: { Address: customer.email }
+        }),
+        ...(customer.phone && {
+          PrimaryPhone: { FreeFormNumber: customer.phone }
+        }),
       };
 
       const qbCustomer = await quickBooksService.createCustomer(
@@ -354,13 +359,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const qbItemData = {
         Name: product.name,
-        Description: product.description,
-        Type: "Inventory",
-        TrackQtyOnHand: true,
+        Type: "NonInventory",
+        IncomeAccountRef: { value: "79" },
         UnitPrice: parseFloat(product.basePrice),
-        IncomeAccountRef: { value: "79" }, // Default income account
-        AssetAccountRef: { value: "81" }, // Default inventory asset account  
-        ExpenseAccountRef: { value: "80" }, // Default expense account
+        ...(product.description && { Description: product.description }),
       };
 
       const qbItem = await quickBooksService.createItem(

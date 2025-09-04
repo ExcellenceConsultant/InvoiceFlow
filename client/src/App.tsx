@@ -9,6 +9,7 @@ import InvoiceView from "@/pages/invoice-view";
 import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import QuickBooksAuth from "@/pages/quickbooks-auth";
+import QuickBooksSync from "@/pages/quickbooks-sync";
 import Navbar from "@/components/layout/navbar";
 import NotFound from "@/pages/not-found";
 
@@ -23,6 +24,7 @@ function Router() {
         <Route path="/inventory" component={Inventory} />
         <Route path="/schemes" component={Schemes} />
         <Route path="/auth/quickbooks" component={QuickBooksAuth} />
+        <Route path="/quickbooks/sync" component={QuickBooksSync} />
         <Route component={NotFound} />
       </Switch>
     </div>

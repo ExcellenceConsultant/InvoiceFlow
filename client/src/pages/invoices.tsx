@@ -41,6 +41,10 @@ export default function Invoices() {
   const syncToQuickBooksMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
       const response = await apiRequest("POST", `/api/invoices/${invoiceId}/sync-quickbooks`, {});
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw errorData;
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -50,10 +54,68 @@ export default function Invoices() {
         description: "Invoice synced to QuickBooks successfully",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      let message = "Failed to sync invoice to QuickBooks";
+      
+      if (error.requiresCustomerSync) {
+        message = "Please sync the customer to QuickBooks first, then try again.";
+      } else if (error.requiresProductSync) {
+        message = "Please sync all products to QuickBooks first, then try again.";
+      } else if (error.message) {
+        message = error.message;
+      }
+      
+      toast({
+        title: "Sync Required",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("POST", `/api/customers/${customerId}/sync-quickbooks`, {});
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to sync customer");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Customer synced to QuickBooks successfully",
+      });
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to sync invoice to QuickBooks",
+        description: error.message || "Failed to sync customer to QuickBooks",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncProductMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const response = await apiRequest("POST", `/api/products/${productId}/sync-quickbooks`, {});
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to sync product");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success", 
+        description: "Product synced to QuickBooks successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync product to QuickBooks",
         variant: "destructive",
       });
     },

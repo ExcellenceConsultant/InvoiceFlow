@@ -68,6 +68,15 @@ export default function Navbar() {
                   Schemes
                 </Button>
               </Link>
+              <Link href="/quickbooks/sync">
+                <Button 
+                  variant={location === "/quickbooks/sync" ? "default" : "ghost"} 
+                  size="sm"
+                  data-testid="link-quickbooks-sync"
+                >
+                  QB Sync
+                </Button>
+              </Link>
             </div>
           </div>
           
