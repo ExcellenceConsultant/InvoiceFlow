@@ -491,8 +491,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("QuickBooks journal entry sync error:", error.response?.data || error.message);
       console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
-      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || error.response?.data?.Fault?.Error?.[0]?.code || "Failed to sync invoice to QuickBooks";
-      res.status(500).json({ message: errorMessage });
+      
+      // Extract detailed error information
+      let errorMessage = "Failed to sync invoice to QuickBooks";
+      if (error.response?.data?.Fault?.Error?.[0]) {
+        const qbError = error.response.data.Fault.Error[0];
+        errorMessage = qbError.Detail || qbError.code || errorMessage;
+        console.error("QuickBooks Error Code:", qbError.code);
+        console.error("QuickBooks Error Detail:", qbError.Detail);
+      }
+      
+      res.status(500).json({ 
+        message: errorMessage,
+        details: error.response?.data?.Fault?.Error?.[0] || null
+      });
+    }
+  });
+
+  // Debug endpoint to list QuickBooks accounts
+  app.get("/api/quickbooks/accounts", async (req, res) => {
+    try {
+      const user = await storage.getUser("user-1");
+      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        return res.status(400).json({ message: "QuickBooks not connected" });
+      }
+
+      const accounts = await quickBooksService.getAccounts(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId
+      );
+
+      // Format accounts for easy reading
+      const formattedAccounts = accounts.map((acc: any) => ({
+        id: acc.Id,
+        name: acc.Name,
+        type: acc.AccountType,
+        subType: acc.AccountSubType || 'N/A',
+        active: acc.Active
+      }));
+
+      res.json({
+        totalAccounts: formattedAccounts.length,
+        accounts: formattedAccounts
+      });
+    } catch (error: any) {
+      console.error("Error fetching QuickBooks accounts:", error);
+      res.status(500).json({ message: "Failed to fetch QuickBooks accounts" });
     }
   });
 
