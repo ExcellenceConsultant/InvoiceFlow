@@ -199,6 +199,31 @@ export class QuickBooksService {
       throw new Error('Failed to create item in QuickBooks');
     }
   }
+
+  async createJournalEntry(
+    accessToken: string,
+    companyId: string,
+    journalData: any
+  ): Promise<any> {
+    try {
+      const response = await axios.post(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/journalentry`,
+        journalData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      return response.data.QueryResponse?.JournalEntry?.[0] || response.data;
+    } catch (error) {
+      console.error('QuickBooks journal entry creation failed:', error);
+      throw new Error('Failed to create journal entry in QuickBooks');
+    }
+  }
 }
 
 export const quickBooksService = new QuickBooksService();

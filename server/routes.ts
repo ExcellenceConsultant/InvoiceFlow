@@ -415,74 +415,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Customer not found" });
       }
 
-      // Check if customer is synced to QuickBooks
-      if (!customer.quickbooksCustomerId) {
-        return res.status(400).json({ 
-          message: "Customer must be synced to QuickBooks first. Please sync the customer before creating invoices.",
-          requiresCustomerSync: true,
-          customerId: customer.id
-        });
-      }
+      // Get total invoice amount
+      const totalAmount = parseFloat(invoice.total);
 
-      const lineItems = await storage.getInvoiceLineItems(invoice.id);
-      
-      // Check if all products are synced to QuickBooks
-      for (const item of lineItems) {
-        if (item.productId) {
-          const product = await storage.getProduct(item.productId);
-          if (product && !product.quickbooksItemId) {
-            return res.status(400).json({ 
-              message: `Product "${product.name}" must be synced to QuickBooks first. Please sync all products before creating invoices.`,
-              requiresProductSync: true,
-              productId: product.id
-            });
-          }
-        }
-      }
-      
-      // Transform to QuickBooks format
-      const qbInvoiceData = {
-        CustomerRef: { value: customer.quickbooksCustomerId },
-        Line: await Promise.all(lineItems.map(async (item, index) => {
-          let itemRef = { value: "1", name: item.description || `Item ${index + 1}` };
-          
-          if (item.productId) {
-            const product = await storage.getProduct(item.productId);
-            if (product && product.quickbooksItemId) {
-              itemRef = { value: product.quickbooksItemId, name: product.name };
+      // Create journal entry for the invoice
+      // Debit Accounts Receivable, Credit Sales Revenue
+      const journalEntryData = {
+        TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+        PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customer.name}`,
+        Line: [
+          {
+            Id: "0",
+            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
+            Amount: totalAmount,
+            DetailType: "JournalEntryLineDetail",
+            JournalEntryLineDetail: {
+              PostingType: "Debit",
+              AccountRef: { value: "85" } // Accounts Receivable account
+            }
+          },
+          {
+            Id: "1", 
+            Description: `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
+            Amount: totalAmount,
+            DetailType: "JournalEntryLineDetail",
+            JournalEntryLineDetail: {
+              PostingType: "Credit",
+              AccountRef: { value: "79" } // Sales/Income account
             }
           }
-
-          return {
-            Amount: parseFloat(item.lineTotal),
-            DetailType: "SalesItemLineDetail",
-            SalesItemLineDetail: {
-              ItemRef: itemRef,
-              UnitPrice: parseFloat(item.unitPrice),
-              Qty: item.quantity,
-            },
-          };
-        })),
-        TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-        DocNumber: invoice.invoiceNumber,
+        ]
       };
 
-      const qbInvoice = await quickBooksService.createInvoice(
+      const qbJournalEntry = await quickBooksService.createJournalEntry(
         user.quickbooksAccessToken,
         user.quickbooksCompanyId,
-        qbInvoiceData
+        journalEntryData
       );
 
-      // Update invoice with QuickBooks ID
+      // Update invoice with QuickBooks journal entry ID
       await storage.updateInvoice(invoice.id, {
-        quickbooksInvoiceId: qbInvoice.Id,
+        quickbooksInvoiceId: qbJournalEntry.Id || qbJournalEntry.JournalEntry?.Id,
         status: "sent",
       });
 
-      res.json({ success: true, quickbooksInvoiceId: qbInvoice.Id });
+      res.json({ 
+        success: true, 
+        quickbooksJournalId: qbJournalEntry.Id || qbJournalEntry.JournalEntry?.Id,
+        message: "Invoice synced as journal entry to QuickBooks"
+      });
     } catch (error: any) {
-      console.error("QuickBooks sync error:", error.response?.data || error.message);
-      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync invoice with QuickBooks";
+      console.error("QuickBooks journal entry sync error:", error.response?.data || error.message);
+      console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
+      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || error.response?.data?.Fault?.Error?.[0]?.code || "Failed to sync invoice to QuickBooks";
       res.status(500).json({ message: errorMessage });
     }
   });
