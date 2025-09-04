@@ -190,7 +190,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
     const subtotal = total;
 
     // Prepare all line items including scheme items
-    const allLineItems = [];
+    const allLineItems: any[] = [];
     lineItems.forEach((item, index) => {
       allLineItems.push({
         productId: item.productId,
@@ -226,8 +226,8 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         subtotal: subtotal.toString(),
         total: total.toString(),
         status: "draft",
-        invoiceDate: new Date(data.invoiceDate),
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        invoiceDate: data.invoiceDate,
+        dueDate: data.dueDate || null,
         userId: DEFAULT_USER_ID,
       },
       lineItems: allLineItems,
