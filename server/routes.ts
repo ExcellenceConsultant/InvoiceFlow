@@ -399,8 +399,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
-    let customerName = "Unknown Customer"; // Define in broader scope
-    
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -412,51 +410,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
-      // Get customer information
-      let customer = await storage.getCustomer(invoice.customerId!);
-      customerName = customer?.name || "Unknown Customer";
-      
-      console.log("Processing journal entry for customer:", { 
-        customerName, 
-        hasQuickBooksId: !!customer?.quickbooksCustomerId 
-      });
-
-      // If customer doesn't have QuickBooks ID, try to find it in QuickBooks
-      if (!customer?.quickbooksCustomerId) {
-        console.log("Customer not linked to QuickBooks, searching for existing customer...");
-        
-        const qbCustomer = await quickBooksService.findCustomerByName(
-          user.quickbooksAccessToken,
-          user.quickbooksCompanyId,
-          customerName
-        );
-        
-        if (qbCustomer) {
-          console.log("Found existing QuickBooks customer:", { id: qbCustomer.Id, name: qbCustomer.Name });
-          
-          // Update local customer with QuickBooks ID
-          await storage.updateCustomer(customer!.id, {
-            quickbooksCustomerId: qbCustomer.Id,
-          });
-          
-          // Refresh customer data
-          customer = await storage.getCustomer(invoice.customerId!);
-        } else {
-          console.log("Customer not found in QuickBooks");
-          
-          // If we still can't find the customer, we can't create a proper journal entry
-          // Return an error asking the user to sync the customer first
-          return res.status(400).json({
-            message: `Customer "${customerName}" needs to be synced with QuickBooks first. Please go to the Customers page and sync this customer, then try syncing the invoice again.`,
-            errorDetails: {
-              code: "CUSTOMER_NOT_SYNCED",
-              customerName: customerName,
-              solution: "Sync customer with QuickBooks first"
-            }
-          });
-        }
-      }
-
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
 
@@ -464,13 +417,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const COGS_ACCOUNT_ID = "173";       // Cost of Goods Sold
       const SALES_ACCOUNT_ID = "135";      // Income/Sales
 
-      console.log("Using Account IDs:", { COGS_ACCOUNT_ID, SALES_ACCOUNT_ID, totalAmount });
+      console.log("Creating simple journal entry:", { COGS_ACCOUNT_ID, SALES_ACCOUNT_ID, totalAmount });
 
-      // Create journal entry for the invoice
-      // Debit Cost of Goods Sold, Credit Sales Revenue (testing without AR account)
+      // Create simple journal entry for the invoice
+      // Debit Cost of Goods Sold, Credit Sales Revenue (no customer reference needed)
       const journalEntryData = {
         TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-        PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
+        PrivateNote: `Invoice ${invoice.invoiceNumber}`,
         Line: [
           {
             Description: `Invoice ${invoice.invoiceNumber} - Cost of Goods Sold`,
@@ -521,27 +474,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error.response?.data?.Fault?.Error?.[0]) {
         const qbError = error.response.data.Fault.Error[0];
         
-        // Check if this is the customer name validation error
-        if (qbError.code === "6000" && qbError.Detail?.includes("choose a customer in the Name field")) {
-          errorMessage = `Please manually create a customer named "${customerName}" in your QuickBooks account first, then try syncing this invoice again.`;
-          fullErrorDetails = {
-            code: qbError.code,
-            detail: qbError.Detail,
-            customerName: customerName,
-            solution: "Create customer in QuickBooks manually"
-          };
-        } else {
-          errorMessage = qbError.Detail || qbError.code || errorMessage;
-          fullErrorDetails = {
-            code: qbError.code,
-            detail: qbError.Detail,
-            element: qbError.element || null,
-            accountIds: {
-              accountsReceivable: "1150040004",
-              sales: "135"
-            }
-          };
-        }
+        errorMessage = qbError.Detail || qbError.code || errorMessage;
+        fullErrorDetails = {
+          code: qbError.code,
+          detail: qbError.Detail,
+          element: qbError.element || null,
+          accountIds: {
+            costOfGoodsSold: "173",
+            sales: "135"
+          }
+        };
         
         console.error("QuickBooks Error Code:", qbError.code);
         console.error("QuickBooks Error Detail:", qbError.Detail);
