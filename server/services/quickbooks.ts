@@ -200,6 +200,25 @@ export class QuickBooksService {
     }
   }
 
+  async getAccounts(accessToken: string, companyId: string): Promise<any> {
+    try {
+      const response = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Account WHERE Active = true`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      return response.data.QueryResponse?.Account || [];
+    } catch (error) {
+      console.error('QuickBooks accounts fetch failed:', error);
+      throw new Error('Failed to fetch accounts from QuickBooks');
+    }
+  }
+
   async createJournalEntry(
     accessToken: string,
     companyId: string,
@@ -218,7 +237,7 @@ export class QuickBooksService {
         }
       );
 
-      return response.data.QueryResponse?.JournalEntry?.[0] || response.data;
+      return response.data.QueryResponse?.JournalEntry?.[0] || response.data.JournalEntry;
     } catch (error) {
       console.error('QuickBooks journal entry creation failed:', error);
       throw new Error('Failed to create journal entry in QuickBooks');

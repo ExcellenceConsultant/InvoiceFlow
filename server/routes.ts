@@ -417,6 +417,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
 
+      // Get accounts from QuickBooks to find AR and Sales accounts
+      const accounts = await quickBooksService.getAccounts(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId
+      );
+
+      // Find Accounts Receivable and Sales accounts
+      const arAccount = accounts.find((acc: any) => 
+        acc.AccountType === "Accounts Receivable" || 
+        acc.Name.toLowerCase().includes("receivable")
+      );
+      
+      const salesAccount = accounts.find((acc: any) => 
+        acc.AccountType === "Income" || 
+        acc.AccountSubType === "SalesOfProductIncome" ||
+        acc.Name.toLowerCase().includes("sales") ||
+        acc.Name.toLowerCase().includes("income")
+      );
+
+      if (!arAccount) {
+        return res.status(400).json({ message: "Accounts Receivable account not found in QuickBooks" });
+      }
+
+      if (!salesAccount) {
+        return res.status(400).json({ message: "Sales/Income account not found in QuickBooks" });
+      }
+
       // Create journal entry for the invoice
       // Debit Accounts Receivable, Credit Sales Revenue
       const journalEntryData = {
@@ -424,23 +451,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
         Line: [
           {
-            Id: "0",
             Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: "85" } // Accounts Receivable account
+              AccountRef: { value: arAccount.Id }
             }
           },
           {
-            Id: "1", 
             Description: `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Credit",
-              AccountRef: { value: "79" } // Sales/Income account
+              AccountRef: { value: salesAccount.Id }
             }
           }
         ]
