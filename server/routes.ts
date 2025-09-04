@@ -295,6 +295,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/customers/:id/sync-quickbooks", async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const user = await storage.getUser(customer.userId!);
+      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        return res.status(400).json({ message: "QuickBooks not connected" });
+      }
+
+      const qbCustomerData = {
+        Name: customer.name,
+        CompanyName: customer.name,
+        BillAddr: customer.address ? {
+          Line1: customer.address.street,
+          City: customer.address.city,
+          CountrySubDivisionCode: customer.address.state,
+          PostalCode: customer.address.zipCode,
+          Country: customer.address.country || "US",
+        } : undefined,
+        PrimaryEmailAddr: customer.email ? { Address: customer.email } : undefined,
+        PrimaryPhone: customer.phone ? { FreeFormNumber: customer.phone } : undefined,
+      };
+
+      const qbCustomer = await quickBooksService.createCustomer(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId,
+        qbCustomerData
+      );
+
+      // Update customer with QuickBooks ID
+      await storage.updateCustomer(customer.id, {
+        quickbooksCustomerId: qbCustomer.Id,
+      });
+
+      res.json({ success: true, quickbooksCustomerId: qbCustomer.Id });
+    } catch (error: any) {
+      console.error("QuickBooks customer sync error:", error.response?.data || error.message);
+      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync customer with QuickBooks";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post("/api/products/:id/sync-quickbooks", async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      const user = await storage.getUser(product.userId!);
+      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        return res.status(400).json({ message: "QuickBooks not connected" });
+      }
+
+      const qbItemData = {
+        Name: product.name,
+        Description: product.description,
+        Type: "Inventory",
+        TrackQtyOnHand: true,
+        UnitPrice: parseFloat(product.basePrice),
+        IncomeAccountRef: { value: "79" }, // Default income account
+        AssetAccountRef: { value: "81" }, // Default inventory asset account  
+        ExpenseAccountRef: { value: "80" }, // Default expense account
+      };
+
+      const qbItem = await quickBooksService.createItem(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId,
+        qbItemData
+      );
+
+      // Update product with QuickBooks ID
+      await storage.updateProduct(product.id, {
+        quickbooksItemId: qbItem.Id,
+      });
+
+      res.json({ success: true, quickbooksItemId: qbItem.Id });
+    } catch (error: any) {
+      console.error("QuickBooks product sync error:", error.response?.data || error.message);
+      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync product with QuickBooks";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
   app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
@@ -312,19 +399,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Customer not found" });
       }
 
+      // Check if customer is synced to QuickBooks
+      if (!customer.quickbooksCustomerId) {
+        return res.status(400).json({ 
+          message: "Customer must be synced to QuickBooks first. Please sync the customer before creating invoices.",
+          requiresCustomerSync: true,
+          customerId: customer.id
+        });
+      }
+
       const lineItems = await storage.getInvoiceLineItems(invoice.id);
+      
+      // Check if all products are synced to QuickBooks
+      for (const item of lineItems) {
+        if (item.productId) {
+          const product = await storage.getProduct(item.productId);
+          if (product && !product.quickbooksItemId) {
+            return res.status(400).json({ 
+              message: `Product "${product.name}" must be synced to QuickBooks first. Please sync all products before creating invoices.`,
+              requiresProductSync: true,
+              productId: product.id
+            });
+          }
+        }
+      }
       
       // Transform to QuickBooks format
       const qbInvoiceData = {
-        CustomerRef: { value: customer.quickbooksCustomerId || "1" },
-        Line: lineItems.map((item, index) => ({
-          Amount: parseFloat(item.lineTotal),
-          DetailType: "SalesItemLineDetail",
-          SalesItemLineDetail: {
-            ItemRef: { value: "1", name: item.description || `Item ${index + 1}` },
-            UnitPrice: parseFloat(item.unitPrice),
-            Qty: item.quantity,
-          },
+        CustomerRef: { value: customer.quickbooksCustomerId },
+        Line: await Promise.all(lineItems.map(async (item, index) => {
+          let itemRef = { value: "1", name: item.description || `Item ${index + 1}` };
+          
+          if (item.productId) {
+            const product = await storage.getProduct(item.productId);
+            if (product && product.quickbooksItemId) {
+              itemRef = { value: product.quickbooksItemId, name: product.name };
+            }
+          }
+
+          return {
+            Amount: parseFloat(item.lineTotal),
+            DetailType: "SalesItemLineDetail",
+            SalesItemLineDetail: {
+              ItemRef: itemRef,
+              UnitPrice: parseFloat(item.unitPrice),
+              Qty: item.quantity,
+            },
+          };
         })),
         TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
         DocNumber: invoice.invoiceNumber,
@@ -343,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ success: true, quickbooksInvoiceId: qbInvoice.Id });
-    } catch (error) {
+    } catch (error: any) {
       console.error("QuickBooks sync error:", error.response?.data || error.message);
       const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync invoice with QuickBooks";
       res.status(500).json({ message: errorMessage });
