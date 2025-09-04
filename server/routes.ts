@@ -430,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         PrivateNote: `Invoice ${invoice.invoiceNumber} - ${customerName}`,
         Line: [
           {
-            Description: invoice.description || `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
+            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
@@ -439,7 +439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           },
           {
-            Description: invoice.description || `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
+            Description: `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
