@@ -417,32 +417,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get total invoice amount
       const totalAmount = parseFloat(invoice.total);
 
-      // Get accounts from QuickBooks to find AR and Sales accounts
-      const accounts = await quickBooksService.getAccounts(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId
-      );
-
-      // Find Accounts Receivable and Sales accounts
-      const arAccount = accounts.find((acc: any) => 
-        acc.AccountType === "Accounts Receivable" || 
-        acc.Name.toLowerCase().includes("receivable")
-      );
-      
-      const salesAccount = accounts.find((acc: any) => 
-        acc.AccountType === "Income" || 
-        acc.AccountSubType === "SalesOfProductIncome" ||
-        acc.Name.toLowerCase().includes("sales") ||
-        acc.Name.toLowerCase().includes("income")
-      );
-
-      if (!arAccount) {
-        return res.status(400).json({ message: "Accounts Receivable account not found in QuickBooks" });
-      }
-
-      if (!salesAccount) {
-        return res.status(400).json({ message: "Sales/Income account not found in QuickBooks" });
-      }
+      // Use the correct account IDs from your QuickBooks sandbox
+      const AR_ACCOUNT_ID = "1150040004";  // Accounts Receivable
+      const SALES_ACCOUNT_ID = "135";      // Income/Sales
 
       // Create journal entry for the invoice
       // Debit Accounts Receivable, Credit Sales Revenue
@@ -456,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: arAccount.Id }
+              AccountRef: { value: AR_ACCOUNT_ID }
             }
           },
           {
@@ -465,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Credit",
-              AccountRef: { value: salesAccount.Id }
+              AccountRef: { value: SALES_ACCOUNT_ID }
             }
           }
         ]
