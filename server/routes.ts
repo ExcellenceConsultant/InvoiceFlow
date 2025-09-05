@@ -334,28 +334,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
-      // Create unique name to avoid conflicts
-      const timestamp = Date.now();
-      const qbCustomerData = {
-        Name: `${customer.name}_${timestamp}`,
-      };
+      // Step 1: Try to find existing customer by DisplayName
+      console.log(`Attempting to sync customer: "${customer.name}"`);
+      
+      let qbCustomer;
+      try {
+        qbCustomer = await quickBooksService.findCustomerByDisplayName(
+          user.quickbooksAccessToken,
+          user.quickbooksCompanyId,
+          customer.name
+        );
+        
+        if (qbCustomer) {
+          console.log(`Found existing customer in QuickBooks:`, {
+            Id: qbCustomer.Id,
+            DisplayName: qbCustomer.DisplayName,
+            Name: qbCustomer.Name
+          });
+        }
+      } catch (lookupError: any) {
+        console.error("Customer lookup failed:", lookupError.response?.data || lookupError.message);
+        console.error("Lookup error details:", JSON.stringify(lookupError.response?.data, null, 2));
+        // Continue to creation if lookup fails
+        qbCustomer = null;
+      }
 
-      const qbCustomer = await quickBooksService.createCustomer(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
-        qbCustomerData
-      );
+      // Step 2: If customer doesn't exist, create it
+      if (!qbCustomer) {
+        console.log(`Customer "${customer.name}" not found in QuickBooks. Creating new customer...`);
+        
+        const qbCustomerData = {
+          Name: customer.name,
+          DisplayName: customer.name,
+        };
 
-      // Update customer with QuickBooks ID
+        try {
+          qbCustomer = await quickBooksService.createCustomer(
+            user.quickbooksAccessToken,
+            user.quickbooksCompanyId,
+            qbCustomerData
+          );
+          
+          console.log(`Successfully created new customer in QuickBooks:`, {
+            Id: qbCustomer.Id,
+            DisplayName: qbCustomer.DisplayName,
+            Name: qbCustomer.Name
+          });
+        } catch (createError: any) {
+          console.error("Customer creation failed:", createError.response?.data || createError.message);
+          console.error("Creation error details:", JSON.stringify(createError.response?.data, null, 2));
+          const errorMessage = createError.response?.data?.Fault?.Error?.[0]?.Detail || 
+                              createError.response?.data?.Fault?.Error?.[0]?.code || 
+                              "Failed to create customer in QuickBooks";
+          return res.status(500).json({ message: errorMessage, action: 'create' });
+        }
+      }
+
+      // Step 3: Update local customer record with QuickBooks ID
       await storage.updateCustomer(customer.id, {
         quickbooksCustomerId: qbCustomer.Id,
       });
 
-      res.json({ success: true, quickbooksCustomerId: qbCustomer.Id });
+      res.json({ 
+        success: true, 
+        quickbooksCustomerId: qbCustomer.Id,
+        action: qbCustomer.Name === customer.name ? 'found' : 'created',
+        displayName: qbCustomer.DisplayName
+      });
     } catch (error: any) {
       console.error("QuickBooks customer sync error:", error.response?.data || error.message);
       console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
-      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || error.response?.data?.Fault?.Error?.[0]?.code || "Failed to sync customer with QuickBooks";
+      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || 
+                          error.response?.data?.Fault?.Error?.[0]?.code || 
+                          "Failed to sync customer with QuickBooks";
       res.status(500).json({ message: errorMessage });
     }
   });
@@ -410,28 +461,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
-      // Get total invoice amount
+      // Step 1: Get customer data and ensure customer exists in QuickBooks
+      const customer = await storage.getCustomer(invoice.customerId!);
+      if (!customer) {
+        return res.status(400).json({ message: "Customer not found for this invoice" });
+      }
+
+      console.log(`Syncing invoice ${invoice.invoiceNumber} for customer: "${customer.name}"`);
+
+      // Step 2: Ensure customer exists in QuickBooks and get Customer ID
+      let qbCustomer;
+      try {
+        qbCustomer = await quickBooksService.findCustomerByDisplayName(
+          user.quickbooksAccessToken,
+          user.quickbooksCompanyId,
+          customer.name
+        );
+        
+        if (qbCustomer) {
+          console.log(`Found existing customer in QuickBooks:`, {
+            Id: qbCustomer.Id,
+            DisplayName: qbCustomer.DisplayName
+          });
+        }
+      } catch (lookupError: any) {
+        console.error("Customer lookup failed during invoice sync:", lookupError.response?.data || lookupError.message);
+        qbCustomer = null;
+      }
+
+      // Step 3: Create customer if not found
+      if (!qbCustomer) {
+        console.log(`Creating customer "${customer.name}" in QuickBooks for invoice sync...`);
+        
+        const qbCustomerData = {
+          Name: customer.name,
+          DisplayName: customer.name,
+        };
+
+        try {
+          qbCustomer = await quickBooksService.createCustomer(
+            user.quickbooksAccessToken,
+            user.quickbooksCompanyId,
+            qbCustomerData
+          );
+          
+          console.log(`Successfully created customer for invoice sync:`, {
+            Id: qbCustomer.Id,
+            DisplayName: qbCustomer.DisplayName
+          });
+
+          // Update local customer record with QuickBooks ID
+          await storage.updateCustomer(customer.id, {
+            quickbooksCustomerId: qbCustomer.Id,
+          });
+        } catch (createError: any) {
+          console.error("Customer creation failed during invoice sync:", createError.response?.data || createError.message);
+          console.error("Creation error details:", JSON.stringify(createError.response?.data, null, 2));
+          const errorMessage = createError.response?.data?.Fault?.Error?.[0]?.Detail || 
+                              createError.response?.data?.Fault?.Error?.[0]?.code || 
+                              "Failed to create customer in QuickBooks for invoice sync";
+          return res.status(500).json({ message: errorMessage, action: 'customer_create' });
+        }
+      }
+
+      // Step 4: Create AR invoice with customer reference
       const totalAmount = parseFloat(invoice.total);
+      const ACCOUNTS_RECEIVABLE_ID = "4";  // Accounts Receivable account
+      const SALES_ACCOUNT_ID = "135";       // Income/Sales account
 
-      // Use the correct account IDs from your QuickBooks sandbox
-      const COGS_ACCOUNT_ID = "173";       // Cost of Goods Sold
-      const SALES_ACCOUNT_ID = "135";      // Income/Sales
+      console.log("Creating AR journal entry with customer reference:", { 
+        customerId: qbCustomer.Id, 
+        customerName: qbCustomer.DisplayName,
+        totalAmount,
+        ACCOUNTS_RECEIVABLE_ID, 
+        SALES_ACCOUNT_ID 
+      });
 
-      console.log("Creating simple journal entry:", { COGS_ACCOUNT_ID, SALES_ACCOUNT_ID, totalAmount });
-
-      // Create simple journal entry for the invoice
-      // Debit Cost of Goods Sold, Credit Sales Revenue (no customer reference needed)
+      // Create journal entry with customer reference for proper AR tracking
       const journalEntryData = {
         TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-        PrivateNote: `Invoice ${invoice.invoiceNumber}`,
+        PrivateNote: `Invoice ${invoice.invoiceNumber} for ${qbCustomer.DisplayName}`,
         Line: [
           {
-            Description: `Invoice ${invoice.invoiceNumber} - Cost of Goods Sold`,
+            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
             Amount: totalAmount,
             DetailType: "JournalEntryLineDetail",
             JournalEntryLineDetail: {
               PostingType: "Debit",
-              AccountRef: { value: COGS_ACCOUNT_ID }
+              AccountRef: { value: ACCOUNTS_RECEIVABLE_ID },
+              Entity: {
+                value: qbCustomer.Id,
+                name: qbCustomer.DisplayName,
+                type: "Customer"
+              }
             }
           },
           {
@@ -461,10 +583,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true, 
         quickbooksJournalId: qbJournalEntry.Id || qbJournalEntry.JournalEntry?.Id,
-        message: "Invoice synced as journal entry to QuickBooks"
+        customerId: qbCustomer.Id,
+        customerName: qbCustomer.DisplayName,
+        message: "Invoice synced as AR journal entry to QuickBooks with customer reference"
       });
     } catch (error: any) {
-      console.error("QuickBooks journal entry sync error:", error.response?.data || error.message);
+      console.error("QuickBooks invoice sync error:", error.response?.data || error.message);
       console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
       
       // Extract detailed error information
@@ -480,7 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           detail: qbError.Detail,
           element: qbError.element || null,
           accountIds: {
-            costOfGoodsSold: "173",
+            accountsReceivable: "4",
             sales: "135"
           }
         };

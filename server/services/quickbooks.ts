@@ -219,6 +219,74 @@ export class QuickBooksService {
     }
   }
 
+  async findCustomerByDisplayName(accessToken: string, companyId: string, customerName: string): Promise<any> {
+    try {
+      // First try exact DisplayName match (this is what QuickBooks uses for customer matching)
+      const escapedName = customerName.replace(/'/g, "''");
+      
+      console.log(`Searching for customer with DisplayName: "${customerName}"`);
+      
+      const response = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE DisplayName = '${escapedName}'`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const customers = response.data.QueryResponse?.Customer || [];
+      if (customers.length > 0) {
+        console.log(`Found customer by exact DisplayName match:`, {
+          Id: customers[0].Id,
+          DisplayName: customers[0].DisplayName,
+          Name: customers[0].Name
+        });
+        return customers[0];
+      }
+
+      console.log('Exact DisplayName match failed, trying case-insensitive search...');
+      
+      // If exact match fails, try to get all customers and find by DisplayName
+      const allCustomersResponse = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const allCustomers = allCustomersResponse.data.QueryResponse?.Customer || [];
+      console.log(`Found ${allCustomers.length} total customers, searching for: "${customerName}"`);
+      
+      // Try to find customer by DisplayName (case insensitive)
+      const matchingCustomer = allCustomers.find((customer: any) => 
+        customer.DisplayName?.toLowerCase() === customerName.toLowerCase()
+      );
+      
+      if (matchingCustomer) {
+        console.log(`Found customer by case-insensitive DisplayName match:`, {
+          Id: matchingCustomer.Id,
+          DisplayName: matchingCustomer.DisplayName,
+          Name: matchingCustomer.Name
+        });
+        return matchingCustomer;
+      }
+
+      console.log('No customer found with DisplayName matching approach');
+      console.log('Available customer DisplayNames:', allCustomers.map((c: any) => c.DisplayName).slice(0, 10));
+      return null;
+      
+    } catch (error: any) {
+      console.error('QuickBooks customer search failed:', error.response?.data || error.message);
+      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
+      throw error; // Throw error so calling code can handle it appropriately
+    }
+  }
+
   async findCustomerByName(accessToken: string, companyId: string, customerName: string): Promise<any> {
     try {
       // First try exact name match
