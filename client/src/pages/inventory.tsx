@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import { ProductForm } from "@/components/product-form";
 
@@ -15,6 +17,9 @@ export default function Inventory() {
   const [stockFilter, setStockFilter] = useState("all");
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["/api/products"],
@@ -25,25 +30,7 @@ export default function Inventory() {
     },
   });
 
-  const { data: allVariants, isLoading: variantsLoading } = useQuery({
-    queryKey: ["/api/product-variants"],
-    queryFn: async () => {
-      if (!products) return [];
-      
-      const allVariants = [];
-      for (const product of products) {
-        const response = await fetch(`/api/products/${product.id}/variants`);
-        if (response.ok) {
-          const variants = await response.json();
-          allVariants.push(...variants.map((variant: any) => ({ ...variant, product })));
-        }
-      }
-      return allVariants;
-    },
-    enabled: !!products,
-  });
-
-  const isLoading = productsLoading || variantsLoading;
+  const isLoading = productsLoading;
 
   const getStockStatus = (variant: any) => {
     if (variant.stockQuantity <= 0) {
@@ -67,32 +54,114 @@ export default function Inventory() {
     }
   };
 
-  const filteredVariants = allVariants?.filter((variant: any) => {
+  const filteredProducts = products?.filter((product: any) => {
     const matchesSearch = 
-      variant.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      variant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      variant.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = categoryFilter === "all" || variant.product.category === categoryFilter;
+    const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
     
-    const stockStatus = getStockStatus(variant);
-    const matchesStock = stockFilter === "all" || 
-      (stockFilter === "low" && stockStatus.priority >= 2) ||
-      (stockFilter === "out" && stockStatus.priority === 3) ||
-      (stockFilter === "in" && stockStatus.priority === 1);
-    
-    return matchesSearch && matchesCategory && matchesStock;
+    return matchesSearch && matchesCategory;
   }) || [];
 
   // Calculate inventory stats
   const totalProducts = products?.length || 0;
-  const totalVariants = allVariants?.length || 0;
-  const lowStockCount = allVariants?.filter((v: any) => getStockStatus(v).priority >= 2).length || 0;
-  const totalValue = allVariants?.reduce((sum: number, variant: any) => 
-    sum + (variant.stockQuantity * parseFloat(variant.price)), 0) || 0;
+  const totalValue = products?.reduce((sum: number, product: any) => 
+    sum + parseFloat(product.basePrice || 0), 0) || 0;
+
+  // Excel import mutation
+  const importExcelMutation = useMutation({
+    mutationFn: async (products: any[]) => {
+      const promises = products.map(product =>
+        apiRequest('/api/products', {
+          method: 'POST',
+          body: JSON.stringify({ ...product, userId: DEFAULT_USER_ID }),
+        })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${data.length} products`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import products from Excel file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          toast({
+            title: "Invalid File",
+            description: "Excel file must contain header row and data rows",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const products = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          if (values.length >= 6) {
+            // Expected format: Packing Type, Packaging Title, Qty, G.W., N.W., Item Code
+            const product = {
+              name: values[1] || 'Unnamed Product',
+              packingType: values[0] || '',
+              basePrice: values[2] || '0.00',
+              grossWeightKgs: values[3] || '0',
+              netWeightKgs: values[4] || '0',
+              itemCode: values[5] || '',
+              category: 'Imported',
+              description: `Imported from Excel`,
+            };
+            products.push(product);
+          }
+        }
+
+        if (products.length > 0) {
+          importExcelMutation.mutate(products);
+        } else {
+          toast({
+            title: "No Valid Data",
+            description: "No valid products found in Excel file",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Parse Error",
+          description: "Failed to parse Excel file. Please ensure it's a valid CSV format.",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset the file input
+    event.target.value = '';
+  };
 
   // Get unique categories
-  const categories = [...new Set(products?.map((p: any) => p.category).filter(Boolean))] || [];
+  const categories = Array.from(new Set(products?.map((p: any) => p.category).filter(Boolean))) || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -105,6 +174,10 @@ export default function Inventory() {
           </div>
           
           <div className="flex items-center space-x-3 mt-4 lg:mt-0">
+            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
+              <Upload className="mr-2" size={16} />
+              Import Excel
+            </Button>
             <Button variant="secondary" data-testid="button-inventory-report">
               <BarChart3 className="mr-2" size={16} />
               Generate Report
@@ -139,7 +212,7 @@ export default function Inventory() {
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-muted-foreground">{totalVariants} total variants</span>
+              <span className="text-muted-foreground">Active products</span>
             </div>
           </CardContent>
         </Card>
@@ -164,13 +237,13 @@ export default function Inventory() {
           </CardContent>
         </Card>
 
-        <Card className="stats-card" data-testid="stats-low-stock">
+        <Card className="stats-card" data-testid="stats-avg-price">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm font-medium">Low Stock Items</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="low-stock-count">
-                  {lowStockCount}
+                <p className="text-muted-foreground text-sm font-medium">Average Price</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="avg-price">
+                  ${totalProducts > 0 ? (totalValue / totalProducts).toFixed(2) : '0.00'}
                 </p>
               </div>
               <div className="w-12 h-12 bg-yellow-500/10 rounded-lg flex items-center justify-center">
@@ -178,7 +251,7 @@ export default function Inventory() {
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-destructive font-medium">Needs attention</span>
+              <span className="text-muted-foreground">Per product</span>
             </div>
           </CardContent>
         </Card>
@@ -227,7 +300,7 @@ export default function Inventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
+                  {categories.map((category: string) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
@@ -258,7 +331,7 @@ export default function Inventory() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Package className="mr-2 text-chart-3" size={20} />
-            Inventory Items ({filteredVariants.length})
+            Inventory Items ({filteredProducts.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -268,7 +341,7 @@ export default function Inventory() {
                 <div key={i} className="h-16 bg-muted/30 rounded-lg animate-pulse" data-testid={`inventory-skeleton-${i}`} />
               ))}
             </div>
-          ) : filteredVariants.length > 0 ? (
+          ) : filteredProducts.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full" data-testid="inventory-table">
                 <thead>
@@ -352,7 +425,7 @@ export default function Inventory() {
               <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-2 text-sm font-medium text-foreground">No inventory items found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm || categoryFilter !== "all" || stockFilter !== "all"
+                {searchTerm || categoryFilter !== "all"
                   ? "Try adjusting your search or filter criteria."
                   : "Add your first product to get started."
                 }
@@ -372,6 +445,15 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Hidden File Input for Excel Import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleExcelImport}
+        accept=".csv,.xlsx,.xls"
+        style={{ display: 'none' }}
+      />
 
       {/* Product Form Modal */}
       {showProductForm && (
