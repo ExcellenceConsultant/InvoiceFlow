@@ -122,11 +122,11 @@ export default function Inventory() {
             // Expected format: Packing Type, Packaging Title, Qty, G.W., N.W., Item Code
             const product = {
               name: values[1] || 'Unnamed Product',
-              packingType: values[0] || '',
               basePrice: values[2] || '0.00',
-              grossWeightKgs: values[3] || '0',
-              netWeightKgs: values[4] || '0',
-              itemCode: values[5] || '',
+              packingType: values[0] || null,
+              grossWeightKgs: values[3] || null,
+              netWeightKgs: values[4] || null,
+              itemCode: values[5] || null,
               category: 'Imported',
               description: 'Imported from Excel',
             };

@@ -40,10 +40,6 @@ export class DatabaseStorage implements IStorage {
           username: "demo",
           password: "password",
           email: "demo@example.com",
-          quickbooksCompanyId: null,
-          quickbooksAccessToken: null,
-          quickbooksRefreshToken: null,
-          quickbooksTokenExpiry: null,
         };
         // Override ID after insert
         const [insertedUser] = await db.insert(users).values(defaultUser).returning();

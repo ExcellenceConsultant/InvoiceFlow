@@ -144,13 +144,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).safeParse(req.body);
       
       if (!validation.success) {
+        console.error("Product validation failed:", validation.error.errors);
         return res.status(400).json({ message: "Invalid product data", errors: validation.error.errors });
       }
 
       const product = await storage.createProduct(validation.data);
       res.json(product);
     } catch (error) {
-      res.status(500).json({ message: "Failed to create product" });
+      console.error("Product creation error:", error);
+      res.status(500).json({ message: "Failed to create product", error: error.message });
     }
   });
 
