@@ -74,6 +74,7 @@ export const invoices = pgTable("invoices", {
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue
+  invoiceType: text("invoice_type").notNull().default("receivable"), // receivable (AR), payable (AP)
   invoiceDate: timestamp("invoice_date").notNull(),
   dueDate: timestamp("due_date"),
   quickbooksInvoiceId: text("quickbooks_invoice_id"),
