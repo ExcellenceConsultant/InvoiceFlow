@@ -245,13 +245,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", async (req, res) => {
     try {
+      console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
       const { invoice, lineItems } = req.body;
+      
+      if (!invoice || !lineItems) {
+        console.error("Missing invoice or lineItems in request body");
+        return res.status(400).json({ message: "Invoice and line items are required" });
+      }
       
       const invoiceValidation = insertInvoiceSchema.extend({
         userId: z.string(),
       }).safeParse(invoice);
       
       if (!invoiceValidation.success) {
+        console.error("Invoice validation failed:", invoiceValidation.error.errors);
         return res.status(400).json({ message: "Invalid invoice data", errors: invoiceValidation.error.errors });
       }
 
@@ -302,7 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ invoice: createdInvoice, lineItems: createdLineItems });
     } catch (error) {
-      res.status(500).json({ message: "Failed to create invoice" });
+      console.error("Invoice creation error:", error);
+      res.status(500).json({ message: "Failed to create invoice", error: error.message });
     }
   });
 

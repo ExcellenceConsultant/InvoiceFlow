@@ -76,12 +76,14 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
     },
   });
 
-  const { data: products } = useQuery({
+  const { data: products, isLoading: productsLoading, error: productsError } = useQuery({
     queryKey: ["/api/products"],
     queryFn: async () => {
       const response = await fetch(`/api/products?userId=${DEFAULT_USER_ID}`);
       if (!response.ok) throw new Error("Failed to fetch products");
-      return response.json();
+      const data = await response.json();
+      console.log('Loaded products for invoice form:', data);
+      return data;
     },
   });
 
@@ -96,7 +98,13 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
   const createInvoiceMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('Submitting invoice data:', data);
       const response = await apiRequest("POST", "/api/invoices", data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Invoice creation failed:', errorData);
+        throw new Error(errorData.message || 'Failed to create invoice');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -432,11 +440,17 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                               <SelectValue placeholder="Select Product" />
                             </SelectTrigger>
                             <SelectContent>
-                              {products?.map((product: any) => (
-                                <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
+                              {productsLoading ? (
+                                <SelectItem value="loading" disabled>Loading products...</SelectItem>
+                              ) : products && products.length > 0 ? (
+                                products.map((product: any) => (
+                                  <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
+                                    {product.name} - {product.itemCode || 'No Code'}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="no-products" disabled>No products available</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
