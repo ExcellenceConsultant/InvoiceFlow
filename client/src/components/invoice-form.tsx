@@ -223,12 +223,16 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
     const total = calculateTotal();
     const subtotal = total;
 
+    console.log('Current line items on submit:', lineItems);
+    
     // Validate that we have at least one valid line item
     const validLineItems = lineItems.filter(item => 
       item.productId && item.productId.trim() !== '' && 
       item.description && item.description.trim() !== '' &&
       item.quantity > 0
     );
+    
+    console.log('Valid line items:', validLineItems);
 
     if (validLineItems.length === 0) {
       toast({
@@ -440,15 +444,28 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                           <Select 
                             value={item.productId} 
                             onValueChange={(value) => {
-                              updateLineItem(index, 'productId', value);
+                              console.log('Product selected:', value);
                               const product = products?.find((p: any) => p.id === value);
+                              console.log('Found product:', product);
+                              
                               if (product) {
-                                updateLineItem(index, 'description', product.name);
-                                updateLineItem(index, 'unitPrice', parseFloat(product.basePrice));
-                                updateLineItem(index, 'productCode', product.itemCode || '');
-                                updateLineItem(index, 'packingSize', product.packingType || '');
-                                updateLineItem(index, 'grossWeightKgs', parseFloat(product.grossWeightKgs || '0'));
-                                updateLineItem(index, 'netWeightKgs', parseFloat(product.netWeightKgs || '0'));
+                                const updatedItems = [...lineItems];
+                                const unitPrice = parseFloat(product.basePrice) || 0;
+                                
+                                updatedItems[index] = {
+                                  ...updatedItems[index],
+                                  productId: value,
+                                  description: product.name,
+                                  unitPrice: unitPrice,
+                                  productCode: product.itemCode || '',
+                                  packingSize: product.packingType || '',
+                                  grossWeightKgs: parseFloat(product.grossWeightKgs || '0'),
+                                  netWeightKgs: parseFloat(product.netWeightKgs || '0'),
+                                  lineTotal: updatedItems[index].quantity * unitPrice
+                                };
+                                
+                                setLineItems(updatedItems);
+                                console.log('Updated line items:', updatedItems);
                               }
                             }}
                           >
