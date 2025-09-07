@@ -8,7 +8,11 @@ export interface QuickBooksTokens {
 }
 
 export interface QuickBooksInvoiceData {
-  CustomerRef: { value: string };
+  CustomerRef: { value: string; name?: string };
+  TxnDate?: string;
+  DueDate?: string;
+  DocNumber?: string;
+  PrivateNote?: string;
   Line: Array<{
     Amount: number;
     DetailType: string;
@@ -16,6 +20,21 @@ export interface QuickBooksInvoiceData {
       ItemRef: { value: string; name: string };
       UnitPrice: number;
       Qty: number;
+    };
+  }>;
+}
+
+export interface QuickBooksBillData {
+  VendorRef: { value: string; name?: string };
+  TxnDate?: string;
+  DueDate?: string;
+  DocNumber?: string;
+  PrivateNote?: string;
+  Line: Array<{
+    Amount: number;
+    DetailType: string;
+    AccountBasedExpenseLineDetail: {
+      AccountRef: { value: string; name?: string };
     };
   }>;
 }
@@ -112,6 +131,8 @@ export class QuickBooksService {
     invoiceData: QuickBooksInvoiceData
   ): Promise<any> {
     try {
+      console.log('Creating QuickBooks AR invoice with data:', JSON.stringify(invoiceData, null, 2));
+      
       const response = await axios.post(
         `${this.sandboxBaseUrl}/v3/company/${companyId}/invoice`,
         invoiceData,
@@ -124,10 +145,69 @@ export class QuickBooksService {
         }
       );
 
-      return response.data.QueryResponse?.Invoice?.[0];
-    } catch (error) {
-      console.error('QuickBooks invoice creation failed:', error);
-      throw new Error('Failed to create invoice in QuickBooks');
+      const invoice = response.data.QueryResponse?.Invoice?.[0] || response.data.Invoice;
+      console.log('Successfully created QuickBooks AR invoice:', {
+        Id: invoice?.Id,
+        DocNumber: invoice?.DocNumber,
+        TotalAmt: invoice?.TotalAmt
+      });
+      
+      return invoice;
+    } catch (error: any) {
+      console.error('QuickBooks AR invoice creation failed:', error.response?.data || error.message);
+      console.error('Request data that failed:', JSON.stringify(invoiceData, null, 2));
+      
+      // Preserve the original error structure for better error handling
+      if (error.response) {
+        const enhancedError = new Error('Failed to create AR invoice in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
+      throw new Error('Failed to create AR invoice in QuickBooks');
+    }
+  }
+
+  async createBill(
+    accessToken: string,
+    companyId: string,
+    billData: QuickBooksBillData
+  ): Promise<any> {
+    try {
+      console.log('Creating QuickBooks AP bill with data:', JSON.stringify(billData, null, 2));
+      
+      const response = await axios.post(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/bill`,
+        billData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const bill = response.data.QueryResponse?.Bill?.[0] || response.data.Bill;
+      console.log('Successfully created QuickBooks AP bill:', {
+        Id: bill?.Id,
+        DocNumber: bill?.DocNumber,
+        TotalAmt: bill?.TotalAmt
+      });
+      
+      return bill;
+    } catch (error: any) {
+      console.error('QuickBooks AP bill creation failed:', error.response?.data || error.message);
+      console.error('Request data that failed:', JSON.stringify(billData, null, 2));
+      
+      // Preserve the original error structure for better error handling
+      if (error.response) {
+        const enhancedError = new Error('Failed to create AP bill in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
+      throw new Error('Failed to create AP bill in QuickBooks');
     }
   }
 
@@ -156,6 +236,8 @@ export class QuickBooksService {
     customerData: any
   ): Promise<any> {
     try {
+      console.log('Creating QuickBooks customer with data:', JSON.stringify(customerData, null, 2));
+      
       const response = await axios.post(
         `${this.sandboxBaseUrl}/v3/company/${companyId}/customer`,
         customerData,
@@ -168,10 +250,137 @@ export class QuickBooksService {
         }
       );
 
-      return response.data.QueryResponse?.Customer?.[0];
-    } catch (error) {
-      console.error('QuickBooks customer creation failed:', error);
+      const customer = response.data.QueryResponse?.Customer?.[0] || response.data.Customer;
+      console.log('Successfully created QuickBooks customer:', {
+        Id: customer?.Id,
+        DisplayName: customer?.DisplayName,
+        Name: customer?.Name
+      });
+      
+      return customer;
+    } catch (error: any) {
+      console.error('QuickBooks customer creation failed:', error.response?.data || error.message);
+      console.error('Request data that failed:', JSON.stringify(customerData, null, 2));
+      
+      // Preserve the original error structure for better error handling
+      if (error.response) {
+        const enhancedError = new Error('Failed to create customer in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
       throw new Error('Failed to create customer in QuickBooks');
+    }
+  }
+
+  async findVendorByDisplayName(accessToken: string, companyId: string, vendorName: string): Promise<any> {
+    try {
+      // First try exact DisplayName match for vendors
+      const escapedName = vendorName.replace(/'/g, "''");
+      
+      console.log(`Searching for vendor with DisplayName: "${vendorName}"`);
+      
+      const response = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Vendor WHERE DisplayName = '${escapedName}'`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const vendors = response.data.QueryResponse?.Vendor || [];
+      if (vendors.length > 0) {
+        console.log(`Found vendor by exact DisplayName match:`, {
+          Id: vendors[0].Id,
+          DisplayName: vendors[0].DisplayName,
+          Name: vendors[0].Name
+        });
+        return vendors[0];
+      }
+
+      console.log('Exact DisplayName match failed, trying case-insensitive search...');
+      
+      // If exact match fails, try to get all vendors and find by DisplayName
+      const allVendorsResponse = await axios.get(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Vendor`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const allVendors = allVendorsResponse.data.QueryResponse?.Vendor || [];
+      console.log(`Found ${allVendors.length} total vendors, searching for: "${vendorName}"`);
+      
+      // Try to find vendor by DisplayName (case insensitive)
+      const matchingVendor = allVendors.find((vendor: any) => 
+        vendor.DisplayName?.toLowerCase() === vendorName.toLowerCase()
+      );
+      
+      if (matchingVendor) {
+        console.log(`Found vendor by case-insensitive DisplayName match:`, {
+          Id: matchingVendor.Id,
+          DisplayName: matchingVendor.DisplayName,
+          Name: matchingVendor.Name
+        });
+        return matchingVendor;
+      }
+
+      console.log('No vendor found with DisplayName matching approach');
+      console.log('Available vendor DisplayNames:', allVendors.map((v: any) => v.DisplayName).slice(0, 10));
+      return null;
+      
+    } catch (error: any) {
+      console.error('QuickBooks vendor search failed:', error.response?.data || error.message);
+      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
+      throw error; // Throw error so calling code can handle it appropriately
+    }
+  }
+
+  async createVendor(
+    accessToken: string,
+    companyId: string,
+    vendorData: any
+  ): Promise<any> {
+    try {
+      console.log('Creating QuickBooks vendor with data:', JSON.stringify(vendorData, null, 2));
+      
+      const response = await axios.post(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/vendor`,
+        vendorData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const vendor = response.data.QueryResponse?.Vendor?.[0] || response.data.Vendor;
+      console.log('Successfully created QuickBooks vendor:', {
+        Id: vendor?.Id,
+        DisplayName: vendor?.DisplayName,
+        Name: vendor?.Name
+      });
+      
+      return vendor;
+    } catch (error: any) {
+      console.error('QuickBooks vendor creation failed:', error.response?.data || error.message);
+      console.error('Request data that failed:', JSON.stringify(vendorData, null, 2));
+      
+      // Preserve the original error structure for better error handling
+      if (error.response) {
+        const enhancedError = new Error('Failed to create vendor in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
+      throw new Error('Failed to create vendor in QuickBooks');
     }
   }
 
