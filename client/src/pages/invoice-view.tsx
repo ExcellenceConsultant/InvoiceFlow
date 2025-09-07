@@ -79,18 +79,26 @@ export default function InvoiceView() {
         .print-customer-header {
           display: block;
           position: fixed;
-          top: 80px;
+          top: 70px;
           left: 0;
           right: 0;
           background: white;
           z-index: 999;
-          padding: 10px;
+          padding: 8px;
           border-bottom: 1px solid #000;
         }
         
         /* Main content with proper top margin */
         .invoice-content {
-          margin-top: 200px !important;
+          margin-top: 180px !important;
+        }
+        
+        /* Table headers should also be fixed for multi-page */
+        .table-header {
+          position: sticky;
+          top: 180px;
+          background: white;
+          z-index: 998;
         }
         
         /* Page break control */
@@ -345,14 +353,14 @@ export default function InvoiceView() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="text-center mb-8 print:mb-6">
+        {/* Header - Hide on print since we have fixed headers */}
+        <div className="text-center mb-8 print:mb-6 print:hidden">
           <h1 className="text-3xl font-bold print:text-2xl" data-testid="text-invoice-title">INVOICE</h1>
           <p className="text-right text-sm mt-2 page-number" data-testid="text-page-number">Page: 1 of 1</p>
         </div>
 
-        {/* Main Info Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 print:gap-4 print:mb-6">
+        {/* Main Info Section - Hide on print since we have fixed headers */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 print:gap-4 print:mb-6 print:hidden">
           {/* Bill To */}
           <div>
             <h3 className="font-semibold mb-2 text-sm" data-testid="text-bill-to-header">Bill To</h3>
