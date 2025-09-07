@@ -7,11 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { ProductForm } from "@/components/product-form";
 
 export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["/api/products"],
@@ -106,7 +109,13 @@ export default function Inventory() {
               <BarChart3 className="mr-2" size={16} />
               Generate Report
             </Button>
-            <Button data-testid="button-add-product">
+            <Button 
+              onClick={() => {
+                setEditingProduct(null);
+                setShowProductForm(true);
+              }}
+              data-testid="button-add-product"
+            >
               <Plus className="mr-2" size={16} />
               Add Product
             </Button>
@@ -348,7 +357,14 @@ export default function Inventory() {
                   : "Add your first product to get started."
                 }
               </p>
-              <Button className="mt-4" data-testid="button-add-first-product">
+              <Button 
+                className="mt-4" 
+                onClick={() => {
+                  setEditingProduct(null);
+                  setShowProductForm(true);
+                }}
+                data-testid="button-add-first-product"
+              >
                 <Plus className="mr-2" size={16} />
                 Add Product
               </Button>
@@ -356,6 +372,17 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Product Form Modal */}
+      {showProductForm && (
+        <ProductForm
+          product={editingProduct}
+          onClose={() => {
+            setShowProductForm(false);
+            setEditingProduct(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -259,7 +259,7 @@ export default function InvoiceView() {
         {/* Items Table */}
         <div className="border border-gray-300 print:border-black">
           {/* Table Header */}
-          <div className="grid grid-cols-7 bg-gray-50 print:bg-white border-b border-gray-300 print:border-black">
+          <div className="grid grid-cols-9 bg-gray-50 print:bg-white border-b border-gray-300 print:border-black">
             <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-sr-no">
               Sr. No
             </div>
@@ -278,6 +278,12 @@ export default function InvoiceView() {
             <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-rate">
               Rate PerCarton<br/>(USD)
             </div>
+            <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-gross-weight">
+              Gross Weight<br/>(KGS)
+            </div>
+            <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-net-weight">
+              Net Weight<br/>(KGS)
+            </div>
             <div className="p-2 text-center text-xs font-semibold" data-testid="header-net-amount">
               Net Amount(USD)
             </div>
@@ -285,7 +291,7 @@ export default function InvoiceView() {
 
           {/* Table Rows */}
           {lineItems?.map((item: InvoiceLineItem, index: number) => (
-            <div key={item.id} className="grid grid-cols-7 border-b border-gray-300 print:border-black min-h-[40px]" data-testid={`row-line-item-${index}`}>
+            <div key={item.id} className="grid grid-cols-9 border-b border-gray-300 print:border-black min-h-[40px]" data-testid={`row-line-item-${index}`}>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-sr-no-${index}`}>
                 {index + 1}
               </div>
@@ -305,6 +311,12 @@ export default function InvoiceView() {
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-rate-${index}`}>
                 {parseFloat(item.unitPrice).toFixed(2)}
               </div>
+              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-gross-weight-${index}`}>
+                {item.grossWeightKgs ? parseFloat(item.grossWeightKgs).toFixed(3) : '-'}
+              </div>
+              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-net-weight-${index}`}>
+                {item.netWeightKgs ? parseFloat(item.netWeightKgs).toFixed(3) : '-'}
+              </div>
               <div className="p-2 text-center text-xs" data-testid={`text-amount-${index}`}>
                 {parseFloat(item.lineTotal).toFixed(2)}
               </div>
@@ -313,13 +325,15 @@ export default function InvoiceView() {
 
           {/* Empty rows to match format */}
           {Array.from({ length: Math.max(0, 10 - (lineItems?.length || 0)) }).map((_, index) => (
-            <div key={`empty-${index}`} className="grid grid-cols-7 border-b border-gray-300 print:border-black min-h-[40px]" data-testid={`row-empty-${index}`}>
+            <div key={`empty-${index}`} className="grid grid-cols-9 border-b border-gray-300 print:border-black min-h-[40px]" data-testid={`row-empty-${index}`}>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs">
                 {(lineItems?.length || 0) + index + 1}
               </div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-xs"></div>
+              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
+              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 text-center text-xs"></div>

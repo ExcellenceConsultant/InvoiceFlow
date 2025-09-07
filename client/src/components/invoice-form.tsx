@@ -38,7 +38,18 @@ interface Props {
 
 export default function InvoiceForm({ onClose, onSuccess }: Props) {
   const [lineItems, setLineItems] = useState([
-    { productId: "", variantId: "", description: "", quantity: 1, unitPrice: 0, lineTotal: 0 }
+    { 
+      productId: "", 
+      variantId: "", 
+      description: "", 
+      quantity: 1, 
+      unitPrice: 0, 
+      lineTotal: 0,
+      productCode: "",
+      packingSize: "",
+      grossWeightKgs: 0,
+      netWeightKgs: 0
+    }
   ]);
   const [showSchemeItems, setShowSchemeItems] = useState<{ [key: number]: any[] }>({});
   
@@ -172,7 +183,18 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
   };
 
   const addLineItem = () => {
-    setLineItems([...lineItems, { productId: "", variantId: "", description: "", quantity: 1, unitPrice: 0, lineTotal: 0 }]);
+    setLineItems([...lineItems, { 
+      productId: "", 
+      variantId: "", 
+      description: "", 
+      quantity: 1, 
+      unitPrice: 0, 
+      lineTotal: 0,
+      productCode: "",
+      packingSize: "",
+      grossWeightKgs: 0,
+      netWeightKgs: 0
+    }]);
   };
 
   const removeLineItem = (index: number) => {
@@ -203,6 +225,10 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         quantity: item.quantity,
         unitPrice: item.unitPrice.toString(),
         lineTotal: item.lineTotal.toString(),
+        productCode: item.productCode || null,
+        packingSize: item.packingSize || null,
+        grossWeightKgs: item.grossWeightKgs ? item.grossWeightKgs.toString() : null,
+        netWeightKgs: item.netWeightKgs ? item.netWeightKgs.toString() : null,
         isFreeFromScheme: false,
         schemeId: null,
       });
@@ -395,6 +421,10 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                               if (product) {
                                 updateLineItem(index, 'description', product.name);
                                 updateLineItem(index, 'unitPrice', parseFloat(product.basePrice));
+                                updateLineItem(index, 'productCode', product.itemCode || '');
+                                updateLineItem(index, 'packingSize', product.packingType || '');
+                                updateLineItem(index, 'grossWeightKgs', parseFloat(product.grossWeightKgs || '0'));
+                                updateLineItem(index, 'netWeightKgs', parseFloat(product.netWeightKgs || '0'));
                               }
                             }}
                           >
