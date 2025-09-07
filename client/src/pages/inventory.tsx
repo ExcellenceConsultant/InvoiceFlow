@@ -346,53 +346,47 @@ export default function Inventory() {
               <table className="w-full" data-testid="inventory-table">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Variant</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">SKU</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Packing Size</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Stock</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Price</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Value</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Base Price</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredVariants.map((variant: any) => {
-                    const stockStatus = getStockStatus(variant);
-                    const itemValue = variant.stockQuantity * parseFloat(variant.price);
-                    
+                  {filteredProducts.map((product: any) => {
                     return (
                       <tr 
-                        key={variant.id} 
+                        key={product.id} 
                         className="border-b border-border hover:bg-muted/20 transition-colors"
-                        data-testid={`inventory-row-${variant.id}`}
+                        data-testid={`inventory-row-${product.id}`}
                       >
-                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-name-${variant.id}`}>
-                          <div className="font-medium">{variant.product.name}</div>
+                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-name-${product.id}`}>
+                          <div className="font-medium">{product.name}</div>
+                          {product.description && (
+                            <div className="text-xs text-muted-foreground">{product.description}</div>
+                          )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`variant-name-${variant.id}`}>
-                          {variant.name}
+                        <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`product-item-code-${product.id}`}>
+                          {product.itemCode || '-'}
                         </td>
-                        <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`variant-sku-${variant.id}`}>
-                          {variant.sku}
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-packing-type-${product.id}`}>
+                          {product.packingType || '-'}
                         </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-category-${variant.id}`}>
-                          {variant.product.category || "Uncategorized"}
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-category-${product.id}`}>
+                          {product.category || "Uncategorized"}
                         </td>
-                        <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`variant-stock-${variant.id}`}>
-                          {variant.stockQuantity || 0}
+                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-price-${product.id}`}>
+                          ${parseFloat(product.basePrice || 0).toFixed(2)}
                         </td>
-                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`variant-price-${variant.id}`}>
-                          ${parseFloat(variant.price).toFixed(2)}
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-gross-weight-${product.id}`}>
+                          {product.grossWeightKgs ? `${product.grossWeightKgs} kg` : '-'}
                         </td>
-                        <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`variant-value-${variant.id}`}>
-                          ${itemValue.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <Badge className={stockStatus.className} data-testid={`variant-status-${variant.id}`}>
-                            {stockStatus.label}
-                          </Badge>
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-net-weight-${product.id}`}>
+                          {product.netWeightKgs ? `${product.netWeightKgs} kg` : '-'}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">
@@ -400,7 +394,11 @@ export default function Inventory() {
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0"
-                              data-testid={`button-edit-variant-${variant.id}`}
+                              onClick={() => {
+                                setEditingProduct(product);
+                                setShowProductForm(true);
+                              }}
+                              data-testid={`button-edit-product-${product.id}`}
                             >
                               <Edit size={14} />
                             </Button>
@@ -408,7 +406,7 @@ export default function Inventory() {
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              data-testid={`button-delete-variant-${variant.id}`}
+                              data-testid={`button-delete-product-${product.id}`}
                             >
                               <Trash2 size={14} />
                             </Button>
