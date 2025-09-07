@@ -42,13 +42,13 @@ export default function InvoiceView() {
       existingStyle.remove();
     }
 
-    // Add print-specific styles to hide browser headers/footers
+    // Add print-specific styles with multi-page support
     const printStyle = document.createElement('style');
     printStyle.id = 'print-style';
     printStyle.textContent = `
       @media print {
         @page {
-          margin: 0 !important;
+          margin: 0.5in !important;
           size: A4 !important;
         }
         
@@ -57,27 +57,54 @@ export default function InvoiceView() {
           print-color-adjust: exact !important;
         }
         
-        /* Hide all browser chrome */
-        html, body {
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
+        /* Repeating header for each page */
+        .print-header {
+          display: block !important;
+          position: running(header);
+          margin-bottom: 20px;
         }
-      }
-      
-      @page {
-        margin: 0 !important;
-        @top-left { content: none !important; }
-        @top-center { content: none !important; }
-        @top-right { content: none !important; }
-        @bottom-left { content: none !important; }
-        @bottom-center { content: none !important; }
-        @bottom-right { content: none !important; }
+        
+        .print-footer {
+          display: block !important;
+          position: running(footer);
+          text-align: center;
+          font-size: 10px;
+        }
+        
+        @page {
+          @top-center {
+            content: element(header);
+          }
+          @bottom-center {
+            content: element(footer);
+          }
+        }
+        
+        /* Page break control */
+        .page-break-before {
+          page-break-before: always;
+        }
+        
+        .page-break-avoid {
+          page-break-inside: avoid;
+        }
+        
+        /* Ensure line items stay together */
+        .line-item-row {
+          page-break-inside: avoid;
+        }
+        
+        /* Hide screen-only elements */
+        .no-print {
+          display: none !important;
+        }
       }
     `;
     
     document.head.appendChild(printStyle);
+    
+    // Update page numbers dynamically
+    updatePageNumbers();
     
     // Small delay to ensure styles are applied
     setTimeout(() => {
@@ -91,6 +118,33 @@ export default function InvoiceView() {
         }
       }, 1000);
     }, 100);
+  };
+
+  const updatePageNumbers = () => {
+    // Better page calculation based on line items and content
+    const lineItemsCount = lineItems?.length || 0;
+    const itemsPerPage = 15; // Approximate line items per page
+    const totalPages = Math.max(1, Math.ceil(lineItemsCount / itemsPerPage));
+    
+    // Update all page number elements
+    const pageElements = document.querySelectorAll('.page-number');
+    pageElements.forEach((element, index) => {
+      element.textContent = `Page: ${index + 1} of ${totalPages}`;
+    });
+    
+    // Add page numbers to print footer
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        @page {
+          @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 10px;
+          }
+        }
+      }
+    `;
+    document.head.appendChild(style);
   };
 
   const formatDate = (date: string) => {
@@ -209,7 +263,7 @@ export default function InvoiceView() {
         {/* Header */}
         <div className="text-center mb-8 print:mb-6">
           <h1 className="text-3xl font-bold print:text-2xl" data-testid="text-invoice-title">INVOICE</h1>
-          <p className="text-right text-sm mt-2" data-testid="text-page-number">Page: 1 of 1</p>
+          <p className="text-right text-sm mt-2 page-number" data-testid="text-page-number">Page: 1 of 1</p>
         </div>
 
         {/* Main Info Section */}
@@ -310,7 +364,7 @@ export default function InvoiceView() {
 
           {/* Table Rows */}
           {lineItems?.map((item: InvoiceLineItem, index: number) => (
-            <div key={item.id} className="grid grid-cols-9 border-b border-gray-300 print:border-black min-h-[40px]" data-testid={`row-line-item-${index}`}>
+            <div key={item.id} className="line-item-row grid grid-cols-9 border-b border-gray-300 print:border-black min-h-[40px] page-break-avoid" data-testid={`row-line-item-${index}`}>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-sr-no-${index}`}>
                 {index + 1}
               </div>
