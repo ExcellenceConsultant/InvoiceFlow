@@ -379,6 +379,7 @@ export class MemStorage implements IStorage {
       subtotal: invoiceData.subtotal,
       total: invoiceData.total,
       status: invoiceData.status || "draft",
+      invoiceType: invoiceData.invoiceType || "receivable",
       invoiceDate: invoiceData.invoiceDate,
       dueDate: invoiceData.dueDate || null,
       userId: invoiceData.userId,
