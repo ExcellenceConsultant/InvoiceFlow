@@ -288,6 +288,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Invoice #</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Customer</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
@@ -305,6 +306,23 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                     >
                       <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`invoice-number-${invoice.id}`}>
                         {invoice.invoiceNumber}
+                      </td>
+                      <td className="py-3 px-4" data-testid={`invoice-type-${invoice.id}`}>
+                        <Badge 
+                          className={invoice.invoiceType === "payable" 
+                            ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100" 
+                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                          }
+                        >
+                          <div className="flex items-center">
+                            <div 
+                              className={`w-2 h-2 rounded-full mr-2 ${
+                                invoice.invoiceType === "payable" ? "bg-orange-500" : "bg-green-500"
+                              }`}
+                            ></div>
+                            {invoice.invoiceType === "payable" ? "AP" : "AR"}
+                          </div>
+                        </Badge>
                       </td>
                       <td className="py-3 px-4 text-sm text-foreground" data-testid={`invoice-customer-${invoice.id}`}>
                         {getCustomerName(invoice.customerId)}
