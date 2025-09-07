@@ -74,10 +74,7 @@ export default function Inventory() {
   const importExcelMutation = useMutation({
     mutationFn: async (products: any[]) => {
       const promises = products.map(product =>
-        apiRequest('/api/products', {
-          method: 'POST',
-          body: JSON.stringify({ ...product, userId: DEFAULT_USER_ID }),
-        })
+        apiRequest('POST', '/api/products', { ...product, userId: DEFAULT_USER_ID })
       );
       return Promise.all(promises);
     },
@@ -131,7 +128,7 @@ export default function Inventory() {
               netWeightKgs: values[4] || '0',
               itemCode: values[5] || '',
               category: 'Imported',
-              description: `Imported from Excel`,
+              description: 'Imported from Excel',
             };
             products.push(product);
           }
@@ -300,7 +297,7 @@ export default function Inventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category: string) => (
+                  {(categories as string[]).map((category: string) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
