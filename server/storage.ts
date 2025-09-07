@@ -62,7 +62,7 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    // Create default user
+    // Create default user only
     const defaultUser: User = {
       id: "user-1",
       username: "demo",
@@ -76,110 +76,8 @@ export class MemStorage implements IStorage {
     };
     this.users.set(defaultUser.id, defaultUser);
 
-    // Create sample customers
-    const customers: Customer[] = [
-      {
-        id: "customer-1",
-        name: "ABC Corporation",
-        email: "contact@abc-corp.com",
-        phone: "+1-555-0123",
-        address: {
-          street: "123 Business Ave" as string,
-          city: "New York" as string,
-          state: "NY" as string,
-          zipCode: "10001" as string,
-          country: "USA" as string
-        },
-        quickbooksCustomerId: null,
-        userId: defaultUser.id,
-        createdAt: new Date(),
-      },
-      {
-        id: "customer-2",
-        name: "XYZ Industries",
-        email: "billing@xyz-industries.com",
-        phone: "+1-555-0456",
-        address: {
-          street: "456 Industrial Blvd",
-          city: "Los Angeles",
-          state: "CA",
-          zipCode: "90210",
-          country: "USA"
-        },
-        quickbooksCustomerId: null,
-        userId: defaultUser.id,
-        createdAt: new Date(),
-      },
-    ];
-    customers.forEach(customer => this.customers.set(customer.id, customer));
-
-    // Create sample products
-    const products: Product[] = [
-      {
-        id: "product-1",
-        name: "Premium Subscription",
-        description: "Premium monthly subscription service",
-        basePrice: "99.00",
-        category: "Subscription",
-        quickbooksItemId: null,
-        userId: defaultUser.id,
-        createdAt: new Date(),
-      },
-      {
-        id: "product-2",
-        name: "Professional Services",
-        description: "Professional consulting services",
-        basePrice: "150.00",
-        category: "Services",
-        quickbooksItemId: null,
-        userId: defaultUser.id,
-        createdAt: new Date(),
-      },
-    ];
-    products.forEach(product => this.products.set(product.id, product));
-
-    // Create sample variants
-    const variants: ProductVariant[] = [
-      {
-        id: "variant-1",
-        productId: "product-1",
-        name: "Monthly",
-        sku: "PREM-001-M",
-        price: "99.00",
-        stockQuantity: 425,
-        lowStockThreshold: 50,
-        attributes: { billing: "monthly" },
-        createdAt: new Date(),
-      },
-      {
-        id: "variant-2",
-        productId: "product-1",
-        name: "Annual",
-        sku: "PREM-001-Y",
-        price: "999.00",
-        stockQuantity: 287,
-        lowStockThreshold: 30,
-        attributes: { billing: "annual" },
-        createdAt: new Date(),
-      },
-    ];
-    variants.forEach(variant => this.productVariants.set(variant.id, variant));
-
-    // Create sample schemes
-    const schemes: ProductScheme[] = [
-      {
-        id: "scheme-1",
-        name: "Buy 15 Get 1 Free",
-        description: "Premium Subscription Bundle",
-        productId: "product-1",
-        buyQuantity: 15,
-        freeQuantity: 1,
-        isActive: true,
-        userId: defaultUser.id,
-        createdAt: new Date(),
-      },
-    ];
-    schemes.forEach(scheme => this.productSchemes.set(scheme.id, scheme));
+    // No demo data - start clean
+    // Users can add their own customers, products, and schemes
   }
 
   // Users
