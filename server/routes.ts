@@ -461,132 +461,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
-      // Step 1: Get customer data and ensure customer exists in QuickBooks
-      const customer = await storage.getCustomer(invoice.customerId!);
-      if (!customer) {
-        return res.status(400).json({ message: "Customer not found for this invoice" });
+      // Check invoice type to determine if it's AR or AP
+      const invoiceType = (invoice as any).invoiceType || 'receivable'; // Default to receivable for backward compatibility
+      console.log(`Syncing ${invoiceType} invoice ${invoice.invoiceNumber}`);
+
+      if (invoiceType === 'receivable') {
+        // Handle Accounts Receivable (AR) Invoice
+        return await handleARInvoiceSync(invoice, user, storage, res);
+      } else if (invoiceType === 'payable') {
+        // Handle Accounts Payable (AP) Invoice (Bill)
+        return await handleAPInvoiceSync(invoice, user, storage, res);
+      } else {
+        return res.status(400).json({ message: "Invalid invoice type. Must be 'receivable' or 'payable'" });
       }
 
-      console.log(`Syncing invoice ${invoice.invoiceNumber} for customer: "${customer.name}"`);
-
-      // Step 2: Ensure customer exists in QuickBooks and get Customer ID
-      let qbCustomer;
-      try {
-        qbCustomer = await quickBooksService.findCustomerByDisplayName(
-          user.quickbooksAccessToken,
-          user.quickbooksCompanyId,
-          customer.name
-        );
-        
-        if (qbCustomer) {
-          console.log(`Found existing customer in QuickBooks:`, {
-            Id: qbCustomer.Id,
-            DisplayName: qbCustomer.DisplayName
-          });
-        }
-      } catch (lookupError: any) {
-        console.error("Customer lookup failed during invoice sync:", lookupError.response?.data || lookupError.message);
-        qbCustomer = null;
-      }
-
-      // Step 3: Create customer if not found
-      if (!qbCustomer) {
-        console.log(`Creating customer "${customer.name}" in QuickBooks for invoice sync...`);
-        
-        const qbCustomerData = {
-          Name: customer.name,
-          DisplayName: customer.name,
-        };
-
-        try {
-          qbCustomer = await quickBooksService.createCustomer(
-            user.quickbooksAccessToken,
-            user.quickbooksCompanyId,
-            qbCustomerData
-          );
-          
-          console.log(`Successfully created customer for invoice sync:`, {
-            Id: qbCustomer.Id,
-            DisplayName: qbCustomer.DisplayName
-          });
-
-          // Update local customer record with QuickBooks ID
-          await storage.updateCustomer(customer.id, {
-            quickbooksCustomerId: qbCustomer.Id,
-          });
-        } catch (createError: any) {
-          console.error("Customer creation failed during invoice sync:", createError.response?.data || createError.message);
-          console.error("Creation error details:", JSON.stringify(createError.response?.data, null, 2));
-          const errorMessage = createError.response?.data?.Fault?.Error?.[0]?.Detail || 
-                              createError.response?.data?.Fault?.Error?.[0]?.code || 
-                              "Failed to create customer in QuickBooks for invoice sync";
-          return res.status(500).json({ message: errorMessage, action: 'customer_create' });
-        }
-      }
-
-      // Step 4: Create AR invoice with customer reference
-      const totalAmount = parseFloat(invoice.total);
-      const ACCOUNTS_RECEIVABLE_ID = "4";  // Accounts Receivable account
-      const SALES_ACCOUNT_ID = "135";       // Income/Sales account
-
-      console.log("Creating AR journal entry with customer reference:", { 
-        customerId: qbCustomer.Id, 
-        customerName: qbCustomer.DisplayName,
-        totalAmount,
-        ACCOUNTS_RECEIVABLE_ID, 
-        SALES_ACCOUNT_ID 
-      });
-
-      // Create journal entry with customer reference for proper AR tracking
-      const journalEntryData = {
-        TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-        PrivateNote: `Invoice ${invoice.invoiceNumber} for ${qbCustomer.DisplayName}`,
-        Line: [
-          {
-            Description: `Invoice ${invoice.invoiceNumber} - Accounts Receivable`,
-            Amount: totalAmount,
-            DetailType: "JournalEntryLineDetail",
-            JournalEntryLineDetail: {
-              PostingType: "Debit",
-              AccountRef: { value: ACCOUNTS_RECEIVABLE_ID },
-              Entity: {
-                value: qbCustomer.Id,
-                name: qbCustomer.DisplayName,
-                type: "Customer"
-              }
-            }
-          },
-          {
-            Description: `Invoice ${invoice.invoiceNumber} - Sales Revenue`,
-            Amount: totalAmount,
-            DetailType: "JournalEntryLineDetail",
-            JournalEntryLineDetail: {
-              PostingType: "Credit",
-              AccountRef: { value: SALES_ACCOUNT_ID }
-            }
-          }
-        ]
-      };
-
-      const qbJournalEntry = await quickBooksService.createJournalEntry(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
-        journalEntryData
-      );
-
-      // Update invoice with QuickBooks journal entry ID
-      await storage.updateInvoice(invoice.id, {
-        quickbooksInvoiceId: qbJournalEntry.Id || qbJournalEntry.JournalEntry?.Id,
-        status: "sent",
-      });
-
-      res.json({ 
-        success: true, 
-        quickbooksJournalId: qbJournalEntry.Id || qbJournalEntry.JournalEntry?.Id,
-        customerId: qbCustomer.Id,
-        customerName: qbCustomer.DisplayName,
-        message: "Invoice synced as AR journal entry to QuickBooks with customer reference"
-      });
     } catch (error: any) {
       console.error("QuickBooks invoice sync error:", error.response?.data || error.message);
       console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
@@ -602,11 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fullErrorDetails = {
           code: qbError.code,
           detail: qbError.Detail,
-          element: qbError.element || null,
-          accountIds: {
-            accountsReceivable: "4",
-            sales: "135"
-          }
+          element: qbError.element || null
         };
         
         console.error("QuickBooks Error Code:", qbError.code);
@@ -619,6 +503,219 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Helper function to handle AR invoice sync
+  async function handleARInvoiceSync(invoice: any, user: any, storage: any, res: any) {
+    // Step 1: Get customer data and ensure customer exists in QuickBooks
+    const customer = await storage.getCustomer(invoice.customerId!);
+    if (!customer) {
+      return res.status(400).json({ message: "Customer not found for this AR invoice" });
+    }
+
+    console.log(`Syncing AR invoice ${invoice.invoiceNumber} for customer: "${customer.name}"`);
+
+    // Step 2: Ensure customer exists in QuickBooks and get Customer ID
+    let qbCustomer = await findOrCreateCustomer(user, customer.name, customer.id, storage);
+
+    // Step 3: Get invoice line items
+    const lineItems = await storage.getInvoiceLineItems(invoice.id);
+    
+    // Step 4: Create proper QuickBooks AR invoice with line items
+    const invoiceData = {
+      CustomerRef: { 
+        value: qbCustomer.Id, 
+        name: qbCustomer.DisplayName 
+      },
+      TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+      DueDate: invoice.dueDate ? invoice.dueDate.toISOString().split('T')[0] : undefined,
+      DocNumber: invoice.invoiceNumber,
+      PrivateNote: `AR Invoice ${invoice.invoiceNumber} for ${customer.name}`,
+      Line: []
+    };
+
+    // Add line items to the invoice
+    for (const lineItem of lineItems) {
+      // For demo purposes, we'll use a generic "Service" item
+      // In a real implementation, you'd sync products/items first
+      const lineData = {
+        Amount: parseFloat(lineItem.lineTotal),
+        DetailType: "SalesItemLineDetail",
+        SalesItemLineDetail: {
+          ItemRef: { value: "1", name: "Services" }, // Generic service item
+          UnitPrice: parseFloat(lineItem.unitPrice),
+          Qty: lineItem.quantity,
+          Description: lineItem.description
+        }
+      };
+      (invoiceData.Line as any[]).push(lineData);
+    }
+
+    const qbInvoice = await quickBooksService.createInvoice(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      invoiceData
+    );
+
+    // Update invoice with QuickBooks invoice ID
+    await storage.updateInvoice(invoice.id, {
+      quickbooksInvoiceId: qbInvoice.Id,
+      status: "sent",
+    });
+
+    return res.json({ 
+      success: true, 
+      quickbooksInvoiceId: qbInvoice.Id,
+      customerId: qbCustomer.Id,
+      customerName: qbCustomer.DisplayName,
+      invoiceType: 'receivable',
+      message: "AR Invoice successfully synced to QuickBooks"
+    });
+  }
+
+  // Helper function to handle AP invoice sync
+  async function handleAPInvoiceSync(invoice: any, user: any, storage: any, res: any) {
+    // For AP invoices, we treat the "customer" as a vendor
+    const vendor = await storage.getCustomer(invoice.customerId!);
+    if (!vendor) {
+      return res.status(400).json({ message: "Vendor not found for this AP invoice" });
+    }
+
+    console.log(`Syncing AP invoice ${invoice.invoiceNumber} for vendor: "${vendor.name}"`);
+
+    // Step 2: Ensure vendor exists in QuickBooks and get Vendor ID
+    let qbVendor = await findOrCreateVendor(user, vendor.name);
+
+    // Step 3: Get invoice line items
+    const lineItems = await storage.getInvoiceLineItems(invoice.id);
+    
+    // Step 4: Create QuickBooks AP bill
+    const billData = {
+      VendorRef: { 
+        value: qbVendor.Id, 
+        name: qbVendor.DisplayName 
+      },
+      TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+      DueDate: invoice.dueDate ? invoice.dueDate.toISOString().split('T')[0] : undefined,
+      DocNumber: invoice.invoiceNumber,
+      PrivateNote: `AP Bill ${invoice.invoiceNumber} from ${vendor.name}`,
+      Line: []
+    };
+
+    // Add line items to the bill (expense lines)
+    const EXPENSES_ACCOUNT_ID = "80"; // Typical expense account ID
+    for (const lineItem of lineItems) {
+      const lineData = {
+        Amount: parseFloat(lineItem.lineTotal),
+        DetailType: "AccountBasedExpenseLineDetail",
+        AccountBasedExpenseLineDetail: {
+          AccountRef: { value: EXPENSES_ACCOUNT_ID, name: "Expenses" },
+          BillableStatus: "NotBillable",
+          Description: lineItem.description
+        }
+      };
+      (billData.Line as any[]).push(lineData);
+    }
+
+    const qbBill = await quickBooksService.createBill(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      billData
+    );
+
+    // Update invoice with QuickBooks bill ID
+    await storage.updateInvoice(invoice.id, {
+      quickbooksInvoiceId: qbBill.Id,
+      status: "sent",
+    });
+
+    return res.json({ 
+      success: true, 
+      quickbooksBillId: qbBill.Id,
+      vendorId: qbVendor.Id,
+      vendorName: qbVendor.DisplayName,
+      invoiceType: 'payable',
+      message: "AP Bill successfully synced to QuickBooks"
+    });
+  }
+
+  // Helper function to find or create customer
+  async function findOrCreateCustomer(user: any, customerName: string, customerId: string, storage: any) {
+    let qbCustomer;
+    try {
+      qbCustomer = await quickBooksService.findCustomerByDisplayName(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId,
+        customerName
+      );
+      
+      if (qbCustomer) {
+        console.log(`Found existing customer in QuickBooks:`, {
+          Id: qbCustomer.Id,
+          DisplayName: qbCustomer.DisplayName
+        });
+        return qbCustomer;
+      }
+    } catch (lookupError: any) {
+      console.error("Customer lookup failed:", lookupError.response?.data || lookupError.message);
+    }
+
+    // Create customer if not found
+    console.log(`Creating customer "${customerName}" in QuickBooks...`);
+    const qbCustomerData = {
+      Name: customerName,
+      DisplayName: customerName,
+    };
+
+    qbCustomer = await quickBooksService.createCustomer(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      qbCustomerData
+    );
+    
+    // Update local customer record with QuickBooks ID
+    await storage.updateCustomer(customerId, {
+      quickbooksCustomerId: qbCustomer.Id,
+    });
+
+    return qbCustomer;
+  }
+
+  // Helper function to find or create vendor
+  async function findOrCreateVendor(user: any, vendorName: string) {
+    let qbVendor;
+    try {
+      qbVendor = await quickBooksService.findVendorByDisplayName(
+        user.quickbooksAccessToken,
+        user.quickbooksCompanyId,
+        vendorName
+      );
+      
+      if (qbVendor) {
+        console.log(`Found existing vendor in QuickBooks:`, {
+          Id: qbVendor.Id,
+          DisplayName: qbVendor.DisplayName
+        });
+        return qbVendor;
+      }
+    } catch (lookupError: any) {
+      console.error("Vendor lookup failed:", lookupError.response?.data || lookupError.message);
+    }
+
+    // Create vendor if not found
+    console.log(`Creating vendor "${vendorName}" in QuickBooks...`);
+    const qbVendorData = {
+      Name: vendorName,
+      DisplayName: vendorName,
+    };
+
+    qbVendor = await quickBooksService.createVendor(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      qbVendorData
+    );
+
+    return qbVendor;
+  }
 
   // Debug endpoint to list QuickBooks accounts
   app.get("/api/quickbooks/accounts", async (req, res) => {
