@@ -139,6 +139,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", async (req, res) => {
     try {
+      console.log("Creating product with data:", req.body);
+      
       const validation = insertProductSchema.extend({
         userId: z.string(),
       }).safeParse(req.body);
@@ -149,6 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const product = await storage.createProduct(validation.data);
+      console.log("Product created successfully:", product.id, product.name);
       res.json(product);
     } catch (error) {
       console.error("Product creation error:", error);

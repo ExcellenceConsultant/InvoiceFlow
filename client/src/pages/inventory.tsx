@@ -74,22 +74,48 @@ export default function Inventory() {
   // Excel import mutation
   const importExcelMutation = useMutation({
     mutationFn: async (products: any[]) => {
-      const promises = products.map(product =>
-        apiRequest('POST', '/api/products', { ...product, userId: DEFAULT_USER_ID })
-      );
-      return Promise.all(promises);
+      console.log('Starting import of', products.length, 'products');
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const product of products) {
+        try {
+          const response = await apiRequest('POST', '/api/products', { ...product, userId: DEFAULT_USER_ID });
+          const result = await response.json();
+          results.push(result);
+          successCount++;
+          console.log('Successfully created product:', result.name);
+        } catch (error) {
+          console.error('Failed to create product:', product.name, error);
+          errorCount++;
+        }
+      }
+      
+      return { results, successCount, errorCount, totalAttempted: products.length };
     },
     onSuccess: (data) => {
+      console.log('Import completed:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
-      toast({
-        title: "Import Successful",
-        description: `Successfully imported ${data.length} products`,
-      });
+      
+      if (data.errorCount > 0) {
+        toast({
+          title: "Partial Import",
+          description: `Imported ${data.successCount} of ${data.totalAttempted} products. ${data.errorCount} failed.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Import Successful!",
+          description: `Successfully imported ${data.successCount} products to inventory`,
+        });
+      }
     },
     onError: (error) => {
+      console.error('Import mutation error:', error);
       toast({
         title: "Import Failed",
-        description: "Failed to import products from Excel file",
+        description: "Failed to import products. Please check your file format and try again.",
         variant: "destructive",
       });
     },
@@ -158,7 +184,13 @@ export default function Inventory() {
           }
         }
 
+        console.log('Parsed products from Excel:', products);
+        
         if (products.length > 0) {
+          toast({
+            title: "Processing Import",
+            description: `Found ${products.length} products. Starting import...`,
+          });
           importExcelMutation.mutate(products);
         } else {
           toast({
@@ -196,9 +228,14 @@ export default function Inventory() {
           </div>
           
           <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
+            <Button 
+              variant="secondary" 
+              onClick={() => fileInputRef.current?.click()} 
+              disabled={importExcelMutation.isPending}
+              data-testid="button-import-excel"
+            >
               <Upload className="mr-2" size={16} />
-              Import Excel
+              {importExcelMutation.isPending ? 'Importing...' : 'Import Excel'}
             </Button>
             <Button variant="secondary" data-testid="button-inventory-report">
               <BarChart3 className="mr-2" size={16} />
