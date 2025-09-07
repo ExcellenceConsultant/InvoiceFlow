@@ -268,6 +268,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create line items with scheme application
       const createdLineItems = [];
       for (const item of lineItems) {
+        // Skip line items with empty productId
+        if (!item.productId || item.productId.trim() === '') {
+          console.log('Skipping line item with empty productId:', item);
+          continue;
+        }
+
         const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
           ...item,
           invoiceId: createdInvoice.id,
@@ -304,6 +310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
+        } else {
+          console.error("Line item validation failed:", lineItemValidation.error.errors, "for item:", item);
         }
       }
 

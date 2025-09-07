@@ -223,9 +223,25 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
     const total = calculateTotal();
     const subtotal = total;
 
+    // Validate that we have at least one valid line item
+    const validLineItems = lineItems.filter(item => 
+      item.productId && item.productId.trim() !== '' && 
+      item.description && item.description.trim() !== '' &&
+      item.quantity > 0
+    );
+
+    if (validLineItems.length === 0) {
+      toast({
+        title: "Invalid Line Items",
+        description: "Please add at least one valid product line item",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Prepare all line items including scheme items
     const allLineItems: any[] = [];
-    lineItems.forEach((item, index) => {
+    validLineItems.forEach((item, index) => {
       allLineItems.push({
         productId: item.productId,
         variantId: item.variantId || null,

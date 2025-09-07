@@ -15,6 +15,11 @@ export default function InvoiceView() {
 
   const { data: lineItems } = useQuery<InvoiceLineItem[]>({
     queryKey: ["/api/invoices", id, "line-items"],
+    queryFn: async () => {
+      const response = await fetch(`/api/invoices/${id}/line-items`);
+      if (!response.ok) throw new Error("Failed to fetch line items");
+      return response.json();
+    },
   });
 
   const { data: customer } = useQuery<Customer>({
