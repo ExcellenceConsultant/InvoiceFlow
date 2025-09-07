@@ -105,7 +105,7 @@ export default function InvoiceView() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 print:bg-white">
+    <div className="min-h-screen bg-white print:bg-white">
       {/* Action buttons - hidden when printing */}
       <div className="flex justify-between items-center p-4 print:hidden bg-white border-b">
         <Button
