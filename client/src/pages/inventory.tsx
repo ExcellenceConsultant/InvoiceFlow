@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -101,10 +102,17 @@ export default function Inventory() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const text = e.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
         
-        if (lines.length < 2) {
+        // Get first worksheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length < 2) {
           toast({
             title: "Invalid File",
             description: "Excel file must contain header row and data rows",
@@ -113,24 +121,40 @@ export default function Inventory() {
           return;
         }
 
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const headers = jsonData[0] as string[];
         const products = [];
 
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-          if (values.length >= 6) {
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i] as any[];
+          if (row && row.length >= 6) {
             // Expected format: Packing Type, Packaging Title, Qty, G.W., N.W., Item Code
+            const cleanString = (value: any) => {
+              if (!value || value === undefined || value === null) return null;
+              const str = String(value).trim();
+              return str === '' ? null : str;
+            };
+            
+            const cleanNumber = (value: any) => {
+              if (!value || value === undefined || value === null) return '0.00';
+              const num = String(value).trim();
+              return isNaN(parseFloat(num)) ? '0.00' : num;
+            };
+
             const product = {
-              name: values[1] || 'Unnamed Product',
-              basePrice: values[2] || '0.00',
-              packingType: values[0] || null,
-              grossWeightKgs: values[3] || null,
-              netWeightKgs: values[4] || null,
-              itemCode: values[5] || null,
+              name: cleanString(row[1]) || 'Unnamed Product',
+              basePrice: cleanNumber(row[2]),
+              packingType: cleanString(row[0]),
+              grossWeightKgs: cleanString(row[3]),
+              netWeightKgs: cleanString(row[4]),
+              itemCode: cleanString(row[5]),
               category: 'Imported',
               description: 'Imported from Excel',
             };
-            products.push(product);
+            
+            // Validate that required fields are not empty
+            if (product.name && product.name !== 'Unnamed Product' && product.basePrice) {
+              products.push(product);
+            }
           }
         }
 
@@ -139,19 +163,20 @@ export default function Inventory() {
         } else {
           toast({
             title: "No Valid Data",
-            description: "No valid products found in Excel file",
+            description: "No valid products found in Excel file. Please check the format.",
             variant: "destructive",
           });
         }
       } catch (error) {
+        console.error('Excel parsing error:', error);
         toast({
           title: "Parse Error",
-          description: "Failed to parse Excel file. Please ensure it's a valid CSV format.",
+          description: "Failed to parse Excel file. Please ensure it's a valid .xlsx file.",
           variant: "destructive",
         });
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
     
     // Reset the file input
     event.target.value = '';
@@ -446,7 +471,7 @@ export default function Inventory() {
         type="file"
         ref={fileInputRef}
         onChange={handleExcelImport}
-        accept=".csv,.xlsx,.xls"
+        accept=".xlsx,.xls,.csv"
         style={{ display: 'none' }}
       />
 
