@@ -18,6 +18,9 @@ const invoiceSchema = z.object({
   invoiceNumber: z.string().min(1, "Invoice number is required"),
   invoiceDate: z.string().min(1, "Invoice date is required"),
   dueDate: z.string().optional(),
+  invoiceType: z.enum(["receivable", "payable"], {
+    required_error: "Please select invoice type",
+  }),
 });
 
 const lineItemSchema = z.object({
@@ -49,6 +52,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       invoiceNumber: `INV-${Date.now()}`,
       invoiceDate: new Date().toISOString().split('T')[0],
       dueDate: "",
+      invoiceType: "receivable",
     },
   });
 
@@ -226,6 +230,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         subtotal: subtotal.toString(),
         total: total.toString(),
         status: "draft",
+        invoiceType: data.invoiceType,
         invoiceDate: data.invoiceDate,
         dueDate: data.dueDate || null,
         userId: DEFAULT_USER_ID,
@@ -243,7 +248,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center" data-testid="invoice-form-title">
               <NotebookPen className="mr-2 text-primary" size={20} />
-              Create New Invoice
+              Create New {form.watch("invoiceType") === "payable" ? "AP Bill" : "AR Invoice"}
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-invoice-form">
               <X size={20} />
@@ -254,6 +259,41 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Invoice Type Selection */}
+              <div className="mb-6">
+                <FormField
+                  control={form.control}
+                  name="invoiceType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-base font-semibold">Invoice Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full md:w-64" data-testid="select-invoice-type">
+                            <SelectValue placeholder="Select Invoice Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="receivable" data-testid="option-ar-invoice">
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                              Accounts Receivable (AR) - Customer Invoice
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="payable" data-testid="option-ap-invoice">
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                              Accounts Payable (AP) - Vendor Bill
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               {/* Customer and Date Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
@@ -261,11 +301,15 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                   name="customerId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer</FormLabel>
+                      <FormLabel>
+                        {form.watch("invoiceType") === "payable" ? "Vendor" : "Customer"}
+                      </FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-customer">
-                            <SelectValue placeholder="Select Customer" />
+                            <SelectValue placeholder={
+                              form.watch("invoiceType") === "payable" ? "Select Vendor" : "Select Customer"
+                            } />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
