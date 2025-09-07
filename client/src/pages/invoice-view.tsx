@@ -31,7 +31,61 @@ export default function InvoiceView() {
   }
 
   const handlePrint = () => {
-    window.print();
+    // Remove any existing print styles
+    const existingStyle = document.getElementById('print-style');
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+
+    // Add print-specific styles to hide browser headers/footers
+    const printStyle = document.createElement('style');
+    printStyle.id = 'print-style';
+    printStyle.textContent = `
+      @media print {
+        @page {
+          margin: 0 !important;
+          size: A4 !important;
+        }
+        
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        /* Hide all browser chrome */
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+      }
+      
+      @page {
+        margin: 0 !important;
+        @top-left { content: none !important; }
+        @top-center { content: none !important; }
+        @top-right { content: none !important; }
+        @bottom-left { content: none !important; }
+        @bottom-center { content: none !important; }
+        @bottom-right { content: none !important; }
+      }
+    `;
+    
+    document.head.appendChild(printStyle);
+    
+    // Small delay to ensure styles are applied
+    setTimeout(() => {
+      window.print();
+      
+      // Clean up after printing
+      setTimeout(() => {
+        const styleToRemove = document.getElementById('print-style');
+        if (styleToRemove) {
+          styleToRemove.remove();
+        }
+      }, 1000);
+    }, 100);
   };
 
   const formatDate = (date: string) => {

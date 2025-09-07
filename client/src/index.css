@@ -3,6 +3,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Print styles to remove browser headers/footers and URL from PDF */
+@media print {
+  @page {
+    margin: 0;
+    size: A4;
+  }
+  
+  /* Hide browser URL and page info */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Additional print styles */
+@page {
+  margin: 0;
+  @top-left { content: none; }
+  @top-center { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-center { content: none; }
+  @bottom-right { content: none; }
+}
+
 :root {
   --background: hsl(210, 40%, 98%);
   --foreground: hsl(222.2, 84%, 4.9%);
