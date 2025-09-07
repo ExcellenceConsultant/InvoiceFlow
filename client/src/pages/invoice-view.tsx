@@ -109,6 +109,20 @@ export default function InvoiceView() {
     return lineItems?.reduce((sum: number, item: InvoiceLineItem) => sum + item.quantity, 0) || 0;
   };
 
+  const calculateTotalGrossWeight = () => {
+    return lineItems?.reduce((sum: number, item: InvoiceLineItem) => {
+      const weight = parseFloat(item.grossWeightKgs || '0');
+      return sum + (weight * item.quantity);
+    }, 0) || 0;
+  };
+
+  const calculateTotalNetWeight = () => {
+    return lineItems?.reduce((sum: number, item: InvoiceLineItem) => {
+      const weight = parseFloat(item.netWeightKgs || '0');
+      return sum + (weight * item.quantity);
+    }, 0) || 0;
+  };
+
   const numberToWords = (num: number): string => {
     if (num === 0) return "Zero";
     
@@ -360,19 +374,13 @@ export default function InvoiceView() {
               <div className="border-b border-gray-300 print:border-black p-3">
                 <div className="flex justify-between">
                   <span className="font-semibold text-sm">Net Weight (KGS):</span>
-                  <span className="text-sm" data-testid="text-net-weight">-</span>
+                  <span className="text-sm" data-testid="text-net-weight">{calculateTotalNetWeight().toFixed(3)}</span>
                 </div>
               </div>
               <div className="border-b border-gray-300 print:border-black p-3 bg-gray-50 print:bg-white">
                 <div className="flex justify-between">
                   <span className="font-semibold text-sm">Gross Weight (KGS):</span>
-                  <span className="text-sm" data-testid="text-gross-weight-kgs">-</span>
-                </div>
-              </div>
-              <div className="border-b border-gray-300 print:border-black p-3">
-                <div className="flex justify-between">
-                  <span className="font-semibold text-sm">Gross Weight (LBS):</span>
-                  <span className="text-sm" data-testid="text-gross-weight-lbs">-</span>
+                  <span className="text-sm" data-testid="text-gross-weight-kgs">{calculateTotalGrossWeight().toFixed(3)}</span>
                 </div>
               </div>
               <div className="p-3 bg-gray-50 print:bg-white">
