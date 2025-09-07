@@ -48,7 +48,7 @@ export default function InvoiceView() {
     printStyle.textContent = `
       @media print {
         @page {
-          margin: 0.5in !important;
+          margin: 0.5in 0.5in 1in 0.5in !important;
           size: A4 !important;
         }
         
@@ -57,27 +57,40 @@ export default function InvoiceView() {
           print-color-adjust: exact !important;
         }
         
-        /* Repeating header for each page */
-        .print-header {
-          display: block !important;
-          position: running(header);
-          margin-bottom: 20px;
+        /* Hide screen-only elements */
+        .no-print {
+          display: none !important;
         }
         
-        .print-footer {
-          display: block !important;
-          position: running(footer);
-          text-align: center;
-          font-size: 10px;
+        /* Company header on every page */
+        .print-company-header {
+          display: block;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: white;
+          z-index: 1000;
+          padding: 10px;
+          border-bottom: 1px solid #000;
         }
         
-        @page {
-          @top-center {
-            content: element(header);
-          }
-          @bottom-center {
-            content: element(footer);
-          }
+        /* Customer details header on every page */
+        .print-customer-header {
+          display: block;
+          position: fixed;
+          top: 80px;
+          left: 0;
+          right: 0;
+          background: white;
+          z-index: 999;
+          padding: 10px;
+          border-bottom: 1px solid #000;
+        }
+        
+        /* Main content with proper top margin */
+        .invoice-content {
+          margin-top: 200px !important;
         }
         
         /* Page break control */
@@ -89,14 +102,22 @@ export default function InvoiceView() {
           page-break-inside: avoid;
         }
         
-        /* Ensure line items stay together */
+        /* Ensure line items stay together but allow breaks between them */
         .line-item-row {
           page-break-inside: avoid;
         }
         
-        /* Hide screen-only elements */
-        .no-print {
-          display: none !important;
+        /* Keep summary together */
+        .summary-section {
+          page-break-inside: avoid;
+        }
+        
+        /* Page numbers */
+        @page {
+          @bottom-right {
+            content: "Page " counter(page);
+            font-size: 10px;
+          }
         }
       }
     `;
@@ -249,11 +270,75 @@ export default function InvoiceView() {
         </Button>
       </div>
 
-      {/* Invoice content */}
-      <div className="max-w-4xl mx-auto bg-white p-8 print:p-6 print:max-w-full print:mx-0">
-        {/* Company Header - Only for AR invoices */}
+      {/* Print-only headers that repeat on every page */}
+      <div className="print-company-header hidden print:block">
         {invoice.invoiceType === "receivable" && (
-          <div className="text-center mb-6 print:mb-4">
+          <div className="text-center">
+            <h2 className="text-sm font-bold mb-1">Kitchen Xpress Overseas Inc.</h2>
+            <p className="text-xs mb-1">14001 Townsend Rd. Philadelphia, PA 19154-1007</p>
+            <p className="text-xs">Phone - +1 (267) 667 4923 | Fax: +1 (445) 776 5416 | Email: info@kxol.us</p>
+          </div>
+        )}
+      </div>
+
+      <div className="print-customer-header hidden print:block">
+        <div className="grid grid-cols-3 gap-4 text-xs">
+          {/* Bill To */}
+          <div>
+            <h3 className="font-semibold mb-1">Bill To</h3>
+            <div className="space-y-0">
+              <p className="font-medium">{customer?.name || 'Customer Name'}</p>
+              {customer?.address && (
+                <>
+                  <p>{customer.address.street}</p>
+                  <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                  <p>{customer.address.country}</p>
+                </>
+              )}
+              {customer?.phone && <p>TEL: {customer.phone}</p>}
+            </div>
+          </div>
+
+          {/* Ship To */}
+          <div>
+            <h3 className="font-semibold mb-1">Ship To</h3>
+            <div className="space-y-0">
+              <p className="font-medium">{customer?.name || 'Customer Name'}</p>
+              {customer?.address && (
+                <>
+                  <p>{customer.address.street}</p>
+                  <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                  <p>{customer.address.country}</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Invoice Details */}
+          <div>
+            <div className="space-y-0">
+              <div className="flex justify-between">
+                <span className="font-medium">Invoice No:</span>
+                <span>{invoice.invoiceNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Invoice Date:</span>
+                <span>{formatDate(invoice.invoiceDate)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Payment Term:</span>
+                <span>Net 30</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Invoice content */}
+      <div className="invoice-content max-w-4xl mx-auto bg-white p-8 print:p-6 print:max-w-full print:mx-0">
+        {/* Company Header - Only for AR invoices - Screen only */}
+        {invoice.invoiceType === "receivable" && (
+          <div className="text-center mb-6 print:mb-4 print:hidden">
             <h2 className="text-lg font-bold mb-2" data-testid="text-company-name">Kitchen Xpress Overseas Inc.</h2>
             <p className="text-sm mb-1" data-testid="text-company-address">14001 Townsend Rd. Philadelphia, PA 19154-1007</p>
             <p className="text-sm" data-testid="text-company-contact">Phone - +1 (267) 667 4923 | Fax: +1 (445) 776 5416 | Email: info@kxol.us</p>
@@ -415,7 +500,7 @@ export default function InvoiceView() {
         </div>
 
         {/* Summary Table - After line items */}
-        <div className="border border-gray-300 print:border-black mt-0">
+        <div className="summary-section border border-gray-300 print:border-black mt-0">
           <div className="grid grid-cols-2">
             {/* Left Column */}
             <div className="border-r border-gray-300 print:border-black">
