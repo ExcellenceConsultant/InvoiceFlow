@@ -289,44 +289,43 @@ export default function InvoiceView() {
           const col2X = safeContentArea.x + 56;               // Ship To column  
           const col3X = safeContentArea.x + 112;              // Invoice Details column
           
-          // Header row
+          // Header row - matching Word document format
           pdf.text('Bill To', col1X, currentY);
           pdf.text('Ship To', col2X, currentY);
-          pdf.text('Invoice No : ', col3X, currentY);
           currentY += 5;
           
-          // Customer name and invoice number
+          // Customer details
           pdf.setFont('helvetica', 'normal');
           const customerName = customer?.name || 'Customer Name';
           pdf.text(customerName, col1X, currentY);
           pdf.text(customerName, col2X, currentY);
-          pdf.text(invoice.invoiceNumber, col3X + 30, currentY);
-          currentY += 5;
+          pdf.text(`Invoice No : ${invoice.invoiceNumber}`, col3X, currentY);
+          currentY += 4;
 
-          // Address and invoice date
+          // Address and invoice details
           if (customer?.address) {
-            pdf.text('', col1X, currentY);
-            pdf.text('', col2X, currentY);
-            pdf.text(`Invoice Date : ${formatDate(invoice.invoiceDate.toString())}`, col3X, currentY);
-            currentY += 4;
-            
-            pdf.text('', col1X, currentY);
-            pdf.text('', col2X, currentY);
-            pdf.text('Purchase Order No : ', col3X, currentY);
-            currentY += 4;
-            
             pdf.text(customer.address.street || '', col1X, currentY);
             pdf.text(customer.address.street || '', col2X, currentY);
-            pdf.text('Payment Term : ', col3X, currentY);
+            pdf.text(`Invoice Date : ${formatDate(invoice.invoiceDate.toString())}`, col3X, currentY);
             currentY += 4;
             
             const cityLine = `${customer.address.city || ''}, ${customer.address.state || ''} ${customer.address.zipCode || ''}`;
             pdf.text(cityLine, col1X, currentY);
             pdf.text(cityLine, col2X, currentY);
-            pdf.text('Shipping Info', col3X, currentY);
+            pdf.text('Purchase Order No : -', col3X, currentY);
+            currentY += 4;
+            
+            pdf.text(customer.address.country || '', col1X, currentY);
+            pdf.text(customer.address.country || '', col2X, currentY);
+            pdf.text('Payment Term : Net 30', col3X, currentY);
             currentY += 4;
             
             pdf.text(`TEL : ${customer.phone || ''}`, col1X, currentY);
+            pdf.text('', col2X, currentY);
+            pdf.text('Shipping Info', col3X, currentY);
+            currentY += 4;
+            
+            pdf.text('', col1X, currentY);
             pdf.text('', col2X, currentY);
             pdf.text(`Ship Date : ${formatDate((invoice.dueDate || invoice.invoiceDate).toString())}`, col3X, currentY);
             currentY += 8;
@@ -666,84 +665,83 @@ export default function InvoiceView() {
       <div className="invoice-content invoice-pdf-content max-w-4xl mx-auto bg-white p-8 print:p-6 print:max-w-full print:mx-0">
         {/* Company Header removed as requested */}
 
-        {/* Header - Hide on print since we have fixed headers */}
-        <div className="text-center mb-8 print:mb-6 print:hidden">
-          <h1 className="text-3xl font-bold print:text-2xl" data-testid="text-invoice-title">INVOICE</h1>
-          <p className="text-right text-sm mt-2 page-number" data-testid="text-page-number">Page: 1 of 1</p>
+        {/* Header Section - matches Word document format exactly */}
+        <div className="mb-6 print:mb-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold" data-testid="text-invoice-title">INVOICE</h1>
+            <p className="text-sm font-medium" data-testid="text-page-number">Page : 1 of 1</p>
+          </div>
         </div>
 
-        {/* Main Info Section - Horizontal layout for Bill To and Ship To */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:gap-4 print:mb-6 print:hidden">
-          {/* Bill To */}
-          <div>
-            <h3 className="font-semibold mb-2 text-sm" data-testid="text-bill-to-header">Bill To</h3>
-            <div className="text-sm space-y-1" data-testid="text-bill-to-info">
-              <p className="font-medium">{customer?.name || 'Customer Name'}</p>
-              {customer?.address && (
-                <div>
-                  <p>{customer.address.street}</p>
-                  <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
-                  <p>{customer.address.country}</p>
+        {/* Customer and Invoice Details Section - matches Word document layout */}
+        <div className="mb-6 print:mb-4">
+          <div className="grid grid-cols-3 gap-6 text-sm">
+            {/* Bill To Column */}
+            <div>
+              <h3 className="font-bold mb-2" data-testid="text-bill-to-header">Bill To</h3>
+              <div className="space-y-1" data-testid="text-bill-to-info">
+                <p className="font-medium">{customer?.name || 'Customer Name'}</p>
+                {customer?.address && (
+                  <>
+                    <p>{customer.address.street}</p>
+                    <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                    <p>{customer.address.country}</p>
+                  </>
+                )}
+                <p>TEL : {customer?.phone || ''}</p>
+              </div>
+            </div>
+
+            {/* Ship To Column */}
+            <div>
+              <h3 className="font-bold mb-2" data-testid="text-ship-to-header">Ship To</h3>
+              <div className="space-y-1" data-testid="text-ship-to-info">
+                <p className="font-medium">{customer?.name || 'Customer Name'}</p>
+                {customer?.address && (
+                  <>
+                    <p>{customer.address.street}</p>
+                    <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                    <p>{customer.address.country}</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Invoice Details Column */}
+            <div>
+              <div className="space-y-1">
+                <div className="flex">
+                  <span className="font-medium w-24">Invoice No :</span>
+                  <span data-testid="text-invoice-number">{invoice.invoiceNumber}</span>
                 </div>
-              )}
-              {customer?.phone && <p>TEL: {customer.phone}</p>}
-            </div>
-          </div>
-
-          {/* Ship To */}
-          <div>
-            <h3 className="font-semibold mb-2 text-sm" data-testid="text-ship-to-header">Ship To</h3>
-            <div className="text-sm space-y-1" data-testid="text-ship-to-info">
-              <p className="font-medium">{customer?.name || 'Customer Name'}</p>
-              {customer?.address && (
-                <div>
-                  <p>{customer.address.street}</p>
-                  <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
-                  <p>{customer.address.country}</p>
+                <div className="flex">
+                  <span className="font-medium w-24">Invoice Date :</span>
+                  <span data-testid="text-invoice-date">{formatDate(invoice.invoiceDate.toString())}</span>
                 </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Invoice Details Section - Separate row */}
-        <div className="mb-8 print:mb-6 print:hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="font-medium">Invoice No:</span>
-                <span data-testid="text-invoice-number">{invoice.invoiceNumber}</span>
+                <div className="flex">
+                  <span className="font-medium w-24">Purchase Order No :</span>
+                  <span data-testid="text-po-number">-</span>
+                </div>
+                <div className="flex">
+                  <span className="font-medium w-24">Payment Term :</span>
+                  <span data-testid="text-payment-term">Net 30</span>
+                </div>
+                <div className="flex">
+                  <span className="font-medium w-24">Shipping Info</span>
+                </div>
+                <div className="flex">
+                  <span className="font-medium w-24">Ship Date :</span>
+                  <span data-testid="text-ship-date">{invoice.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice.invoiceDate.toString())}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="font-medium">Invoice Date:</span>
-                <span data-testid="text-invoice-date">{formatDate(invoice.invoiceDate.toString())}</span>
-              </div>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="font-medium">Purchase Order No:</span>
-                <span data-testid="text-po-number">-</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium">Payment Term:</span>
-                <span data-testid="text-payment-term">Net 30</span>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4">
-            <h4 className="font-semibold mb-1">Shipping Info</h4>
-            <div className="flex justify-between">
-              <span className="font-medium">Ship Date:</span>
-              <span data-testid="text-ship-date">{invoice.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice.invoiceDate.toString())}</span>
             </div>
           </div>
         </div>
 
-        {/* Items Table */}
+        {/* Items Table - matches Word document format exactly */}
         <div className="line-items-container border border-gray-300 print:border-black">
-          {/* Table Header */}
-          <div className="grid grid-cols-9 bg-gray-50 print:bg-white border-b border-gray-300 print:border-black">
+          {/* Table Header - 7 columns as per Word document */}
+          <div className="grid grid-cols-7 bg-gray-50 print:bg-white border-b border-gray-300 print:border-black" style={{gridTemplateColumns: '10% 20% 15% 30% 12% 13% 15%'}}>
             <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-sr-no">
               Sr. No
             </div>
@@ -762,20 +760,14 @@ export default function InvoiceView() {
             <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-rate">
               Rate PerCarton<br/>(USD)
             </div>
-            <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-gross-weight">
-              Gross Weight<br/>(KGS)
-            </div>
-            <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-net-weight">
-              Net Weight<br/>(KGS)
-            </div>
             <div className="p-2 text-center text-xs font-semibold" data-testid="header-net-amount">
               Net Amount(USD)
             </div>
           </div>
 
-          {/* Table Rows */}
+          {/* Table Rows - 7 columns as per Word document */}
           {lineItems?.map((item: InvoiceLineItem, index: number) => (
-            <div key={item.id} className="line-item-row grid grid-cols-9 border-b border-gray-300 print:border-black min-h-[40px] page-break-avoid" data-testid={`row-line-item-${index}`}>
+            <div key={item.id} className="line-item-row grid grid-cols-7 border-b border-gray-300 print:border-black min-h-[40px] page-break-avoid" style={{gridTemplateColumns: '10% 20% 15% 30% 12% 13% 15%'}} data-testid={`row-line-item-${index}`}>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-sr-no-${index}`}>
                 {index + 1}
               </div>
@@ -785,7 +777,7 @@ export default function InvoiceView() {
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-packing-size-${index}`}>
                 {item.packingSize || '-'}
               </div>
-              <div className="p-2 border-r border-gray-300 print:border-black text-xs" data-testid={`text-description-${index}`}>
+              <div className="p-2 border-r border-gray-300 print:border-black text-left text-xs px-3" data-testid={`text-description-${index}`}>
                 {item.description}
                 {item.isFreeFromScheme && <span className="text-green-600 ml-1">(Free)</span>}
               </div>
@@ -795,29 +787,21 @@ export default function InvoiceView() {
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-rate-${index}`}>
                 {parseFloat(item.unitPrice).toFixed(2)}
               </div>
-              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-gross-weight-${index}`}>
-                {item.grossWeightKgs ? parseFloat(item.grossWeightKgs).toFixed(3) : '-'}
-              </div>
-              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs" data-testid={`text-net-weight-${index}`}>
-                {item.netWeightKgs ? parseFloat(item.netWeightKgs).toFixed(3) : '-'}
-              </div>
               <div className="p-2 text-center text-xs" data-testid={`text-amount-${index}`}>
                 {parseFloat(item.lineTotal).toFixed(2)}
               </div>
             </div>
           ))}
 
-          {/* Empty rows to match format */}
-          {Array.from({ length: Math.max(0, 10 - (lineItems?.length || 0)) }).map((_, index) => (
-            <div key={`empty-${index}`} className="grid grid-cols-9 border-b border-gray-300 print:border-black min-h-[40px]" data-testid={`row-empty-${index}`}>
+          {/* Empty rows to match Word document format */}
+          {Array.from({ length: Math.max(0, 15 - (lineItems?.length || 0)) }).map((_, index) => (
+            <div key={`empty-${index}`} className="grid grid-cols-7 border-b border-gray-300 print:border-black min-h-[40px]" style={{gridTemplateColumns: '10% 20% 15% 30% 12% 13% 15%'}} data-testid={`row-empty-${index}`}>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs">
                 {(lineItems?.length || 0) + index + 1}
               </div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-xs"></div>
-              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
-              <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs"></div>
               <div className="p-2 text-center text-xs"></div>
