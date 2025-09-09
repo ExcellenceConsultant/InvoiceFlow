@@ -624,7 +624,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Get invoice line items to calculate total
     const lineItems = await storage.getInvoiceLineItems(invoice.id);
-    const totalAmount = lineItems.reduce((sum: number, item: any) => sum + parseFloat(item.lineTotal), 0);
+    
+    console.log('Invoice data:', { id: invoice.id, total: invoice.total, invoiceNumber: invoice.invoiceNumber });
+    console.log('Line items for amount calculation:', lineItems);
+    
+    // Calculate total from invoice total first, then fallback to line items
+    let totalAmount = parseFloat(invoice.total) || 0;
+    
+    // If invoice total is 0, calculate from line items
+    if (totalAmount === 0) {
+      totalAmount = lineItems.reduce((sum: number, item: any) => {
+        const itemTotal = parseFloat(item.lineTotal) || 0;
+        console.log(`Line item ${item.description}: ${itemTotal}`);
+        return sum + itemTotal;
+      }, 0);
+    }
+    
+    console.log('Final calculated total amount:', totalAmount);
+    
+    // Ensure we have a valid amount
+    if (totalAmount === 0) {
+      throw new Error('Invoice total amount is 0. Cannot create journal entry.');
+    }
     
     // Create Journal Entry data with correct QuickBooks API format
     const journalEntryData = {
