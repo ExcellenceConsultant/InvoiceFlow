@@ -117,7 +117,7 @@ function InvoiceView() {
       return result;
     };
 
-    const integerPart = Math.floor(amount);
+    let integerPart = Math.floor(amount);
     const decimalPart = Math.round((amount - integerPart) * 100);
 
     let result = '';
@@ -259,33 +259,35 @@ function InvoiceView() {
         <div style={{ border: '1px solid black', marginBottom: '8mm' }}>
           
           {/* Table Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '8px', fontWeight: 'bold', textAlign: 'center', padding: '2mm 0' }}>
-            <div style={{ borderRight: '1px solid black', padding: '1mm' }}>Sr. No</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm' }}>Item Code</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm' }}>Packing Size</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm' }}>Product Description</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm' }}>Qty(Cartons)</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', lineHeight: '1.1' }}>Rate PerCarton<br/>(USD)</div>
-            <div style={{ padding: '1mm' }}>Net Amount(USD)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '8px', fontWeight: 'bold' }}>
+            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Sr. No</div>
+            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Item Code</div>
+            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Packing Size</div>
+            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Product Description</div>
+            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Qty(Cartons)</div>
+            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', lineHeight: '1.1' }}>Rate PerCarton<br/>(USD)</div>
+            <div style={{ padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Net Amount(USD)</div>
           </div>
 
           {/* Table Rows - Data */}
           {lineItems?.map((item: InvoiceLineItem, index: number) => (
-            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', borderBottom: '1px solid black', fontSize: '8px', minHeight: '8mm', alignItems: 'center' }}>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center' }}>{index + 1}</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center' }}>{item.productCode || '-'}</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center' }}>{item.packingSize || '-'}</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm 2mm', textAlign: 'left' }}>{item.description}</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center' }}>{item.quantity}</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center' }}>{parseFloat(item.unitPrice).toFixed(2)}</div>
-              <div style={{ padding: '1mm', textAlign: 'center' }}>{parseFloat(item.lineTotal).toFixed(2)}</div>
+            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', borderBottom: '1px solid black', fontSize: '8px', minHeight: '8mm' }}>
+              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>{index + 1}</div>
+              <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', fontSize: '7px' }}>{item.productCode || '-'}</div>
+              <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', fontSize: '7px' }}>{item.packingSize || '-'}</div>
+              <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', fontSize: '7px', lineHeight: '1.1' }}>
+                {item.description.length > 40 ? item.description.substring(0, 40) + '...' : item.description}
+              </div>
+              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>{item.quantity}</div>
+              <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', fontSize: '7px' }}>{parseFloat(item.unitPrice).toFixed(2)}</div>
+              <div style={{ padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', fontSize: '7px' }}>{parseFloat(item.lineTotal).toFixed(2)}</div>
             </div>
           ))}
 
           {/* Empty Rows */}
           {Array.from({ length: Math.max(0, 15 - (lineItems?.length || 0)) }).map((_, index) => (
-            <div key={`empty-${index}`} style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', borderBottom: '1px solid black', fontSize: '8px', minHeight: '8mm', alignItems: 'center' }}>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center' }}>{(lineItems?.length || 0) + index + 1}</div>
+            <div key={`empty-${index}`} style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', borderBottom: '1px solid black', fontSize: '8px', minHeight: '8mm' }}>
+              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{(lineItems?.length || 0) + index + 1}</div>
               <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
               <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
               <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
