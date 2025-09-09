@@ -1,0 +1,35 @@
+Use the following fixed 7-column table layout for invoice line items. The table must fit inside the safe content width 170 mm (left margin 20 mm, right margin 20 mm). Use millimeter units. Render the table starting at Y = 90 mm (after invoice details band). Column widths and X starts are exact and must be used as below:
+
+Columns (widths and starts)
+
+Col 1 — Sr. No: width 9.09 mm, X start 20.00 mm — alignment: left/center.
+
+Col 2 — Item Code: width 25.45 mm, X start 29.09 mm — alignment: left.
+
+Col 3 — Packing Size: width 20.00 mm, X start 54.54 mm — alignment: left.
+
+Col 4 — Product Description: width 68.18 mm, X start 74.54 mm — alignment: left; wrap text inside this column.
+
+Col 5 — Qty (Cartons): width 17.27 mm, X start 142.72 mm — alignment: right.
+
+Col 6 — Rate Per Carton (USD): width 10.00 mm, X start 159.99 mm — alignment: right.
+
+Col 7 — Net Amount (USD): width 20.00 mm, X start 169.99 mm — alignment: right.
+
+Rendering rules
+
+Column header row height = 10 mm (font 9.5pt bold). Repeat header at the top of every page.
+
+Body row height = 8 mm minimum. If Product Description wraps, grow the row height as needed but do not split a row across pages.
+
+Available vertical space for table rows on each page runs from Y=100 mm down to Y=257 mm (A4 height 297 mm minus bottom margin 40 mm). If the next row does not fully fit in remaining space, insert a page break and continue on the next page; re-render the invoice details band + table header first, then continue rows.
+
+All numeric columns (Qty, Rate, Net Amount) must be right-aligned and formatted with two decimals for amounts. Sr. No and Item Code left-aligned; Product Description left-aligned with word wrap.
+
+The table must never exceed X = 20 mm + 170 mm = 190 mm total page width. Use the exact widths above — do not auto-expand columns.
+
+Notes
+
+If your PDF tool requires integer points instead of mm, convert mm → points (1 mm = 2.83464567 pts) and use rounded values.
+
+If you prefer slightly cleaner numbers, you may optionally round widths to: 9.10, 25.45, 20.00, 68.20, 17.25, 10.00, 20.00 — but the sums must still equal 170 mm.
