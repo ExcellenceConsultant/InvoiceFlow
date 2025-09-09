@@ -248,9 +248,9 @@ export default function InvoiceView() {
       };
 
       // Calculate line items pagination
-      const itemsPerPage = 15; // Approximate items that fit per page
+      const itemsPerPage = 12; // Approximate items that fit per page after invoice details
       const totalItems = lineItems?.length || 0;
-      const totalPages = Math.ceil(totalItems / itemsPerPage);
+      const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
       const summaryPage = totalPages + 1; // Summary always goes on the page after last line items
 
       for (let pageNum = 1; pageNum <= summaryPage; pageNum++) {
@@ -258,87 +258,93 @@ export default function InvoiceView() {
           pdf.addPage();
         }
 
-        // Add letterhead background (placeholder - replace with actual letterhead)
-        pdf.setFillColor(255, 255, 255);
-        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-        
-        // Add header and footer placeholder areas
-        pdf.setFillColor(248, 248, 248);
-        pdf.rect(0, 0, pageWidth, 50, 'F');
-        pdf.rect(0, 257, pageWidth, 40, 'F');
-
+        // No letterhead background - will be printed on pre-printed letterhead
         let currentY = contentArea.y;
 
         if (pageNum <= totalPages) {
           // Line items pages
           
-          // Add invoice title
-          pdf.setFontSize(20);
+          // Invoice Details Section (appears on every page)
+          pdf.setFontSize(16);
           pdf.setFont('helvetica', 'bold');
-          pdf.text('INVOICE', pageWidth / 2, currentY + 10, { align: 'center' });
-          currentY += 20;
+          pdf.text('INVOICE', contentArea.x, currentY);
+          pdf.text(`Page : ${pageNum} of ${summaryPage}`, contentArea.x + contentArea.width - 40, currentY, { align: 'right' });
+          currentY += 10;
 
-          // Add customer details on first page only
-          if (pageNum === 1) {
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
-            
-            // Bill To and Ship To
-            const billToX = contentArea.x;
-            const shipToX = contentArea.x + contentArea.width / 2;
-            
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Bill To:', billToX, currentY);
-            pdf.text('Ship To:', shipToX, currentY);
-            currentY += 5;
-            
-            pdf.setFont('helvetica', 'normal');
-            const customerName = customer?.name || 'Customer Name';
-            pdf.text(customerName, billToX, currentY);
-            pdf.text(customerName, shipToX, currentY);
+          // Customer and Invoice Details Section
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          
+          // Column headers
+          const col1X = contentArea.x;
+          const col2X = contentArea.x + 56;
+          const col3X = contentArea.x + 112;
+          
+          pdf.text('Bill To', col1X, currentY);
+          pdf.text('Ship To', col2X, currentY);
+          pdf.text(`Invoice No : ${invoice.invoiceNumber}`, col3X, currentY);
+          currentY += 5;
+          
+          // Customer details
+          pdf.setFont('helvetica', 'normal');
+          const customerName = customer?.name || 'Customer Name';
+          pdf.text(customerName, col1X, currentY);
+          pdf.text(customerName, col2X, currentY);
+          pdf.text(`Invoice Date : ${formatDate(invoice.invoiceDate)}`, col3X, currentY);
+          currentY += 5;
+
+          if (customer?.address) {
+            pdf.text(customer.address.street || '', col1X, currentY);
+            pdf.text(customer.address.street || '', col2X, currentY);
             currentY += 4;
             
-            if (customer?.address) {
-              pdf.text(customer.address.street || '', billToX, currentY);
-              pdf.text(customer.address.street || '', shipToX, currentY);
-              currentY += 4;
-              
-              const cityLine = `${customer.address.city || ''}, ${customer.address.state || ''} ${customer.address.zipCode || ''}`;
-              pdf.text(cityLine, billToX, currentY);
-              pdf.text(cityLine, shipToX, currentY);
-              currentY += 4;
-              
-              pdf.text(customer.address.country || '', billToX, currentY);
-              pdf.text(customer.address.country || '', shipToX, currentY);
-              currentY += 4;
-            }
-
-            // Invoice details
+            const cityLine = `${customer.address.city || ''}, ${customer.address.state || ''} ${customer.address.zipCode || ''}`;
+            pdf.text(cityLine, col1X, currentY);
+            pdf.text(cityLine, col2X, currentY);
+            pdf.text('Purchase Order No : -', col3X, currentY);
+            currentY += 4;
+            
+            pdf.text(customer.address.country || '', col1X, currentY);
+            pdf.text(customer.address.country || '', col2X, currentY);
+            pdf.text('Payment Term : Net 30', col3X, currentY);
+            currentY += 4;
+            
+            pdf.text('', col1X, currentY);
+            pdf.text('', col2X, currentY);
+            pdf.text('Shipping Info', col3X, currentY);
+            currentY += 4;
+            
+            pdf.text(`TEL : ${customer.phone || ''}`, col1X, currentY);
+            pdf.text('', col2X, currentY);
+            pdf.text(`Ship Date : ${formatDate(invoice.dueDate || invoice.invoiceDate)}`, col3X, currentY);
             currentY += 10;
-            pdf.setFont('helvetica', 'bold');
-            pdf.text(`Invoice No: ${invoice.invoiceNumber}`, contentArea.x, currentY);
-            pdf.text(`Invoice Date: ${formatDate(invoice.invoiceDate)}`, contentArea.x + 85, currentY);
-            currentY += 15;
           }
 
           // Table headers (repeat on every page)
           const tableStartY = currentY;
-          const colWidths = [15, 25, 25, 40, 20, 25, 20]; // Column widths in mm
+          const colWidths = [20, 25, 25, 50, 25, 35, 25]; // Column widths in mm
           let xPos = contentArea.x;
           
           pdf.setFillColor(240, 240, 240);
-          pdf.rect(contentArea.x, tableStartY, contentArea.width, 8, 'F');
+          pdf.rect(contentArea.x, tableStartY, contentArea.width, 10, 'F');
           
           pdf.setFontSize(8);
           pdf.setFont('helvetica', 'bold');
           
-          const headers = ['Sr.', 'Item Code', 'Packing', 'Description', 'Qty', 'Rate', 'Amount'];
+          const headers = ['Sr. No', 'Item Code', 'Packing Size', 'Product Description', 'Qty (Cartons)', 'Rate Per Carton (USD)', 'Net Amount (USD)'];
           headers.forEach((header, index) => {
-            pdf.text(header, xPos + colWidths[index] / 2, tableStartY + 5, { align: 'center' });
+            const textX = xPos + colWidths[index] / 2;
+            pdf.text(header, textX, tableStartY + 6, { align: 'center' });
+            // Draw column borders
+            if (index < headers.length - 1) {
+              pdf.line(xPos + colWidths[index], tableStartY, xPos + colWidths[index], tableStartY + 10);
+            }
             xPos += colWidths[index];
           });
           
-          currentY = tableStartY + 8;
+          // Draw table border
+          pdf.rect(contentArea.x, tableStartY, contentArea.width, 10);
+          currentY = tableStartY + 10;
 
           // Add line items for this page
           const startIndex = (pageNum - 1) * itemsPerPage;
@@ -354,47 +360,53 @@ export default function InvoiceView() {
               (i + 1).toString(),
               item.productCode || '-',
               item.packingSize || '-',
-              item.description.substring(0, 30),
+              item.description.length > 35 ? item.description.substring(0, 35) + '...' : item.description,
               item.quantity.toString(),
               parseFloat(item.unitPrice).toFixed(2),
               parseFloat(item.lineTotal).toFixed(2)
             ];
             
+            const rowHeight = 8;
+            
             rowData.forEach((data, colIndex) => {
               const align = colIndex === 3 ? 'left' : 'center';
               const textX = align === 'center' ? xPos + colWidths[colIndex] / 2 : xPos + 2;
-              pdf.text(data, textX, currentY + 4, { align });
+              pdf.text(data, textX, currentY + 5, { align });
+              
+              // Draw column borders
+              if (colIndex < rowData.length - 1) {
+                pdf.line(xPos + colWidths[colIndex], currentY, xPos + colWidths[colIndex], currentY + rowHeight);
+              }
               xPos += colWidths[colIndex];
             });
             
-            currentY += 6;
+            // Draw row border
+            pdf.rect(contentArea.x, currentY, contentArea.width, rowHeight);
+            currentY += rowHeight;
           }
 
         } else {
           // Summary page
-          currentY += 20;
-          
-          pdf.setFontSize(16);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('INVOICE SUMMARY', pageWidth / 2, currentY, { align: 'center' });
-          currentY += 20;
+          currentY += 10;
 
-          // Summary table
+          // Summary section
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
           
           const summaryData = [
-            ['Total Cartons:', calculateTotalCartons().toString()],
-            ['Net Weight (KGS):', calculateTotalNetWeight().toFixed(3)],
-            ['Gross Weight (KGS):', calculateTotalGrossWeight().toFixed(3)],
-            ['Net Amount:', `$${calculateSubtotal().toFixed(2)}`],
-            ['Freight:', '$0.00'],
-            ['Total Invoice Amount:', `$${parseFloat(invoice.total).toFixed(2)}`]
+            ['Total Cartons', ':', calculateTotalCartons().toString()],
+            ['Net Amount', ':', `$${calculateSubtotal().toFixed(2)}`],
+            ['Net Weight (KGS)', ':', calculateTotalNetWeight().toFixed(3)],
+            ['Freight', ':', '$0.00'],
+            ['Gross Weight (KGS)', ':', calculateTotalGrossWeight().toFixed(3)],
+            ['Total Invoice Amount', ':', `$${parseFloat(invoice.total).toFixed(2)}`],
+            ['Gross Weight (LBS)', ':', (calculateTotalGrossWeight() * 2.20462).toFixed(3)]
           ];
           
-          summaryData.forEach(([label, value]) => {
+          summaryData.forEach(([label, colon, value]) => {
             pdf.text(label, contentArea.x, currentY);
-            pdf.text(value, contentArea.x + 100, currentY);
+            pdf.text(colon, contentArea.x + 50, currentY);
+            pdf.text(value, contentArea.x + 55, currentY);
             currentY += 6;
           });
           
@@ -402,24 +414,22 @@ export default function InvoiceView() {
           
           // Amount in words
           pdf.setFont('helvetica', 'bold');
-          pdf.text('Amount in Words:', contentArea.x, currentY);
+          pdf.text('Amount In Words :', contentArea.x, currentY);
           currentY += 5;
           pdf.setFont('helvetica', 'normal');
           pdf.text(numberToWords(parseFloat(invoice.total)), contentArea.x, currentY);
           currentY += 15;
 
           // Terms and conditions
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Terms & Conditions:', contentArea.x, currentY);
-          currentY += 5;
-          
+          pdf.setFontSize(9);
           pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(8);
           
           const terms = [
-            '1. All Matters related to this invoice shall be governed by the laws of Pennsylvania.',
-            '2. Overdue balances subject to finance charges of 2% per month.',
-            '3. The company will not be liable for cash payments or overpayments.',
+            '1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes',
+            '   related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.',
+            '2. Overdues balances subject to finance charges of 2% per month.',
+            '3. All Payments must be made to the company\'s official bank account only. The company will not be liable for cash',
+            '   payments or for overpayments exceeding the invoiced amount.',
             '4. Final Sale'
           ];
           
@@ -433,14 +443,15 @@ export default function InvoiceView() {
           // Signature lines
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
-          pdf.text('Received By (Name): _________________________', contentArea.x, currentY);
-          pdf.text('Total Pallets: _________________________', contentArea.x + 85, currentY);
+          pdf.text('Received By (Name) : _____________', contentArea.x, currentY);
+          currentY += 6;
+          pdf.text('Total Pallets      : _____________', contentArea.x, currentY);
           currentY += 15;
 
           // Company name
-          pdf.setFontSize(14);
+          pdf.setFontSize(12);
           pdf.setFont('helvetica', 'bold');
-          pdf.text('Kitchen Xpress Overseas Inc.', pageWidth / 2, currentY, { align: 'center' });
+          pdf.text('Kitchen Xpress Overseas Inc.', contentArea.x, currentY);
         }
       }
 

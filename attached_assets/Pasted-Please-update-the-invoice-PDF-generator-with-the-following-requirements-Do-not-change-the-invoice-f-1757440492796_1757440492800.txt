@@ -1,0 +1,84 @@
+Please update the invoice PDF generator with the following requirements. Do not change the invoice format, fonts, or alignment. Follow these rules strictly:
+
+1. Page Setup
+
+Paper size: A4 (210mm x 297mm).
+
+Margins: Top 50mm, Bottom 40mm, Left 20mm, Right 20mm.
+
+Safe content area: X=20mm, Y=50mm, Width=170mm, Height=207mm.
+
+Do not generate letterhead (logo or company address) — invoice will be printed on pre-printed company letterhead.
+
+2. Invoice Details Section (Show on All Pages)
+
+On every page, after the header space, print the invoice details section in the same format:
+
+INVOICE                                      Page : [current page] of [total pages]
+
+Bill To                         Ship To                         Invoice No : [xxx]
+[Customer Name]                 [Customer Name]                 Invoice Date : [xxx]
+
+[Customer Address]              [Customer Address]              Purchase Order No : [xxx]
+                                                               Payment Term : [xxx]
+                                                               Shipping Info
+                                                               Ship Date : [xxx]
+
+TEL :
+
+
+Replace placeholders with dynamic values.
+
+Ensure Page : X of Y updates correctly on each page (e.g., Page : 1 of 2, Page : 2 of 2).
+
+3. Line Items Table
+
+Table columns (must repeat header on every page):
+
+Sr. No | Item Code | Packing Size | Product Description | Qty (Cartons) | Rate Per Carton (USD) | Net Amount (USD)
+
+
+If items exceed one page, continue table onto next page.
+
+Do not overwrite margins.
+
+4. Summary & Footer Section (Only on Last Page)
+
+At the end of the last page, after the line items table, include:
+
+Total Cartons           : 
+Net Amount              : 
+Net Weight (KGS)        : 
+Freight                 : 
+Gross Weight (KGS)      : 
+Total Invoice Amount    : 
+Gross Weight (LBS)      : 
+
+Amount In Words : 
+
+1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.
+2. Overdues balances subject to finance charges of 2% per month.
+3. All Payments must be made to the company’s official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.
+4. Final Sale
+
+Received By (Name) : _____________
+Total Pallets      : _____________
+
+Kitchen Xpress Overseas Inc.
+
+
+This section must never appear mid-invoice.
+
+Always shift it to the last page only.
+
+5. Print Behavior
+
+On clicking “Print Invoice”, generate a properly paginated PDF with:
+
+Invoice Details on every page.
+
+Page numbering Page : X of Y on every page.
+
+Line items flowing across pages with headers repeated.
+
+Summary + terms + acknowledgment only on the last page.
