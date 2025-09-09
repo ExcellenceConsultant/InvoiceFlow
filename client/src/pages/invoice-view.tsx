@@ -259,14 +259,14 @@ function InvoiceView() {
         <div style={{ border: '1px solid black', marginBottom: '8mm' }}>
           
           {/* Table Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '8px', fontWeight: 'bold' }}>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Sr. No</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Item Code</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Packing Size</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Product Description</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Qty(Cartons)</div>
-            <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden', lineHeight: '1.1' }}>Rate PerCarton<br/>(USD)</div>
-            <div style={{ padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordWrap: 'break-word', overflow: 'hidden' }}>Net Amount(USD)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '10mm 28mm 22mm 75mm 19mm 11mm 22mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '8px', fontWeight: 'bold', minHeight: '8mm' }}>
+            <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7px' }}>Sr. No</div>
+            <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7px' }}>Item Code</div>
+            <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7px' }}>Packing Size</div>
+            <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7px' }}>Product Description</div>
+            <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '6px', lineHeight: '1.1' }}>Qty<br/>(Cartons)</div>
+            <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '6px', lineHeight: '1.1' }}>Rate Per<br/>Carton<br/>(USD)</div>
+            <div style={{ padding: '0.5mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden', fontSize: '6px', lineHeight: '1.1' }}>Net Amount<br/>(USD)</div>
           </div>
 
           {/* Table Rows - Data */}
