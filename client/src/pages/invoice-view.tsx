@@ -273,75 +273,79 @@ export default function InvoiceView() {
         if (pageNum <= totalPages) {
           // Line items pages
           
-          // Invoice Details Section (appears on every page)
+          // Invoice Header Section (matches Word document format)
           pdf.setFontSize(16);
           pdf.setFont('helvetica', 'bold');
           pdf.text('INVOICE', safeContentArea.x, currentY);
-          pdf.text(`Page : ${pageNum} of ${summaryPage}`, safeContentArea.x + safeContentArea.width - 40, currentY, { align: 'right' });
+          pdf.text(`Page : ${pageNum} of ${summaryPage}`, safeContentArea.x + safeContentArea.width - 30, currentY, { align: 'right' });
           currentY += 10;
 
-          // Customer and Invoice Details Section
+          // Customer and Invoice Details Section (matches Word document layout)
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'bold');
           
-          // Column headers - positioned within safe content area
-          const col1X = safeContentArea.x;
-          const col2X = safeContentArea.x + 56;
-          const col3X = safeContentArea.x + 112;
+          // Three column layout: Bill To | Ship To | Invoice Details
+          const col1X = safeContentArea.x;                    // Bill To column
+          const col2X = safeContentArea.x + 56;               // Ship To column  
+          const col3X = safeContentArea.x + 112;              // Invoice Details column
           
+          // Header row
           pdf.text('Bill To', col1X, currentY);
           pdf.text('Ship To', col2X, currentY);
-          pdf.text(`Invoice No : ${invoice.invoiceNumber}`, col3X, currentY);
+          pdf.text('Invoice No : ', col3X, currentY);
           currentY += 5;
           
-          // Customer details
+          // Customer name and invoice number
           pdf.setFont('helvetica', 'normal');
           const customerName = customer?.name || 'Customer Name';
           pdf.text(customerName, col1X, currentY);
           pdf.text(customerName, col2X, currentY);
-          pdf.text(`Invoice Date : ${formatDate(invoice.invoiceDate)}`, col3X, currentY);
+          pdf.text(invoice.invoiceNumber, col3X + 30, currentY);
           currentY += 5;
 
+          // Address and invoice date
           if (customer?.address) {
+            pdf.text('', col1X, currentY);
+            pdf.text('', col2X, currentY);
+            pdf.text(`Invoice Date : ${formatDate(invoice.invoiceDate.toString())}`, col3X, currentY);
+            currentY += 4;
+            
+            pdf.text('', col1X, currentY);
+            pdf.text('', col2X, currentY);
+            pdf.text('Purchase Order No : ', col3X, currentY);
+            currentY += 4;
+            
             pdf.text(customer.address.street || '', col1X, currentY);
             pdf.text(customer.address.street || '', col2X, currentY);
+            pdf.text('Payment Term : ', col3X, currentY);
             currentY += 4;
             
             const cityLine = `${customer.address.city || ''}, ${customer.address.state || ''} ${customer.address.zipCode || ''}`;
             pdf.text(cityLine, col1X, currentY);
             pdf.text(cityLine, col2X, currentY);
-            pdf.text('Purchase Order No : -', col3X, currentY);
-            currentY += 4;
-            
-            pdf.text(customer.address.country || '', col1X, currentY);
-            pdf.text(customer.address.country || '', col2X, currentY);
-            pdf.text('Payment Term : Net 30', col3X, currentY);
-            currentY += 4;
-            
-            pdf.text('', col1X, currentY);
-            pdf.text('', col2X, currentY);
             pdf.text('Shipping Info', col3X, currentY);
             currentY += 4;
             
             pdf.text(`TEL : ${customer.phone || ''}`, col1X, currentY);
             pdf.text('', col2X, currentY);
-            pdf.text(`Ship Date : ${formatDate(invoice.dueDate || invoice.invoiceDate)}`, col3X, currentY);
-            currentY += 10;
+            pdf.text(`Ship Date : ${formatDate((invoice.dueDate || invoice.invoiceDate).toString())}`, col3X, currentY);
+            currentY += 8;
           }
 
-          // Table headers (repeat on every page) - exact column specifications
-          const tableStartY = 90; // Fixed Y position at 90mm on every page
+          // Table headers (matches Word document format) - exact column specifications
+          currentY = 90; // Fixed Y position at 90mm on every page (matching Word document)
+          const tableStartY = currentY;
           
-          // Original column widths (187mm total) scaled to fit 170mm safe content width
+          // Use exact column widths from Word document (scaled to fit 170mm safe content width)
           const scaleFactor = safeContentArea.width / 187; // 170 / 187 = 0.909
           const colWidths = [
             10 * scaleFactor,  // Sr. No → 9.09 mm
             28 * scaleFactor,  // Item Code → 25.45 mm
             22 * scaleFactor,  // Packing Size → 20.00 mm
             75 * scaleFactor,  // Product Description → 68.18 mm
-            19 * scaleFactor,  // Qty (Cartons) → 17.27 mm, right-aligned
-            11 * scaleFactor,  // Rate Per Carton (USD) → 10.00 mm, right-aligned
-            22 * scaleFactor   // Net Amount (USD) → 20.00 mm, right-aligned
+            19 * scaleFactor,  // Qty(Cartons) → 17.27 mm, right-aligned
+            11 * scaleFactor,  // Rate PerCarton (USD) → 10.00 mm, right-aligned
+            22 * scaleFactor   // Net Amount(USD) → 20.00 mm, right-aligned
           ];
           
           let xPos = safeContentArea.x;
@@ -352,8 +356,9 @@ export default function InvoiceView() {
           pdf.setFontSize(8);
           pdf.setFont('helvetica', 'bold');
           
-          const headers = ['Sr. No', 'Item Code', 'Packing Size', 'Product Description', 'Qty (Cartons)', 'Rate Per Carton (USD)', 'Net Amount (USD)'];
-          const headerAlignments = ['center', 'center', 'center', 'center', 'right', 'right', 'right'];
+          // Table headers matching Word document exactly
+          const headers = ['Sr. No', 'Item Code', 'Packing Size', 'Product Description', 'Qty(Cartons)', 'Rate PerCarton\n(USD)', 'Net Amount(USD)'];
+          const headerAlignments = ['center', 'center', 'center', 'center', 'center', 'center', 'center'];
           
           headers.forEach((header, index) => {
             const align = headerAlignments[index];
@@ -365,7 +370,7 @@ export default function InvoiceView() {
               textX = xPos + colWidths[index] / 2; // Center-aligned
             }
             
-            pdf.text(header, textX, tableStartY + 6, { align });
+            pdf.text(header, textX, tableStartY + 6, { align: align as 'center' | 'left' | 'right' });
             
             // Draw column borders
             if (index < headers.length - 1) {
@@ -385,7 +390,8 @@ export default function InvoiceView() {
           pdf.setFont('helvetica', 'normal');
           
           for (let i = startIndex; i < endIndex; i++) {
-            const item = lineItems[i];
+            const item = lineItems?.[i];
+            if (!item) continue;
             xPos = safeContentArea.x;
             
             const rowData = [
@@ -398,24 +404,22 @@ export default function InvoiceView() {
               parseFloat(item.lineTotal).toFixed(2)
             ];
             
-            const rowHeight = 8; // Minimum 8mm row height
-            const dataAlignments = ['center', 'center', 'center', 'left', 'right', 'right', 'right'];
+            const rowHeight = 8; // Minimum 8mm row height (matching Word document)
+            const dataAlignments = ['center', 'center', 'center', 'left', 'center', 'center', 'center'];
             
             rowData.forEach((data, colIndex) => {
               const align = dataAlignments[colIndex];
               let textX;
               
-              if (align === 'right') {
-                textX = xPos + colWidths[colIndex] - 2; // Right-aligned with 2mm padding
-              } else if (align === 'left') {
-                textX = xPos + 2; // Left-aligned with 2mm padding
+              if (align === 'left') {
+                textX = xPos + 2; // Left-aligned with 2mm padding (Product Description)
               } else {
-                textX = xPos + colWidths[colIndex] / 2; // Center-aligned
+                textX = xPos + colWidths[colIndex] / 2; // Center-aligned (all other columns)
               }
               
-              pdf.text(data, textX, currentY + 5, { align });
+              pdf.text(data, textX, currentY + 5, { align: align as 'center' | 'left' | 'right' });
               
-              // Draw column borders
+              // Draw column borders (matching Word document table style)
               if (colIndex < rowData.length - 1) {
                 pdf.line(xPos + colWidths[colIndex], currentY, xPos + colWidths[colIndex], currentY + rowHeight);
               }
@@ -713,7 +717,7 @@ export default function InvoiceView() {
               </div>
               <div className="flex justify-between">
                 <span className="font-medium">Invoice Date:</span>
-                <span data-testid="text-invoice-date">{formatDate(invoice.invoiceDate)}</span>
+                <span data-testid="text-invoice-date">{formatDate(invoice.invoiceDate.toString())}</span>
               </div>
             </div>
             <div className="space-y-2 text-sm">
@@ -731,7 +735,7 @@ export default function InvoiceView() {
             <h4 className="font-semibold mb-1">Shipping Info</h4>
             <div className="flex justify-between">
               <span className="font-medium">Ship Date:</span>
-              <span data-testid="text-ship-date">{invoice.dueDate ? formatDate(invoice.dueDate) : formatDate(invoice.invoiceDate)}</span>
+              <span data-testid="text-ship-date">{invoice.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice.invoiceDate.toString())}</span>
             </div>
           </div>
         </div>
