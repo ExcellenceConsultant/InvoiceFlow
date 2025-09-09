@@ -227,24 +227,32 @@ export default function InvoiceView() {
 
   const handleGeneratePDF = async () => {
     try {
-      // Create PDF with A4 dimensions (210mm x 297mm)
+      // Step 1: A4 Layout Setup - Exact specifications
       const pdf = new jsPDF({
         orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
+        unit: 'mm',           // Use millimeters as primary unit
+        format: 'a4',         // A4 format: 210mm x 297mm
         compress: true
       });
 
-      // A4 dimensions in mm
-      const pageWidth = 210;
-      const pageHeight = 297;
+      // A4 paper dimensions in millimeters
+      const pageWidth = 210;   // A4 width in mm
+      const pageHeight = 297;  // A4 height in mm
       
-      // Content area as specified
-      const contentArea = {
-        x: 20, // Left margin
-        y: 50, // Top margin  
-        width: 170, // 210 - 20 - 20
-        height: 207 // 297 - 50 - 40
+      // Margins in millimeters
+      const margins = {
+        top: 50,     // Top margin: 50mm
+        bottom: 40,  // Bottom margin: 40mm  
+        left: 20,    // Left margin: 20mm
+        right: 20    // Right margin: 20mm
+      };
+      
+      // Safe content area as specified
+      const safeContentArea = {
+        x: 20,       // Origin X: 20mm (left margin)
+        y: 50,       // Origin Y: 50mm (top margin)
+        width: 170,  // Width: 170mm (210 - 20 - 20)
+        height: 207  // Height: 207mm (297 - 50 - 40)
       };
 
       // Calculate line items pagination
@@ -258,8 +266,9 @@ export default function InvoiceView() {
           pdf.addPage();
         }
 
-        // No letterhead background - will be printed on pre-printed letterhead
-        let currentY = contentArea.y;
+        // No company header/footer graphics - will be printed on pre-printed letterhead
+        // All content must stay within safe content area bounds
+        let currentY = safeContentArea.y;
 
         if (pageNum <= totalPages) {
           // Line items pages
@@ -267,18 +276,18 @@ export default function InvoiceView() {
           // Invoice Details Section (appears on every page)
           pdf.setFontSize(16);
           pdf.setFont('helvetica', 'bold');
-          pdf.text('INVOICE', contentArea.x, currentY);
-          pdf.text(`Page : ${pageNum} of ${summaryPage}`, contentArea.x + contentArea.width - 40, currentY, { align: 'right' });
+          pdf.text('INVOICE', safeContentArea.x, currentY);
+          pdf.text(`Page : ${pageNum} of ${summaryPage}`, safeContentArea.x + safeContentArea.width - 40, currentY, { align: 'right' });
           currentY += 10;
 
           // Customer and Invoice Details Section
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'bold');
           
-          // Column headers
-          const col1X = contentArea.x;
-          const col2X = contentArea.x + 56;
-          const col3X = contentArea.x + 112;
+          // Column headers - positioned within safe content area
+          const col1X = safeContentArea.x;
+          const col2X = safeContentArea.x + 56;
+          const col3X = safeContentArea.x + 112;
           
           pdf.text('Bill To', col1X, currentY);
           pdf.text('Ship To', col2X, currentY);
@@ -320,13 +329,13 @@ export default function InvoiceView() {
             currentY += 10;
           }
 
-          // Table headers (repeat on every page)
+          // Table headers (repeat on every page) - within safe content area
           const tableStartY = currentY;
           const colWidths = [20, 25, 25, 50, 25, 35, 25]; // Column widths in mm
-          let xPos = contentArea.x;
+          let xPos = safeContentArea.x;
           
           pdf.setFillColor(240, 240, 240);
-          pdf.rect(contentArea.x, tableStartY, contentArea.width, 10, 'F');
+          pdf.rect(safeContentArea.x, tableStartY, safeContentArea.width, 10, 'F');
           
           pdf.setFontSize(8);
           pdf.setFont('helvetica', 'bold');
@@ -342,8 +351,8 @@ export default function InvoiceView() {
             xPos += colWidths[index];
           });
           
-          // Draw table border
-          pdf.rect(contentArea.x, tableStartY, contentArea.width, 10);
+          // Draw table border - within safe content area
+          pdf.rect(safeContentArea.x, tableStartY, safeContentArea.width, 10);
           currentY = tableStartY + 10;
 
           // Add line items for this page
@@ -354,7 +363,7 @@ export default function InvoiceView() {
           
           for (let i = startIndex; i < endIndex; i++) {
             const item = lineItems[i];
-            xPos = contentArea.x;
+            xPos = safeContentArea.x;
             
             const rowData = [
               (i + 1).toString(),
@@ -380,8 +389,8 @@ export default function InvoiceView() {
               xPos += colWidths[colIndex];
             });
             
-            // Draw row border
-            pdf.rect(contentArea.x, currentY, contentArea.width, rowHeight);
+            // Draw row border - within safe content area
+            pdf.rect(safeContentArea.x, currentY, safeContentArea.width, rowHeight);
             currentY += rowHeight;
           }
 
@@ -404,20 +413,20 @@ export default function InvoiceView() {
           ];
           
           summaryData.forEach(([label, colon, value]) => {
-            pdf.text(label, contentArea.x, currentY);
-            pdf.text(colon, contentArea.x + 50, currentY);
-            pdf.text(value, contentArea.x + 55, currentY);
+            pdf.text(label, safeContentArea.x, currentY);
+            pdf.text(colon, safeContentArea.x + 50, currentY);
+            pdf.text(value, safeContentArea.x + 55, currentY);
             currentY += 6;
           });
           
           currentY += 10;
           
-          // Amount in words
+          // Amount in words - within safe content area
           pdf.setFont('helvetica', 'bold');
-          pdf.text('Amount In Words :', contentArea.x, currentY);
+          pdf.text('Amount In Words :', safeContentArea.x, currentY);
           currentY += 5;
           pdf.setFont('helvetica', 'normal');
-          pdf.text(numberToWords(parseFloat(invoice.total)), contentArea.x, currentY);
+          pdf.text(numberToWords(parseFloat(invoice.total)), safeContentArea.x, currentY);
           currentY += 15;
 
           // Terms and conditions
@@ -434,24 +443,24 @@ export default function InvoiceView() {
           ];
           
           terms.forEach(term => {
-            pdf.text(term, contentArea.x, currentY);
+            pdf.text(term, safeContentArea.x, currentY);
             currentY += 4;
           });
           
           currentY += 10;
 
-          // Signature lines
+          // Signature lines - within safe content area
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
-          pdf.text('Received By (Name) : _____________', contentArea.x, currentY);
+          pdf.text('Received By (Name) : _____________', safeContentArea.x, currentY);
           currentY += 6;
-          pdf.text('Total Pallets      : _____________', contentArea.x, currentY);
+          pdf.text('Total Pallets      : _____________', safeContentArea.x, currentY);
           currentY += 15;
 
-          // Company name
+          // Company name - within safe content area
           pdf.setFontSize(12);
           pdf.setFont('helvetica', 'bold');
-          pdf.text('Kitchen Xpress Overseas Inc.', contentArea.x, currentY);
+          pdf.text('Kitchen Xpress Overseas Inc.', safeContentArea.x, currentY);
         }
       }
 
