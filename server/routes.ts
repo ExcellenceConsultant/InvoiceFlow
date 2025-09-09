@@ -155,7 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(product);
     } catch (error) {
       console.error("Product creation error:", error);
-      res.status(500).json({ message: "Failed to create product", error: error.message });
+      const err = error as any;
+      res.status(500).json({ message: "Failed to create product", error: err.message });
     }
   });
 
@@ -344,7 +345,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ invoice: createdInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice creation error:", error);
-      res.status(500).json({ message: "Failed to create invoice", error: error.message });
+      const err = error as any;
+      res.status(500).json({ message: "Failed to create invoice", error: err.message });
     }
   });
 
@@ -388,10 +390,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      const user = await storage.getUser(customer.userId!);
+      let user = await storage.getUser(customer.userId!);
       if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
+
+      // Ensure tokens are valid and refresh if needed
+      user = await ensureValidTokens(user);
 
       // Step 1: Try to find existing customer by DisplayName
       console.log(`Attempting to sync customer: "${customer.name}"`);
@@ -399,8 +404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let qbCustomer;
       try {
         qbCustomer = await quickBooksService.findCustomerByDisplayName(
-          user.quickbooksAccessToken,
-          user.quickbooksCompanyId,
+          user.quickbooksAccessToken!,
+          user.quickbooksCompanyId!,
           customer.name
         );
         
@@ -429,8 +434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         try {
           qbCustomer = await quickBooksService.createCustomer(
-            user.quickbooksAccessToken,
-            user.quickbooksCompanyId,
+            user.quickbooksAccessToken!,
+            user.quickbooksCompanyId!,
             qbCustomerData
           );
           
@@ -460,11 +465,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: qbCustomer.Name === customer.name ? 'found' : 'created',
         displayName: qbCustomer.DisplayName
       });
-    } catch (error: any) {
-      console.error("QuickBooks customer sync error:", error.response?.data || error.message);
-      console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
-      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || 
-                          error.response?.data?.Fault?.Error?.[0]?.code || 
+    } catch (error: unknown) {
+      const err = error as any;
+      console.error("QuickBooks customer sync error:", err.response?.data || err.message);
+      console.error("Full error details:", JSON.stringify(err.response?.data, null, 2));
+      const errorMessage = err.response?.data?.Fault?.Error?.[0]?.Detail || 
+                          err.response?.data?.Fault?.Error?.[0]?.code || 
                           "Failed to sync customer with QuickBooks";
       res.status(500).json({ message: errorMessage });
     }
@@ -477,10 +483,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Product not found" });
       }
 
-      const user = await storage.getUser(product.userId!);
+      let user = await storage.getUser(product.userId!);
       if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
+
+      // Ensure tokens are valid and refresh if needed
+      user = await ensureValidTokens(user);
 
       // Create unique name to avoid conflicts
       const timestamp = Date.now();
@@ -490,8 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const qbItem = await quickBooksService.createItem(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
+        user.quickbooksAccessToken!,
+        user.quickbooksCompanyId!,
         qbItemData
       );
 
@@ -501,12 +510,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ success: true, quickbooksItemId: qbItem.Id });
-    } catch (error: any) {
-      console.error("QuickBooks product sync error:", error.response?.data || error.message);
-      const errorMessage = error.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync product with QuickBooks";
+    } catch (error: unknown) {
+      const err = error as any;
+      console.error("QuickBooks product sync error:", err.response?.data || err.message);
+      const errorMessage = err.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync product with QuickBooks";
       res.status(500).json({ message: errorMessage });
     }
   });
+
+  // Helper function to ensure valid QuickBooks tokens
+  async function ensureValidTokens(user: any) {
+    if (!user.quickbooksRefreshToken) {
+      throw new Error("No refresh token available. Please reconnect to QuickBooks.");
+    }
+
+    // Check if token is expired (expires in 1 hour, refresh if less than 5 minutes left)
+    const tokenExpiry = user.quickbooksTokenExpiry ? new Date(user.quickbooksTokenExpiry) : new Date(0);
+    const now = new Date();
+    const timeUntilExpiry = tokenExpiry.getTime() - now.getTime();
+    const fiveMinutes = 5 * 60 * 1000;
+
+    if (timeUntilExpiry < fiveMinutes) {
+      console.log('QuickBooks token expired or expiring soon, refreshing...');
+      try {
+        const refreshedTokens = await quickBooksService.refreshAccessToken(user.quickbooksRefreshToken);
+        
+        // Update user with new tokens
+        const expiryTime = new Date(now.getTime() + (3600 * 1000)); // 1 hour from now
+        await storage.updateUser(user.id, {
+          quickbooksAccessToken: refreshedTokens.accessToken,
+          quickbooksRefreshToken: refreshedTokens.refreshToken,
+          quickbooksTokenExpiry: expiryTime,
+        });
+
+        console.log('QuickBooks tokens refreshed successfully');
+        return {
+          ...user,
+          quickbooksAccessToken: refreshedTokens.accessToken,
+          quickbooksRefreshToken: refreshedTokens.refreshToken,
+          quickbooksTokenExpiry: expiryTime,
+        };
+      } catch (tokenError) {
+        console.error('Failed to refresh QuickBooks tokens:', tokenError);
+        throw new Error("QuickBooks token refresh failed. Please reconnect to QuickBooks.");
+      }
+    }
+
+    return user;
+  }
 
   app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
     try {
@@ -515,10 +566,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invoice not found" });
       }
 
-      const user = await storage.getUser(invoice.userId!);
+      let user = await storage.getUser(invoice.userId!);
       if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
+
+      // Ensure tokens are valid and refresh if needed
+      user = await ensureValidTokens(user);
 
       // Check invoice type to determine if it's AR or AP
       const invoiceType = (invoice as any).invoiceType || 'receivable'; // Default to receivable for backward compatibility
@@ -534,16 +588,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid invoice type. Must be 'receivable' or 'payable'" });
       }
 
-    } catch (error: any) {
-      console.error("QuickBooks invoice sync error:", error.response?.data || error.message);
-      console.error("Full error details:", JSON.stringify(error.response?.data, null, 2));
+    } catch (error: unknown) {
+      const err = error as any;
+      console.error("QuickBooks invoice sync error:", err.response?.data || err.message);
+      console.error("Full error details:", JSON.stringify(err.response?.data, null, 2));
       
       // Extract detailed error information
       let errorMessage = "Failed to sync invoice to QuickBooks";
       let fullErrorDetails = null;
       
-      if (error.response?.data?.Fault?.Error?.[0]) {
-        const qbError = error.response.data.Fault.Error[0];
+      if (err.response?.data?.Fault?.Error?.[0]) {
+        const qbError = err.response.data.Fault.Error[0];
         
         errorMessage = qbError.Detail || qbError.code || errorMessage;
         fullErrorDetails = {
@@ -802,7 +857,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAccounts: formattedAccounts.length,
         accounts: formattedAccounts
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       console.error("Error fetching QuickBooks accounts:", error);
       res.status(500).json({ message: "Failed to fetch QuickBooks accounts" });
     }

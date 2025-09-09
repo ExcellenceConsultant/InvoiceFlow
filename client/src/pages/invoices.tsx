@@ -209,7 +209,13 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleSyncToQuickBooks = (invoiceId: string) => {
+  const handleSyncToQuickBooks = (invoiceId: string, event?: React.MouseEvent) => {
+    // Prevent event propagation to avoid triggering bulk sync
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    console.log('Syncing individual invoice:', invoiceId);
     syncToQuickBooksMutation.mutate(invoiceId);
   };
 
@@ -227,7 +233,12 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     bulkSyncMutation.mutate(invoiceIds);
   };
 
-  const handleDeleteInvoice = (invoiceId: string) => {
+  const handleDeleteInvoice = (invoiceId: string, event?: React.MouseEvent) => {
+    // Prevent event propagation
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (confirm("Are you sure you want to delete this invoice? This action cannot be undone.")) {
       deleteInvoiceMutation.mutate(invoiceId);
     }
@@ -426,7 +437,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 text-primary hover:text-primary"
-                              onClick={() => handleSyncToQuickBooks(invoice.id)}
+                              onClick={(e) => handleSyncToQuickBooks(invoice.id, e)}
                               disabled={syncToQuickBooksMutation.isPending}
                               data-testid={`button-sync-quickbooks-${invoice.id}`}
                               title="Post journal entry to QuickBooks (Debit AR, Credit Sales)"
@@ -438,7 +449,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            onClick={(e) => handleDeleteInvoice(invoice.id, e)}
                             disabled={deleteInvoiceMutation.isPending}
                             data-testid={`button-delete-invoice-${invoice.id}`}
                           >
