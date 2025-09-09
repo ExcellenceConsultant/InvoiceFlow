@@ -153,7 +153,7 @@ export default function Inventory() {
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i] as any[];
           if (row && row.length >= 7) {
-            // Expected format: Packing Type, Qty, G.W., N.W., Item Code, Category, Technical Name/Custom Name
+            // Expected format: Product Name, Item Code, Packing Size, Category, Base Price, Gross Weight, Net Weight
             const cleanString = (value: any) => {
               if (!value || value === undefined || value === null) return null;
               const str = String(value).trim();
@@ -167,18 +167,18 @@ export default function Inventory() {
             };
 
             const product = {
-              name: cleanString(row[6]) || 'Unnamed Product', // Technical Name/Custom Name
-              basePrice: cleanNumber(row[1]), // Qty (using as base price)
-              packingType: cleanString(row[0]), // Packing Type
-              grossWeightKgs: cleanString(row[2]), // G.W.
-              netWeightKgs: cleanString(row[3]), // N.W.
-              itemCode: cleanString(row[4]), // Item Code
-              category: cleanString(row[5]) || 'Imported', // Category
+              name: cleanString(row[0]) || 'Unnamed Product', // Product Name
+              itemCode: cleanString(row[1]), // Item Code
+              packingType: cleanString(row[2]), // Packing Size
+              category: cleanString(row[3]) || 'Imported', // Category
+              basePrice: cleanNumber(row[4]), // Base Price
+              grossWeightKgs: cleanString(row[5]), // Gross Weight
+              netWeightKgs: cleanString(row[6]), // Net Weight
               description: 'Imported from Excel',
             };
             
             // Validate that required fields are not empty
-            if (product.name && product.name !== 'Unnamed Product' && product.basePrice) {
+            if (product.name && product.name !== 'Unnamed Product' && product.basePrice && product.basePrice !== '0.00') {
               products.push(product);
             }
           }
