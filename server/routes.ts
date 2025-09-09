@@ -626,33 +626,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const lineItems = await storage.getInvoiceLineItems(invoice.id);
     const totalAmount = lineItems.reduce((sum: number, item: any) => sum + parseFloat(item.lineTotal), 0);
     
-    // Create Journal Entry data with proper QuickBooks API format
+    // Create Journal Entry data with correct QuickBooks API format
     const journalEntryData = {
       TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-      PrivateNote: `Journal Entry for AR Invoice ${invoice.invoiceNumber} - Total: $${totalAmount.toFixed(2)}`,
+      PrivateNote: `JE for Invoice #${invoice.invoiceNumber}`,
       Line: [
         // Debit Cost of Goods Sold
         {
-          DetailType: "JournalEntryLineDetail",
+          Id: "0",
+          Description: "COGS entry for Invoice",
           Amount: totalAmount,
+          DetailType: "JournalEntryLineDetail",
           JournalEntryLineDetail: {
             PostingType: "Debit",
-            AccountRef: { 
-              value: "173"
-            },
-            Description: `COGS - Invoice ${invoice.invoiceNumber}`
+            AccountRef: {
+              value: "173",
+              name: "Cost of Goods Sold"
+            }
           }
         },
         // Credit Sales
         {
-          DetailType: "JournalEntryLineDetail", 
+          Id: "1", 
+          Description: "Sales entry for Invoice",
           Amount: totalAmount,
+          DetailType: "JournalEntryLineDetail",
           JournalEntryLineDetail: {
             PostingType: "Credit",
-            AccountRef: { 
-              value: "135"
-            },
-            Description: `Sales - Invoice ${invoice.invoiceNumber}`
+            AccountRef: {
+              value: "135",
+              name: "Sales of Product Income"
+            }
           }
         }
       ]
