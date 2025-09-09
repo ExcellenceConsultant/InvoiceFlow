@@ -122,15 +122,28 @@ export default function InvoiceView() {
           page-break-inside: avoid;
         }
         
-        /* Smart page breaks for footer */
-        .page-break-before {
+        /* Smart page breaks for summary and footer */
+        .summary-page-break {
           page-break-before: auto;
         }
         
-        /* Force footer to new page if content is long */
+        .footer-page-break {
+          page-break-before: auto;
+        }
+        
+        /* Force proper page breaks for multi-page invoices */
         @media print {
-          .page-break-before {
+          .summary-page-break {
             page-break-before: always;
+          }
+          
+          .footer-page-break {
+            page-break-before: always;
+          }
+          
+          /* Ensure line items can break across pages */
+          .line-items-container {
+            page-break-inside: auto;
           }
         }
         
@@ -434,7 +447,7 @@ export default function InvoiceView() {
       </div>
 
       <div className="print-customer-header hidden print:block">
-        <div className="grid grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-2 gap-4 text-xs">
           {/* Bill To */}
           <div>
             <h3 className="font-semibold mb-1">Bill To</h3>
@@ -466,23 +479,6 @@ export default function InvoiceView() {
             </div>
           </div>
 
-          {/* Invoice Details */}
-          <div>
-            <div className="space-y-0">
-              <div className="flex justify-between">
-                <span className="font-medium">Invoice No:</span>
-                <span>{invoice.invoiceNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium">Invoice Date:</span>
-                <span>{formatDate(invoice.invoiceDate)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium">Payment Term:</span>
-                <span>Net 30</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -496,8 +492,8 @@ export default function InvoiceView() {
           <p className="text-right text-sm mt-2 page-number" data-testid="text-page-number">Page: 1 of 1</p>
         </div>
 
-        {/* Main Info Section - Hide on print since we have fixed headers */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 print:gap-4 print:mb-6 print:hidden">
+        {/* Main Info Section - Horizontal layout for Bill To and Ship To */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:gap-4 print:mb-6 print:hidden">
           {/* Bill To */}
           <div>
             <h3 className="font-semibold mb-2 text-sm" data-testid="text-bill-to-header">Bill To</h3>
@@ -529,8 +525,11 @@ export default function InvoiceView() {
             </div>
           </div>
 
-          {/* Invoice Details */}
-          <div>
+        </div>
+
+        {/* Invoice Details Section - Separate row */}
+        <div className="mb-8 print:mb-6 print:hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="font-medium">Invoice No:</span>
@@ -540,6 +539,8 @@ export default function InvoiceView() {
                 <span className="font-medium">Invoice Date:</span>
                 <span data-testid="text-invoice-date">{formatDate(invoice.invoiceDate)}</span>
               </div>
+            </div>
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="font-medium">Purchase Order No:</span>
                 <span data-testid="text-po-number">-</span>
@@ -548,19 +549,19 @@ export default function InvoiceView() {
                 <span className="font-medium">Payment Term:</span>
                 <span data-testid="text-payment-term">Net 30</span>
               </div>
-              <div className="mt-4">
-                <h4 className="font-semibold mb-1">Shipping Info</h4>
-                <div className="flex justify-between">
-                  <span className="font-medium">Ship Date:</span>
-                  <span data-testid="text-ship-date">{invoice.dueDate ? formatDate(invoice.dueDate) : formatDate(invoice.invoiceDate)}</span>
-                </div>
-              </div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <h4 className="font-semibold mb-1">Shipping Info</h4>
+            <div className="flex justify-between">
+              <span className="font-medium">Ship Date:</span>
+              <span data-testid="text-ship-date">{invoice.dueDate ? formatDate(invoice.dueDate) : formatDate(invoice.invoiceDate)}</span>
             </div>
           </div>
         </div>
 
         {/* Items Table */}
-        <div className="border border-gray-300 print:border-black">
+        <div className="line-items-container border border-gray-300 print:border-black">
           {/* Table Header */}
           <div className="grid grid-cols-9 bg-gray-50 print:bg-white border-b border-gray-300 print:border-black">
             <div className="p-2 border-r border-gray-300 print:border-black text-center text-xs font-semibold" data-testid="header-sr-no">
@@ -645,7 +646,7 @@ export default function InvoiceView() {
         </div>
 
         {/* Summary Table - After line items */}
-        <div className="summary-section border border-gray-300 print:border-black mt-0">
+        <div className="summary-section summary-page-break border border-gray-300 print:border-black mt-0">
           <div className="grid grid-cols-2">
             {/* Left Column */}
             <div className="border-r border-gray-300 print:border-black">
@@ -702,7 +703,7 @@ export default function InvoiceView() {
         </div>
 
         {/* Terms and Conditions - Smart page break */}
-        <div className="mt-4 text-xs text-gray-700 print:text-black page-break-before">
+        <div className="mt-4 text-xs text-gray-700 print:text-black footer-page-break">
           <p className="mb-2">
             <strong>1.</strong> All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes 
             related hereto shall be adjudicated exclusively in the state or federal courts located in Pennsylvania.
