@@ -169,6 +169,31 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     },
   });
 
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await apiRequest("DELETE", `/api/invoices/${invoiceId}`, {});
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete invoice");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Success",
+        description: "Invoice deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredInvoices = invoices?.filter((invoice: any) => {
     const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
@@ -200,6 +225,12 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     
     const invoiceIds = unsyncedInvoices.map((invoice: any) => invoice.id);
     bulkSyncMutation.mutate(invoiceIds);
+  };
+
+  const handleDeleteInvoice = (invoiceId: string) => {
+    if (confirm("Are you sure you want to delete this invoice? This action cannot be undone.")) {
+      deleteInvoiceMutation.mutate(invoiceId);
+    }
   };
 
   return (
@@ -407,6 +438,8 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            disabled={deleteInvoiceMutation.isPending}
                             data-testid={`button-delete-invoice-${invoice.id}`}
                           >
                             <Trash2 size={14} />

@@ -343,6 +343,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/invoices/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteInvoice(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
   app.post("/api/customers/:id/sync-quickbooks", async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
