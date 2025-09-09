@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import type { Invoice, Customer, InvoiceLineItem } from "@shared/schema";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function InvoiceView() {
   const { id } = useParams();
@@ -176,6 +178,115 @@ export default function InvoiceView() {
     document.head.appendChild(style);
   };
 
+  const handleGeneratePDF = async () => {
+    try {
+      // Create PDF with A4 dimensions (210mm x 297mm)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // A4 dimensions in mm
+      const pageWidth = 210;
+      const pageHeight = 297;
+      
+      // Content area as specified
+      const contentArea = {
+        x: 20, // Left margin
+        y: 50, // Top margin  
+        width: 170, // 210 - 20 - 20
+        height: 207 // 297 - 50 - 40
+      };
+
+      // Add letterhead background (placeholder for now)
+      // TODO: Replace with actual letterhead template
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      
+      // Add company header area (placeholder)
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(0, 0, pageWidth, 50, 'F');
+      
+      // Add footer area (placeholder)
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(0, 257, pageWidth, 40, 'F');
+
+      // Get invoice content element
+      const invoiceElement = document.querySelector('.invoice-pdf-content');
+      if (!invoiceElement) {
+        throw new Error('Invoice content not found');
+      }
+
+      // Capture the invoice content as canvas
+      const canvas = await html2canvas(invoiceElement as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+
+      // Calculate scaling to fit within content area
+      const imgWidth = contentArea.width;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Add content to PDF within safe area
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg', 0.95),
+        'JPEG',
+        contentArea.x,
+        contentArea.y,
+        imgWidth,
+        Math.min(imgHeight, contentArea.height)
+      );
+
+      // If content is too long, add additional pages
+      if (imgHeight > contentArea.height) {
+        let remainingHeight = imgHeight - contentArea.height;
+        let currentY = contentArea.y;
+        
+        while (remainingHeight > 0) {
+          pdf.addPage();
+          
+          // Add letterhead background to new page
+          pdf.setFillColor(255, 255, 255);
+          pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+          
+          pdf.setFillColor(240, 240, 240);
+          pdf.rect(0, 0, pageWidth, 50, 'F');
+          pdf.rect(0, 257, pageWidth, 40, 'F');
+          
+          const nextHeight = Math.min(remainingHeight, contentArea.height);
+          currentY += contentArea.height;
+          
+          // Add next portion of content
+          pdf.addImage(
+            canvas.toDataURL('image/jpeg', 0.95),
+            'JPEG',
+            contentArea.x,
+            contentArea.y,
+            imgWidth,
+            nextHeight,
+            '',
+            'NONE',
+            0,
+            -currentY
+          );
+          
+          remainingHeight -= nextHeight;
+        }
+      }
+
+      // Save the PDF
+      const fileName = `Invoice_${invoice.invoiceNumber}.pdf`;
+      pdf.save(fileName);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    }
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -272,10 +383,16 @@ export default function InvoiceView() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Invoices
         </Button>
-        <Button onClick={handlePrint} data-testid="button-print-invoice">
-          <Printer className="w-4 h-4 mr-2" />
-          Print Invoice
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} data-testid="button-print-invoice">
+            <Printer className="w-4 h-4 mr-2" />
+            Print Invoice
+          </Button>
+          <Button onClick={handleGeneratePDF} variant="outline" data-testid="button-generate-pdf">
+            <Download className="w-4 h-4 mr-2" />
+            Generate PDF
+          </Button>
+        </div>
       </div>
 
       {/* Print-only headers that repeat on every page */}
@@ -343,7 +460,7 @@ export default function InvoiceView() {
       </div>
 
       {/* Invoice content */}
-      <div className="invoice-content max-w-4xl mx-auto bg-white p-8 print:p-6 print:max-w-full print:mx-0">
+      <div className="invoice-content invoice-pdf-content max-w-4xl mx-auto bg-white p-8 print:p-6 print:max-w-full print:mx-0">
         {/* Company Header - Only for AR invoices - Screen only */}
         {invoice.invoiceType === "receivable" && (
           <div className="text-center mb-6 print:mb-4 print:hidden">
