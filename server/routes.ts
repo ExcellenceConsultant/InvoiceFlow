@@ -626,10 +626,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const lineItems = await storage.getInvoiceLineItems(invoice.id);
     const totalAmount = lineItems.reduce((sum: number, item: any) => sum + parseFloat(item.lineTotal), 0);
     
-    // Create Journal Entry data with proper accounting
+    // Create Journal Entry data with proper QuickBooks API format
     const journalEntryData = {
       TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-      DocNumber: invoice.invoiceNumber,
       PrivateNote: `Journal Entry for AR Invoice ${invoice.invoiceNumber} - Total: $${totalAmount.toFixed(2)}`,
       Line: [
         // Debit Cost of Goods Sold
@@ -639,8 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           JournalEntryLineDetail: {
             PostingType: "Debit",
             AccountRef: { 
-              value: "173", 
-              name: "Cost of Goods Sold" 
+              value: "173"
             },
             Description: `COGS - Invoice ${invoice.invoiceNumber}`
           }
@@ -652,8 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           JournalEntryLineDetail: {
             PostingType: "Credit",
             AccountRef: { 
-              value: "135", 
-              name: "Sales" 
+              value: "135"
             },
             Description: `Sales - Invoice ${invoice.invoiceNumber}`
           }

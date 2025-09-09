@@ -409,43 +409,6 @@ export class QuickBooksService {
     }
   }
 
-  async createJournalEntry(
-    accessToken: string,
-    companyId: string,
-    journalEntryData: any
-  ): Promise<any> {
-    try {
-      console.log('Posting Journal Entry to QuickBooks:', JSON.stringify(journalEntryData, null, 2));
-      
-      const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/journalentry`,
-        journalEntryData,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-        }
-      );
-
-      console.log('QuickBooks Journal Entry created successfully:', response.data);
-      return response.data.QueryResponse?.JournalEntry?.[0];
-    } catch (error: any) {
-      console.error('QuickBooks journal entry creation failed:', error.response?.data || error.message);
-      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
-      
-      // Preserve the original error structure for better error handling
-      if (error.response) {
-        const enhancedError = new Error('Failed to create journal entry in QuickBooks');
-        (enhancedError as any).response = error.response;
-        throw enhancedError;
-      }
-      
-      throw new Error('Failed to create journal entry in QuickBooks');
-    }
-  }
-
   async getAccounts(accessToken: string, companyId: string): Promise<any> {
     try {
       const response = await axios.get(
@@ -600,6 +563,43 @@ export class QuickBooksService {
       console.error('QuickBooks customer search failed:', error.response?.data || error.message);
       console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
       return null; // Return null instead of throwing to handle gracefully
+    }
+  }
+
+  async createJournalEntry(
+    accessToken: string,
+    companyId: string,
+    journalEntryData: any
+  ): Promise<any> {
+    try {
+      console.log('Posting Journal Entry to QuickBooks:', JSON.stringify(journalEntryData, null, 2));
+      
+      const response = await axios.post(
+        `${this.sandboxBaseUrl}/v3/company/${companyId}/journalentry`,
+        journalEntryData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      console.log('QuickBooks Journal Entry Response:', JSON.stringify(response.data, null, 2));
+      return response.data.JournalEntry || response.data.QueryResponse?.JournalEntry?.[0];
+    } catch (error: any) {
+      console.error('QuickBooks journal entry creation failed:', error.response?.data || error.message);
+      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
+      
+      // Preserve the original error structure for better error handling
+      if (error.response) {
+        const enhancedError = new Error('Failed to create journal entry in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
+      throw new Error('Failed to create journal entry in QuickBooks');
     }
   }
 
