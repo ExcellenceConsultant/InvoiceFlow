@@ -52,6 +52,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
     }
   ]);
   const [showSchemeItems, setShowSchemeItems] = useState<{ [key: number]: any[] }>({});
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -428,10 +429,26 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <label className="text-sm font-medium text-foreground">Invoice Items</label>
-                  <Button type="button" variant="outline" size="sm" onClick={addLineItem} data-testid="button-add-line-item">
-                    <Plus className="mr-1" size={14} />
-                    Add Item
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">Filter by Category:</label>
+                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="w-32 h-8" data-testid="select-category-filter">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {Array.from(new Set(products?.map((p: any) => p.category).filter(Boolean))).map((category: string) => (
+                            <SelectItem key={category} value={category}>{category}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={addLineItem} data-testid="button-add-line-item">
+                      <Plus className="mr-1" size={14} />
+                      Add Item
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="space-y-3">
@@ -475,15 +492,23 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                             <SelectContent>
                               {productsLoading ? (
                                 <SelectItem value="loading" disabled>Loading products...</SelectItem>
-                              ) : products && products.length > 0 ? (
-                                products.map((product: any) => (
-                                  <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
-                                    {product.name} - {product.itemCode || 'No Code'}
+                              ) : (() => {
+                                const filteredProducts = categoryFilter === "all" 
+                                  ? products 
+                                  : products?.filter((product: any) => product.category === categoryFilter);
+                                
+                                return filteredProducts && filteredProducts.length > 0 ? (
+                                  filteredProducts.map((product: any) => (
+                                    <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
+                                      {product.name} - {product.itemCode || 'No Code'} ({product.category})
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="no-products" disabled>
+                                    {categoryFilter === "all" ? "No products available" : `No products in "${categoryFilter}" category`}
                                   </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-products" disabled>No products available</SelectItem>
-                              )}
+                                );
+                              })()}
                             </SelectContent>
                           </Select>
                         </div>
