@@ -125,11 +125,28 @@ export default function Inventory() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!validExtensions.includes(fileExtension)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a valid Excel file (.xlsx, .xls, or .csv)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Processing file:', file.name, 'Size:', file.size, 'Type:', file.type);
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        console.log('File read successfully, size:', data.length);
+        
         const workbook = XLSX.read(data, { type: 'array' });
+        console.log('Workbook parsed. Sheet names:', workbook.SheetNames);
         
         // Get first worksheet
         const sheetName = workbook.SheetNames[0];
@@ -137,23 +154,29 @@ export default function Inventory() {
         
         // Convert to JSON
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        console.log('JSON data extracted:', jsonData.length, 'rows');
+        console.log('First few rows:', jsonData.slice(0, 3));
         
         if (jsonData.length < 2) {
           toast({
             title: "Invalid File",
-            description: "Excel file must contain header row and data rows",
+            description: `Excel file must contain header row and data rows. Found ${jsonData.length} rows.`,
             variant: "destructive",
           });
           return;
         }
 
         const headers = jsonData[0] as string[];
+        console.log('Headers found:', headers);
         const products = [];
+        let skippedRows = 0;
 
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i] as any[];
-          if (row && row.length >= 7) {
-            // Expected format: Product Name, Item Code, Packing Size, Category, Base Price, Gross Weight, Net Weight
+          console.log(`Processing row ${i}:`, row);
+          
+          if (row && row.filter(cell => cell !== null && cell !== undefined && cell !== '').length >= 3) {
+            // More flexible: require at least 3 non-empty columns instead of exactly 7
             const cleanString = (value: any) => {
               if (!value || value === undefined || value === null) return null;
               const str = String(value).trim();
@@ -167,35 +190,51 @@ export default function Inventory() {
             };
 
             const product = {
-              name: cleanString(row[0]) || 'Unnamed Product', // Product Name
-              itemCode: cleanString(row[1]), // Item Code
-              packingType: cleanString(row[2]), // Packing Size
+              name: cleanString(row[0]) || `Product ${i}`, // Product Name
+              itemCode: cleanString(row[1]) || null, // Item Code
+              packingType: cleanString(row[2]) || null, // Packing Size
               category: cleanString(row[3]) || 'Imported', // Category
               basePrice: cleanNumber(row[4]), // Base Price
-              grossWeightKgs: cleanString(row[5]), // Gross Weight
-              netWeightKgs: cleanString(row[6]), // Net Weight
+              grossWeightKgs: cleanString(row[5]) || null, // Gross Weight
+              netWeightKgs: cleanString(row[6]) || null, // Net Weight
               description: 'Imported from Excel',
             };
             
-            // Validate that required fields are not empty
-            if (product.name && product.name !== 'Unnamed Product' && product.basePrice && product.basePrice !== '0.00') {
+            console.log(`Parsed product for row ${i}:`, product);
+            
+            // More lenient validation: just require a name and any price > 0
+            if (product.name && product.name !== `Product ${i}` && parseFloat(product.basePrice) > 0) {
               products.push(product);
+            } else {
+              console.log(`Skipping row ${i} - validation failed:`, {
+                hasName: !!product.name && product.name !== `Product ${i}`,
+                hasValidPrice: parseFloat(product.basePrice) > 0,
+                product
+              });
+              skippedRows++;
             }
+          } else {
+            console.log(`Skipping row ${i} - insufficient data:`, row);
+            skippedRows++;
           }
         }
 
-        console.log('Parsed products from Excel:', products);
+        console.log('Processing complete:', {
+          totalRows: jsonData.length - 1,
+          validProducts: products.length,
+          skippedRows
+        });
         
         if (products.length > 0) {
           toast({
             title: "Processing Import",
-            description: `Found ${products.length} products. Starting import...`,
+            description: `Found ${products.length} valid products${skippedRows > 0 ? `, skipped ${skippedRows} rows` : ''}. Starting import...`,
           });
           importExcelMutation.mutate(products);
         } else {
           toast({
             title: "No Valid Data",
-            description: "No valid products found in Excel file. Please check the format.",
+            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Item Code, Packing Size, Category, Base Price, Gross Weight, Net Weight`,
             variant: "destructive",
           });
         }
@@ -203,11 +242,21 @@ export default function Inventory() {
         console.error('Excel parsing error:', error);
         toast({
           title: "Parse Error",
-          description: "Failed to parse Excel file. Please ensure it's a valid .xlsx file.",
+          description: `Failed to parse Excel file: ${error.message || 'Unknown error'}. Please ensure it's a valid Excel file.`,
           variant: "destructive",
         });
       }
     };
+    
+    reader.onerror = (error) => {
+      console.error('File reading error:', error);
+      toast({
+        title: "File Read Error",
+        description: "Failed to read the uploaded file. Please try again.",
+        variant: "destructive",
+      });
+    };
+    
     reader.readAsArrayBuffer(file);
     
     // Reset the file input
