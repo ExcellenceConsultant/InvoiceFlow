@@ -572,17 +572,21 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
                       {/* Scheme items */}
                       {showSchemeItems[index] && (
-                        <div className="ml-4 mt-2">
+                        <div className="ml-4 mt-2 space-y-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Gift className="text-accent" size={16} />
+                            <span className="text-sm font-medium text-accent">Promotional Items Added</span>
+                          </div>
                           {showSchemeItems[index].map((schemeItem, schemeIndex) => (
-                            <div key={schemeIndex} className="grid grid-cols-12 gap-3 items-end p-3 bg-accent/5 rounded-lg border-l-4 border-accent" data-testid={`scheme-item-${index}-${schemeIndex}`}>
+                            <div key={schemeIndex} className="grid grid-cols-12 gap-3 items-end p-3 bg-accent/10 rounded-lg border border-accent/20" data-testid={`scheme-item-${index}-${schemeIndex}`}>
                               <div className="col-span-3">
-                                <span className="text-xs text-accent font-medium">Free Item (Scheme Applied)</span>
+                                <span className="text-xs text-accent font-semibold">🎁 FREE ITEM</span>
                               </div>
                               <div className="col-span-2">
                                 <Input 
                                   value={schemeItem.description}
                                   readOnly
-                                  className="h-8 text-xs"
+                                  className="h-8 text-xs bg-accent/5 border-accent/30"
                                   data-testid={`scheme-description-${index}-${schemeIndex}`}
                                 />
                               </div>
@@ -590,28 +594,28 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                 <Input 
                                   value={schemeItem.quantity}
                                   readOnly
-                                  className="h-8"
+                                  className="h-8 bg-accent/5 border-accent/30"
                                   data-testid={`scheme-quantity-${index}-${schemeIndex}`}
                                 />
                               </div>
                               <div className="col-span-2">
                                 <Input 
-                                  value="0.00"
+                                  value="FREE"
                                   readOnly
-                                  className="h-8"
+                                  className="h-8 bg-accent/5 border-accent/30 text-accent font-semibold"
                                   data-testid={`scheme-price-${index}-${schemeIndex}`}
                                 />
                               </div>
                               <div className="col-span-2">
                                 <Input 
-                                  value="0.00"
+                                  value="FREE"
                                   readOnly
-                                  className="h-8"
+                                  className="h-8 bg-accent/5 border-accent/30 text-accent font-semibold"
                                   data-testid={`scheme-total-${index}-${schemeIndex}`}
                                 />
                               </div>
                               <div className="col-span-1">
-                                <Gift className="text-accent" size={16} />
+                                <Gift className="text-accent animate-pulse" size={16} />
                               </div>
                             </div>
                           ))}
@@ -620,6 +624,31 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                     </div>
                   ))}
                 </div>
+
+                {/* Scheme Summary */}
+                {Object.keys(showSchemeItems).length > 0 && (
+                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Gift className="text-accent" size={20} />
+                      <h3 className="text-lg font-semibold text-accent">Promotional Schemes Applied</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {Object.entries(showSchemeItems).map(([lineIndex, schemeItems]: [string, any[]]) => (
+                        <div key={lineIndex} className="text-sm">
+                          <span className="font-medium text-foreground">
+                            {lineItems[parseInt(lineIndex)]?.description}:
+                          </span>
+                          <span className="text-accent ml-2">
+                            +{schemeItems.reduce((total, item) => total + item.quantity, 0)} free items
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      Free items are automatically added when you meet scheme requirements
+                    </div>
+                  </div>
+                )}
 
                 {/* Invoice Total */}
                 <div className="border-t border-border pt-4 mt-6">
