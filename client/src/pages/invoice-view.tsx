@@ -201,15 +201,15 @@ function InvoiceView() {
         </div>
       </div>
 
-      {/* Invoice Content - Page Layout with Fixed Footer */}
-      <div className="invoice-print-content bg-white" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '50mm 20mm 0mm 20mm', fontFamily: 'Arial, sans-serif', position: 'relative' }}>
+      {/* Invoice Content - Multi-page layout */}
+      <div className="invoice-print-content bg-white" style={{ width: '210mm', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
         
-        {/* Main Content Area */}
-        <div style={{ minHeight: '180mm', paddingBottom: '10mm' }}>
+        {/* Page 1 - Invoice Items */}
+        <div style={{ width: '210mm', minHeight: '297mm', padding: '50mm 20mm 40mm 20mm', pageBreakAfter: 'always' }}>
           {/* Header Section */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '16px', fontWeight: 'bold' }}>
             <div>INVOICE</div>
-            <div style={{ fontSize: '14px' }}>Page : 1 of 1</div>
+            <div style={{ fontSize: '14px' }}>Page : 1 of 2</div>
           </div>
 
           {/* Customer and Invoice Details Section - 3 column layout */}
@@ -301,66 +301,73 @@ function InvoiceView() {
           </div>
         </div>
 
-        {/* Fixed Footer Section - Always visible on every page */}
-        <div style={{ position: 'absolute', bottom: '40mm', left: '20mm', right: '20mm', fontSize: '10px' }}>
+        {/* Page 2 - Summary Section */}
+        <div style={{ width: '210mm', minHeight: '297mm', padding: '50mm 20mm 40mm 20mm' }}>
           
+          {/* Header Section for Page 2 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15mm', fontSize: '16px', fontWeight: 'bold' }}>
+            <div>INVOICE</div>
+            <div style={{ fontSize: '14px' }}>Page : 2 of 2</div>
+          </div>
+
           {/* Summary Table - 2 rows with horizontal layout */}
-          <div style={{ border: '1px solid black', marginBottom: '5mm', width: '170mm' }}>
+          <div style={{ border: '1px solid black', marginBottom: '10mm', width: '170mm', fontSize: '12px' }}>
             {/* Row 1 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: '1px solid black', padding: '2mm', backgroundColor: '#f9f9f9' }}>
-              <div style={{ borderRight: '1px solid black', paddingRight: '2mm' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: '1px solid black', padding: '3mm', backgroundColor: '#f9f9f9' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
                 <strong>Total Cartons:</strong> {calculateTotalCartons()}
               </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
                 <strong>Net Amount:</strong> ${calculateSubtotal().toFixed(2)}
               </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
                 <strong>Net Weight (KGS):</strong> {calculateTotalNetWeight().toFixed(3)}
               </div>
-              <div style={{ paddingLeft: '2mm' }}>
+              <div style={{ paddingLeft: '3mm' }}>
                 <strong>Freight:</strong> $0.00
               </div>
             </div>
             
             {/* Row 2 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '2mm' }}>
-              <div style={{ borderRight: '1px solid black', paddingRight: '2mm' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '3mm' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
                 <strong>Gross Weight (KGS):</strong> {calculateTotalGrossWeight().toFixed(3)}
               </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
                 <strong>Total Invoice Amount:</strong> ${parseFloat(invoice.total).toFixed(2)}
               </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
                 <strong>Gross Weight (LBS):</strong> {(calculateTotalGrossWeight() * 2.20462).toFixed(3)}
               </div>
-              <div style={{ paddingLeft: '2mm' }}>
+              <div style={{ paddingLeft: '3mm' }}>
                 <strong>Amount In Words:</strong>
               </div>
             </div>
           </div>
 
           {/* Amount in Words - Full Width */}
-          <div style={{ marginBottom: '5mm', padding: '2mm', border: '1px solid black', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '9px' }}>Amount In Words:</div>
-            <div style={{ fontSize: '9px', marginTop: '1mm' }}>{numberToWords(parseFloat(invoice.total))}</div>
+          <div style={{ marginBottom: '10mm', padding: '3mm', border: '1px solid black', backgroundColor: '#f9f9f9' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '2mm' }}>Amount In Words:</div>
+            <div style={{ fontSize: '11px' }}>{numberToWords(parseFloat(invoice.total))}</div>
           </div>
 
           {/* Terms and Conditions */}
-          <div style={{ marginBottom: '5mm', fontSize: '8px', lineHeight: '1.2' }}>
-            <div>1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</div>
-            <div>2. Overdues balances subject to finance charges of 2% per month.</div>
-            <div>3. All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</div>
+          <div style={{ marginBottom: '10mm', fontSize: '10px', lineHeight: '1.4' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '3mm' }}>Terms and Conditions:</div>
+            <div style={{ marginBottom: '2mm' }}>1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</div>
+            <div style={{ marginBottom: '2mm' }}>2. Overdues balances subject to finance charges of 2% per month.</div>
+            <div style={{ marginBottom: '2mm' }}>3. All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</div>
             <div>4. Final Sale</div>
           </div>
 
           {/* Signature Lines */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10mm', marginBottom: '3mm' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15mm', marginBottom: '15mm', fontSize: '11px' }}>
             <div>Received By (Name) : _____________</div>
             <div>Total Pallets : _____________</div>
           </div>
 
           {/* Company Name */}
-          <div style={{ fontWeight: 'bold', fontSize: '12px', textAlign: 'center' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '14px', textAlign: 'center', marginTop: '20mm' }}>
             Kitchen Xpress Overseas Inc.
           </div>
         </div>
