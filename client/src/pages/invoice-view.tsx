@@ -329,9 +329,21 @@ export default function InvoiceView() {
             currentY += 10;
           }
 
-          // Table headers (repeat on every page) - within safe content area
-          const tableStartY = currentY;
-          const colWidths = [20, 25, 25, 50, 25, 35, 25]; // Column widths in mm
+          // Table headers (repeat on every page) - exact column specifications
+          const tableStartY = 90; // Fixed Y position at 90mm on every page
+          
+          // Original column widths (187mm total) scaled to fit 170mm safe content width
+          const scaleFactor = safeContentArea.width / 187; // 170 / 187 = 0.909
+          const colWidths = [
+            10 * scaleFactor,  // Sr. No → 9.09 mm
+            28 * scaleFactor,  // Item Code → 25.45 mm
+            22 * scaleFactor,  // Packing Size → 20.00 mm
+            75 * scaleFactor,  // Product Description → 68.18 mm
+            19 * scaleFactor,  // Qty (Cartons) → 17.27 mm, right-aligned
+            11 * scaleFactor,  // Rate Per Carton (USD) → 10.00 mm, right-aligned
+            22 * scaleFactor   // Net Amount (USD) → 20.00 mm, right-aligned
+          ];
+          
           let xPos = safeContentArea.x;
           
           pdf.setFillColor(240, 240, 240);
@@ -341,9 +353,20 @@ export default function InvoiceView() {
           pdf.setFont('helvetica', 'bold');
           
           const headers = ['Sr. No', 'Item Code', 'Packing Size', 'Product Description', 'Qty (Cartons)', 'Rate Per Carton (USD)', 'Net Amount (USD)'];
+          const headerAlignments = ['center', 'center', 'center', 'center', 'right', 'right', 'right'];
+          
           headers.forEach((header, index) => {
-            const textX = xPos + colWidths[index] / 2;
-            pdf.text(header, textX, tableStartY + 6, { align: 'center' });
+            const align = headerAlignments[index];
+            let textX;
+            
+            if (align === 'right') {
+              textX = xPos + colWidths[index] - 2; // Right-aligned with 2mm padding
+            } else {
+              textX = xPos + colWidths[index] / 2; // Center-aligned
+            }
+            
+            pdf.text(header, textX, tableStartY + 6, { align });
+            
             // Draw column borders
             if (index < headers.length - 1) {
               pdf.line(xPos + colWidths[index], tableStartY, xPos + colWidths[index], tableStartY + 10);
@@ -369,17 +392,27 @@ export default function InvoiceView() {
               (i + 1).toString(),
               item.productCode || '-',
               item.packingSize || '-',
-              item.description.length > 35 ? item.description.substring(0, 35) + '...' : item.description,
+              item.description.length > 45 ? item.description.substring(0, 45) + '...' : item.description,
               item.quantity.toString(),
               parseFloat(item.unitPrice).toFixed(2),
               parseFloat(item.lineTotal).toFixed(2)
             ];
             
-            const rowHeight = 8;
+            const rowHeight = 8; // Minimum 8mm row height
+            const dataAlignments = ['center', 'center', 'center', 'left', 'right', 'right', 'right'];
             
             rowData.forEach((data, colIndex) => {
-              const align = colIndex === 3 ? 'left' : 'center';
-              const textX = align === 'center' ? xPos + colWidths[colIndex] / 2 : xPos + 2;
+              const align = dataAlignments[colIndex];
+              let textX;
+              
+              if (align === 'right') {
+                textX = xPos + colWidths[colIndex] - 2; // Right-aligned with 2mm padding
+              } else if (align === 'left') {
+                textX = xPos + 2; // Left-aligned with 2mm padding
+              } else {
+                textX = xPos + colWidths[colIndex] / 2; // Center-aligned
+              }
+              
               pdf.text(data, textX, currentY + 5, { align });
               
               // Draw column borders
