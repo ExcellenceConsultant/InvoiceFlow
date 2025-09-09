@@ -404,8 +404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let qbCustomer;
       try {
         qbCustomer = await quickBooksService.findCustomerByDisplayName(
-          user.quickbooksAccessToken!,
-          user.quickbooksCompanyId!,
+          user!.quickbooksAccessToken!,
+          user!.quickbooksCompanyId!,
           customer.name
         );
         
@@ -434,8 +434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         try {
           qbCustomer = await quickBooksService.createCustomer(
-            user.quickbooksAccessToken!,
-            user.quickbooksCompanyId!,
+            user!.quickbooksAccessToken!,
+            user!.quickbooksCompanyId!,
             qbCustomerData
           );
           
@@ -499,8 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const qbItem = await quickBooksService.createItem(
-        user.quickbooksAccessToken!,
-        user.quickbooksCompanyId!,
+        user!.quickbooksAccessToken!,
+        user!.quickbooksCompanyId!,
         qbItemData
       );
 
@@ -618,71 +618,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Helper function to handle AR invoice sync
+  // Helper function to handle AR invoice sync - Creates Journal Entry instead of Invoice
   async function handleARInvoiceSync(invoice: any, user: any, storage: any, res: any) {
-    // Step 1: Get customer data and ensure customer exists in QuickBooks
-    const customer = await storage.getCustomer(invoice.customerId!);
-    if (!customer) {
-      return res.status(400).json({ message: "Customer not found for this AR invoice" });
-    }
+    console.log(`Creating QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`);
 
-    console.log(`Syncing AR invoice ${invoice.invoiceNumber} for customer: "${customer.name}"`);
-
-    // Step 2: Ensure customer exists in QuickBooks and get Customer ID
-    let qbCustomer = await findOrCreateCustomer(user, customer.name, customer.id, storage);
-
-    // Step 3: Get invoice line items
+    // Get invoice line items to calculate total
     const lineItems = await storage.getInvoiceLineItems(invoice.id);
+    const totalAmount = lineItems.reduce((sum: number, item: any) => sum + parseFloat(item.lineTotal), 0);
     
-    // Step 4: Create proper QuickBooks AR invoice with line items
-    const invoiceData = {
-      CustomerRef: { 
-        value: qbCustomer.Id, 
-        name: qbCustomer.DisplayName 
-      },
+    // Create Journal Entry data with proper accounting
+    const journalEntryData = {
       TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-      DueDate: invoice.dueDate ? invoice.dueDate.toISOString().split('T')[0] : undefined,
       DocNumber: invoice.invoiceNumber,
-      PrivateNote: `AR Invoice ${invoice.invoiceNumber} for ${customer.name}`,
-      Line: []
+      PrivateNote: `Journal Entry for AR Invoice ${invoice.invoiceNumber} - Total: $${totalAmount.toFixed(2)}`,
+      Line: [
+        // Debit Cost of Goods Sold
+        {
+          DetailType: "JournalEntryLineDetail",
+          Amount: totalAmount,
+          JournalEntryLineDetail: {
+            PostingType: "Debit",
+            AccountRef: { 
+              value: "173", 
+              name: "Cost of Goods Sold" 
+            },
+            Description: `COGS - Invoice ${invoice.invoiceNumber}`
+          }
+        },
+        // Credit Sales
+        {
+          DetailType: "JournalEntryLineDetail", 
+          Amount: totalAmount,
+          JournalEntryLineDetail: {
+            PostingType: "Credit",
+            AccountRef: { 
+              value: "135", 
+              name: "Sales" 
+            },
+            Description: `Sales - Invoice ${invoice.invoiceNumber}`
+          }
+        }
+      ]
     };
 
-    // Add line items to the invoice
-    for (const lineItem of lineItems) {
-      // For demo purposes, we'll use a generic "Service" item
-      // In a real implementation, you'd sync products/items first
-      const lineData = {
-        Amount: parseFloat(lineItem.lineTotal),
-        DetailType: "SalesItemLineDetail",
-        SalesItemLineDetail: {
-          ItemRef: { value: "1", name: "Services" }, // Generic service item
-          UnitPrice: parseFloat(lineItem.unitPrice),
-          Qty: lineItem.quantity,
-          Description: lineItem.description
-        }
-      };
-      (invoiceData.Line as any[]).push(lineData);
-    }
+    console.log('Creating QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
 
-    const qbInvoice = await quickBooksService.createInvoice(
-      user.quickbooksAccessToken,
-      user.quickbooksCompanyId,
-      invoiceData
+    const qbJournalEntry = await quickBooksService.createJournalEntry(
+      user!.quickbooksAccessToken!,
+      user!.quickbooksCompanyId!,
+      journalEntryData
     );
 
-    // Update invoice with QuickBooks invoice ID
+    // Update invoice with QuickBooks journal entry ID
     await storage.updateInvoice(invoice.id, {
-      quickbooksInvoiceId: qbInvoice.Id,
+      quickbooksInvoiceId: qbJournalEntry.Id,
       status: "sent",
     });
 
     return res.json({ 
       success: true, 
-      quickbooksInvoiceId: qbInvoice.Id,
-      customerId: qbCustomer.Id,
-      customerName: qbCustomer.DisplayName,
+      quickbooksJournalEntryId: qbJournalEntry.Id,
       invoiceType: 'receivable',
-      message: "AR Invoice successfully synced to QuickBooks"
+      totalAmount: totalAmount,
+      debitAccount: "173 - Cost of Goods Sold",
+      creditAccount: "135 - Sales", 
+      message: "Journal Entry successfully created in QuickBooks"
     });
   }
 

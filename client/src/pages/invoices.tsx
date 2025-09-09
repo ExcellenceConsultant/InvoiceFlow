@@ -437,10 +437,18 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 text-primary hover:text-primary"
-                              onClick={(e) => handleSyncToQuickBooks(invoice.id, e)}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSyncToQuickBooks(invoice.id, e);
+                              }}
                               disabled={syncToQuickBooksMutation.isPending}
                               data-testid={`button-sync-quickbooks-${invoice.id}`}
-                              title="Post journal entry to QuickBooks (Debit AR, Credit Sales)"
+                              title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
                             >
                               <Send size={14} />
                             </Button>
@@ -449,7 +457,15 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            onClick={(e) => handleDeleteInvoice(invoice.id, e)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteInvoice(invoice.id, e);
+                            }}
                             disabled={deleteInvoiceMutation.isPending}
                             data-testid={`button-delete-invoice-${invoice.id}`}
                           >
