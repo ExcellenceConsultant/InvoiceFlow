@@ -202,13 +202,13 @@ export default function Inventory() {
             
             console.log(`Parsed product for row ${i}:`, product);
             
-            // More lenient validation: just require a name and any price > 0
-            if (product.name && product.name !== `Product ${i}` && parseFloat(product.basePrice) > 0) {
+            // More lenient validation: just require a name and a valid price (including 0)
+            if (product.name && product.name !== `Product ${i}` && !isNaN(parseFloat(product.basePrice))) {
               products.push(product);
             } else {
               console.log(`Skipping row ${i} - validation failed:`, {
                 hasName: !!product.name && product.name !== `Product ${i}`,
-                hasValidPrice: parseFloat(product.basePrice) > 0,
+                hasValidPrice: !isNaN(parseFloat(product.basePrice)),
                 product
               });
               skippedRows++;
