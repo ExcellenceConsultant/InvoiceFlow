@@ -298,41 +298,48 @@ function InvoiceView() {
           ))}
         </div>
 
-        {/* Summary Section */}
+        {/* Summary Section - Table Format */}
         <div style={{ marginTop: '10mm', fontSize: '10px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '50mm 5mm auto', gap: '2mm', marginBottom: '8mm' }}>
-            <div>Total Cartons</div>
-            <div>:</div>
-            <div>{calculateTotalCartons()}</div>
+          
+          {/* Summary Table - 2 rows with horizontal layout */}
+          <div style={{ border: '1px solid black', marginBottom: '8mm', width: '170mm' }}>
+            {/* Row 1 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: '1px solid black', padding: '2mm', backgroundColor: '#f9f9f9' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '2mm' }}>
+                <strong>Total Cartons:</strong> {calculateTotalCartons()}
+              </div>
+              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+                <strong>Net Amount:</strong> ${calculateSubtotal().toFixed(2)}
+              </div>
+              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+                <strong>Net Weight (KGS):</strong> {calculateTotalNetWeight().toFixed(3)}
+              </div>
+              <div style={{ paddingLeft: '2mm' }}>
+                <strong>Freight:</strong> $0.00
+              </div>
+            </div>
             
-            <div>Net Amount</div>
-            <div>:</div>
-            <div>${calculateSubtotal().toFixed(2)}</div>
-            
-            <div>Net Weight (KGS)</div>
-            <div>:</div>
-            <div>{calculateTotalNetWeight().toFixed(3)}</div>
-            
-            <div>Freight</div>
-            <div>:</div>
-            <div>$0.00</div>
-            
-            <div>Gross Weight (KGS)</div>
-            <div>:</div>
-            <div>{calculateTotalGrossWeight().toFixed(3)}</div>
-            
-            <div>Total Invoice Amount</div>
-            <div>:</div>
-            <div>${parseFloat(invoice.total).toFixed(2)}</div>
-            
-            <div>Gross Weight (LBS)</div>
-            <div>:</div>
-            <div>{(calculateTotalGrossWeight() * 2.20462).toFixed(3)}</div>
+            {/* Row 2 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '2mm' }}>
+              <div style={{ borderRight: '1px solid black', paddingRight: '2mm' }}>
+                <strong>Gross Weight (KGS):</strong> {calculateTotalGrossWeight().toFixed(3)}
+              </div>
+              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+                <strong>Total Invoice Amount:</strong> ${parseFloat(invoice.total).toFixed(2)}
+              </div>
+              <div style={{ borderRight: '1px solid black', paddingRight: '2mm', paddingLeft: '2mm' }}>
+                <strong>Gross Weight (LBS):</strong> {(calculateTotalGrossWeight() * 2.20462).toFixed(3)}
+              </div>
+              <div style={{ paddingLeft: '2mm' }}>
+                <strong>Amount In Words:</strong>
+              </div>
+            </div>
           </div>
 
-          <div style={{ marginBottom: '8mm' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Amount In Words :</div>
-            <div>{numberToWords(parseFloat(invoice.total))}</div>
+          {/* Amount in Words - Full Width */}
+          <div style={{ marginBottom: '8mm', padding: '2mm', border: '1px solid black', backgroundColor: '#f9f9f9' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '9px' }}>Amount In Words:</div>
+            <div style={{ fontSize: '9px', marginTop: '1mm' }}>{numberToWords(parseFloat(invoice.total))}</div>
           </div>
 
           {/* Terms and Conditions */}
