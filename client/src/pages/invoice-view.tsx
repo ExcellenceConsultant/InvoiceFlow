@@ -122,6 +122,18 @@ export default function InvoiceView() {
           page-break-inside: avoid;
         }
         
+        /* Smart page breaks for footer */
+        .page-break-before {
+          page-break-before: auto;
+        }
+        
+        /* Force footer to new page if content is long */
+        @media print {
+          .page-break-before {
+            page-break-before: always;
+          }
+        }
+        
         /* Page numbers */
         @page {
           @bottom-right {
@@ -689,8 +701,8 @@ export default function InvoiceView() {
           </div>
         </div>
 
-        {/* Terms and Conditions */}
-        <div className="mt-4 text-xs text-gray-700 print:text-black">
+        {/* Terms and Conditions - Smart page break */}
+        <div className="mt-4 text-xs text-gray-700 print:text-black page-break-before">
           <p className="mb-2">
             <strong>1.</strong> All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes 
             related hereto shall be adjudicated exclusively in the state or federal courts located in Pennsylvania.
@@ -711,13 +723,13 @@ export default function InvoiceView() {
         <div className="grid grid-cols-2 mt-6 print:mt-4 border-t border-gray-300 print:border-black pt-4">
           <div>
             <div className="border-b border-gray-300 print:border-black w-48 mb-2"></div>
-            <p className="text-sm font-semibold">Received By (Name):_______</p>
+            <p className="text-sm font-semibold" data-testid="text-received-by-name">Received By (Name): _________________________</p>
           </div>
           <div>
             <div className="border-b border-gray-300 print:border-black w-48 mb-2"></div>
-            <p className="text-sm font-semibold">Total Pallets:_______</p>
-            <div className="text-right mt-4">
-              <p className="text-sm font-semibold">Kitchen Xpress Overseas Inc.</p>
+            <p className="text-sm font-semibold" data-testid="text-total-pallets">Total Pallets: _________________________</p>
+            <div className="text-center mt-6">
+              <p className="text-lg font-bold" data-testid="text-footer-company-name">Kitchen Xpress Overseas Inc.</p>
             </div>
           </div>
         </div>
