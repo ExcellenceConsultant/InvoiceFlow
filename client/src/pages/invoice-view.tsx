@@ -131,7 +131,7 @@ export default function InvoiceView() {
           page-break-before: auto;
         }
         
-        /* Force proper page breaks for multi-page invoices */
+        /* PDF Print optimizations */
         @media print {
           .summary-page-break {
             page-break-before: always;
@@ -141,9 +141,31 @@ export default function InvoiceView() {
             page-break-before: always;
           }
           
-          /* Ensure line items can break across pages */
+          /* Line items table pagination */
           .line-items-container {
             page-break-inside: auto;
+          }
+          
+          .line-item-row {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+          
+          /* Table headers should repeat */
+          .table-header {
+            page-break-after: avoid;
+          }
+          
+          /* Keep summary together on final page */
+          .summary-section {
+            page-break-before: always;
+            page-break-inside: avoid;
+          }
+          
+          /* Ensure footer always starts fresh page */
+          .footer-page-break {
+            page-break-before: always;
+            page-break-inside: avoid;
           }
         }
         
@@ -225,100 +247,201 @@ export default function InvoiceView() {
         height: 207 // 297 - 50 - 40
       };
 
-      // Get invoice content element
-      const invoiceElement = document.querySelector('.invoice-pdf-content');
-      if (!invoiceElement) {
-        throw new Error('Invoice content not found');
-      }
+      // Calculate line items pagination
+      const itemsPerPage = 15; // Approximate items that fit per page
+      const totalItems = lineItems?.length || 0;
+      const totalPages = Math.ceil(totalItems / itemsPerPage);
+      const summaryPage = totalPages + 1; // Summary always goes on the page after last line items
 
-      // Clone the element and prepare it for PDF
-      const clonedElement = invoiceElement.cloneNode(true) as HTMLElement;
-      clonedElement.style.width = '170mm';
-      clonedElement.style.padding = '0';
-      clonedElement.style.margin = '0';
-      clonedElement.style.backgroundColor = '#ffffff';
-      
-      // Hide the cloned element
-      clonedElement.style.position = 'absolute';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.top = '0';
-      document.body.appendChild(clonedElement);
-
-      // Capture with high quality settings
-      const canvas = await html2canvas(clonedElement, {
-        scale: 3, // Higher scale for better quality
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: clonedElement.offsetWidth,
-        height: clonedElement.offsetHeight,
-        windowWidth: clonedElement.offsetWidth,
-        windowHeight: clonedElement.offsetHeight
-      });
-
-      // Remove cloned element
-      document.body.removeChild(clonedElement);
-
-      // Calculate proper scaling
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const imgWidth = contentArea.width;
-      const imgHeight = (canvas.height * contentArea.width) / canvas.width;
-
-      // Handle multi-page content properly
-      const pageContentHeight = contentArea.height;
-      let currentPosition = 0;
-      let pageNumber = 1;
-
-      while (currentPosition < imgHeight) {
-        if (pageNumber > 1) {
+      for (let pageNum = 1; pageNum <= summaryPage; pageNum++) {
+        if (pageNum > 1) {
           pdf.addPage();
         }
 
-        // Add letterhead background areas
+        // Add letterhead background (placeholder - replace with actual letterhead)
         pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, pageWidth, pageHeight, 'F');
         
-        // Add header and footer placeholders
+        // Add header and footer placeholder areas
         pdf.setFillColor(248, 248, 248);
         pdf.rect(0, 0, pageWidth, 50, 'F');
         pdf.rect(0, 257, pageWidth, 40, 'F');
 
-        // Calculate remaining content height for this page
-        const remainingHeight = imgHeight - currentPosition;
-        const currentPageHeight = Math.min(remainingHeight, pageContentHeight);
+        let currentY = contentArea.y;
 
-        // Add content to current page
-        if (currentPageHeight > 0) {
-          // Create a temporary canvas for the current page content
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d');
+        if (pageNum <= totalPages) {
+          // Line items pages
           
-          tempCanvas.width = canvas.width;
-          tempCanvas.height = (currentPageHeight * canvas.width) / contentArea.width;
-          
-          if (tempCtx) {
-            tempCtx.drawImage(
-              canvas,
-              0, (currentPosition * canvas.width) / contentArea.width, // Source position
-              canvas.width, tempCanvas.height, // Source dimensions
-              0, 0, // Destination position
-              tempCanvas.width, tempCanvas.height // Destination dimensions
-            );
+          // Add invoice title
+          pdf.setFontSize(20);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('INVOICE', pageWidth / 2, currentY + 10, { align: 'center' });
+          currentY += 20;
+
+          // Add customer details on first page only
+          if (pageNum === 1) {
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
             
-            pdf.addImage(
-              tempCanvas.toDataURL('image/png', 1.0),
-              'PNG',
-              contentArea.x,
-              contentArea.y,
-              imgWidth,
-              currentPageHeight
-            );
-          }
-        }
+            // Bill To and Ship To
+            const billToX = contentArea.x;
+            const shipToX = contentArea.x + contentArea.width / 2;
+            
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Bill To:', billToX, currentY);
+            pdf.text('Ship To:', shipToX, currentY);
+            currentY += 5;
+            
+            pdf.setFont('helvetica', 'normal');
+            const customerName = customer?.name || 'Customer Name';
+            pdf.text(customerName, billToX, currentY);
+            pdf.text(customerName, shipToX, currentY);
+            currentY += 4;
+            
+            if (customer?.address) {
+              pdf.text(customer.address.street || '', billToX, currentY);
+              pdf.text(customer.address.street || '', shipToX, currentY);
+              currentY += 4;
+              
+              const cityLine = `${customer.address.city || ''}, ${customer.address.state || ''} ${customer.address.zipCode || ''}`;
+              pdf.text(cityLine, billToX, currentY);
+              pdf.text(cityLine, shipToX, currentY);
+              currentY += 4;
+              
+              pdf.text(customer.address.country || '', billToX, currentY);
+              pdf.text(customer.address.country || '', shipToX, currentY);
+              currentY += 4;
+            }
 
-        currentPosition += pageContentHeight;
-        pageNumber++;
+            // Invoice details
+            currentY += 10;
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`Invoice No: ${invoice.invoiceNumber}`, contentArea.x, currentY);
+            pdf.text(`Invoice Date: ${formatDate(invoice.invoiceDate)}`, contentArea.x + 85, currentY);
+            currentY += 15;
+          }
+
+          // Table headers (repeat on every page)
+          const tableStartY = currentY;
+          const colWidths = [15, 25, 25, 40, 20, 25, 20]; // Column widths in mm
+          let xPos = contentArea.x;
+          
+          pdf.setFillColor(240, 240, 240);
+          pdf.rect(contentArea.x, tableStartY, contentArea.width, 8, 'F');
+          
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'bold');
+          
+          const headers = ['Sr.', 'Item Code', 'Packing', 'Description', 'Qty', 'Rate', 'Amount'];
+          headers.forEach((header, index) => {
+            pdf.text(header, xPos + colWidths[index] / 2, tableStartY + 5, { align: 'center' });
+            xPos += colWidths[index];
+          });
+          
+          currentY = tableStartY + 8;
+
+          // Add line items for this page
+          const startIndex = (pageNum - 1) * itemsPerPage;
+          const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+          
+          pdf.setFont('helvetica', 'normal');
+          
+          for (let i = startIndex; i < endIndex; i++) {
+            const item = lineItems[i];
+            xPos = contentArea.x;
+            
+            const rowData = [
+              (i + 1).toString(),
+              item.productCode || '-',
+              item.packingSize || '-',
+              item.description.substring(0, 30),
+              item.quantity.toString(),
+              parseFloat(item.unitPrice).toFixed(2),
+              parseFloat(item.lineTotal).toFixed(2)
+            ];
+            
+            rowData.forEach((data, colIndex) => {
+              const align = colIndex === 3 ? 'left' : 'center';
+              const textX = align === 'center' ? xPos + colWidths[colIndex] / 2 : xPos + 2;
+              pdf.text(data, textX, currentY + 4, { align });
+              xPos += colWidths[colIndex];
+            });
+            
+            currentY += 6;
+          }
+
+        } else {
+          // Summary page
+          currentY += 20;
+          
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('INVOICE SUMMARY', pageWidth / 2, currentY, { align: 'center' });
+          currentY += 20;
+
+          // Summary table
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          
+          const summaryData = [
+            ['Total Cartons:', calculateTotalCartons().toString()],
+            ['Net Weight (KGS):', calculateTotalNetWeight().toFixed(3)],
+            ['Gross Weight (KGS):', calculateTotalGrossWeight().toFixed(3)],
+            ['Net Amount:', `$${calculateSubtotal().toFixed(2)}`],
+            ['Freight:', '$0.00'],
+            ['Total Invoice Amount:', `$${parseFloat(invoice.total).toFixed(2)}`]
+          ];
+          
+          summaryData.forEach(([label, value]) => {
+            pdf.text(label, contentArea.x, currentY);
+            pdf.text(value, contentArea.x + 100, currentY);
+            currentY += 6;
+          });
+          
+          currentY += 10;
+          
+          // Amount in words
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Amount in Words:', contentArea.x, currentY);
+          currentY += 5;
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(numberToWords(parseFloat(invoice.total)), contentArea.x, currentY);
+          currentY += 15;
+
+          // Terms and conditions
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Terms & Conditions:', contentArea.x, currentY);
+          currentY += 5;
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(8);
+          
+          const terms = [
+            '1. All Matters related to this invoice shall be governed by the laws of Pennsylvania.',
+            '2. Overdue balances subject to finance charges of 2% per month.',
+            '3. The company will not be liable for cash payments or overpayments.',
+            '4. Final Sale'
+          ];
+          
+          terms.forEach(term => {
+            pdf.text(term, contentArea.x, currentY);
+            currentY += 4;
+          });
+          
+          currentY += 10;
+
+          // Signature lines
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text('Received By (Name): _________________________', contentArea.x, currentY);
+          pdf.text('Total Pallets: _________________________', contentArea.x + 85, currentY);
+          currentY += 15;
+
+          // Company name
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Kitchen Xpress Overseas Inc.', pageWidth / 2, currentY, { align: 'center' });
+        }
       }
 
       // Save the PDF
