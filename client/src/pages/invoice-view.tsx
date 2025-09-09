@@ -184,7 +184,8 @@ export default function InvoiceView() {
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        compress: true
       });
 
       // A4 dimensions in mm
@@ -199,82 +200,100 @@ export default function InvoiceView() {
         height: 207 // 297 - 50 - 40
       };
 
-      // Add letterhead background (placeholder for now)
-      // TODO: Replace with actual letterhead template
-      pdf.setFillColor(255, 255, 255);
-      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-      
-      // Add company header area (placeholder)
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(0, 0, pageWidth, 50, 'F');
-      
-      // Add footer area (placeholder)
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(0, 257, pageWidth, 40, 'F');
-
       // Get invoice content element
       const invoiceElement = document.querySelector('.invoice-pdf-content');
       if (!invoiceElement) {
         throw new Error('Invoice content not found');
       }
 
-      // Capture the invoice content as canvas
-      const canvas = await html2canvas(invoiceElement as HTMLElement, {
-        scale: 2,
+      // Clone the element and prepare it for PDF
+      const clonedElement = invoiceElement.cloneNode(true) as HTMLElement;
+      clonedElement.style.width = '170mm';
+      clonedElement.style.padding = '0';
+      clonedElement.style.margin = '0';
+      clonedElement.style.backgroundColor = '#ffffff';
+      
+      // Hide the cloned element
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.top = '0';
+      document.body.appendChild(clonedElement);
+
+      // Capture with high quality settings
+      const canvas = await html2canvas(clonedElement, {
+        scale: 3, // Higher scale for better quality
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: clonedElement.offsetWidth,
+        height: clonedElement.offsetHeight,
+        windowWidth: clonedElement.offsetWidth,
+        windowHeight: clonedElement.offsetHeight
       });
 
-      // Calculate scaling to fit within content area
-      const imgWidth = contentArea.width;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      // Add content to PDF within safe area
-      pdf.addImage(
-        canvas.toDataURL('image/jpeg', 0.95),
-        'JPEG',
-        contentArea.x,
-        contentArea.y,
-        imgWidth,
-        Math.min(imgHeight, contentArea.height)
-      );
+      // Remove cloned element
+      document.body.removeChild(clonedElement);
 
-      // If content is too long, add additional pages
-      if (imgHeight > contentArea.height) {
-        let remainingHeight = imgHeight - contentArea.height;
-        let currentY = contentArea.y;
-        
-        while (remainingHeight > 0) {
+      // Calculate proper scaling
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = contentArea.width;
+      const imgHeight = (canvas.height * contentArea.width) / canvas.width;
+
+      // Handle multi-page content properly
+      const pageContentHeight = contentArea.height;
+      let currentPosition = 0;
+      let pageNumber = 1;
+
+      while (currentPosition < imgHeight) {
+        if (pageNumber > 1) {
           pdf.addPage();
-          
-          // Add letterhead background to new page
-          pdf.setFillColor(255, 255, 255);
-          pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-          
-          pdf.setFillColor(240, 240, 240);
-          pdf.rect(0, 0, pageWidth, 50, 'F');
-          pdf.rect(0, 257, pageWidth, 40, 'F');
-          
-          const nextHeight = Math.min(remainingHeight, contentArea.height);
-          currentY += contentArea.height;
-          
-          // Add next portion of content
-          pdf.addImage(
-            canvas.toDataURL('image/jpeg', 0.95),
-            'JPEG',
-            contentArea.x,
-            contentArea.y,
-            imgWidth,
-            nextHeight,
-            '',
-            'NONE',
-            0,
-            -currentY
-          );
-          
-          remainingHeight -= nextHeight;
         }
+
+        // Add letterhead background areas
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+        
+        // Add header and footer placeholders
+        pdf.setFillColor(248, 248, 248);
+        pdf.rect(0, 0, pageWidth, 50, 'F');
+        pdf.rect(0, 257, pageWidth, 40, 'F');
+
+        // Calculate remaining content height for this page
+        const remainingHeight = imgHeight - currentPosition;
+        const currentPageHeight = Math.min(remainingHeight, pageContentHeight);
+
+        // Add content to current page
+        if (currentPageHeight > 0) {
+          // Create a temporary canvas for the current page content
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = (currentPageHeight * canvas.width) / contentArea.width;
+          
+          if (tempCtx) {
+            tempCtx.drawImage(
+              canvas,
+              0, (currentPosition * canvas.width) / contentArea.width, // Source position
+              canvas.width, tempCanvas.height, // Source dimensions
+              0, 0, // Destination position
+              tempCanvas.width, tempCanvas.height // Destination dimensions
+            );
+            
+            pdf.addImage(
+              tempCanvas.toDataURL('image/png', 1.0),
+              'PNG',
+              contentArea.x,
+              contentArea.y,
+              imgWidth,
+              currentPageHeight
+            );
+          }
+        }
+
+        currentPosition += pageContentHeight;
+        pageNumber++;
       }
 
       // Save the PDF
@@ -395,15 +414,11 @@ export default function InvoiceView() {
         </div>
       </div>
 
-      {/* Print-only headers that repeat on every page */}
+      {/* Print-only headers that repeat on every page - Company details removed */}
       <div className="print-company-header hidden print:block">
-        {invoice.invoiceType === "receivable" && (
-          <div className="text-center">
-            <h2 className="text-sm font-bold mb-1">Kitchen Xpress Overseas Inc.</h2>
-            <p className="text-xs mb-1">14001 Townsend Rd. Philadelphia, PA 19154-1007</p>
-            <p className="text-xs">Phone - +1 (267) 667 4923 | Fax: +1 (445) 776 5416 | Email: info@kxol.us</p>
-          </div>
-        )}
+        <div className="text-center">
+          <h2 className="text-lg font-bold mb-2">INVOICE</h2>
+        </div>
       </div>
 
       <div className="print-customer-header hidden print:block">
@@ -461,14 +476,7 @@ export default function InvoiceView() {
 
       {/* Invoice content */}
       <div className="invoice-content invoice-pdf-content max-w-4xl mx-auto bg-white p-8 print:p-6 print:max-w-full print:mx-0">
-        {/* Company Header - Only for AR invoices - Screen only */}
-        {invoice.invoiceType === "receivable" && (
-          <div className="text-center mb-6 print:mb-4 print:hidden">
-            <h2 className="text-lg font-bold mb-2" data-testid="text-company-name">Kitchen Xpress Overseas Inc.</h2>
-            <p className="text-sm mb-1" data-testid="text-company-address">14001 Townsend Rd. Philadelphia, PA 19154-1007</p>
-            <p className="text-sm" data-testid="text-company-contact">Phone - +1 (267) 667 4923 | Fax: +1 (445) 776 5416 | Email: info@kxol.us</p>
-          </div>
-        )}
+        {/* Company Header removed as requested */}
 
         {/* Header - Hide on print since we have fixed headers */}
         <div className="text-center mb-8 print:mb-6 print:hidden">
