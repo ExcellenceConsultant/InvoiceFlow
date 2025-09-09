@@ -126,6 +126,11 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
+  async deleteAllProducts(userId: string): Promise<boolean> {
+    const result = await db.delete(products).where(eq(products.userId, userId));
+    return (result.rowCount || 0) > 0;
+  }
+
   // Product Variants
   async getProductVariants(productId: string): Promise<ProductVariant[]> {
     return await db.select().from(productVariants).where(eq(productVariants.productId, productId));

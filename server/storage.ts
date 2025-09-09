@@ -22,6 +22,8 @@ export interface IStorage {
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct & { userId: string }): Promise<Product>;
   updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<boolean>;
+  deleteAllProducts(userId: string): Promise<boolean>;
 
   // Product Variants
   getProductVariants(productId: string): Promise<ProductVariant[]>;
@@ -197,6 +199,18 @@ export class MemStorage implements IStorage {
     const updatedProduct = { ...product, ...updates };
     this.products.set(id, updatedProduct);
     return updatedProduct;
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    return this.products.delete(id);
+  }
+
+  async deleteAllProducts(userId: string): Promise<boolean> {
+    const userProducts = Array.from(this.products.values()).filter(product => product.userId === userId);
+    for (const product of userProducts) {
+      this.products.delete(product.id);
+    }
+    return true;
   }
 
   // Product Variants

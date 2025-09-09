@@ -159,6 +159,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/products", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+      
+      const success = await storage.deleteAllProducts(userId);
+      res.json({ success: true, message: "All products deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete all products" });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteProduct(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
   // Product variant routes
   app.get("/api/products/:productId/variants", async (req, res) => {
     try {
