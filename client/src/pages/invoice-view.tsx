@@ -45,13 +45,25 @@ function InvoiceView() {
           left: 0;
           top: 0;
           width: 210mm;
-          height: 297mm;
+          height: auto;
           margin: 0;
           padding: 0;
           background: white;
         }
         .print-hide {
           display: none !important;
+        }
+        .summary-section {
+          page-break-inside: avoid;
+        }
+        .amount-in-words {
+          page-break-inside: avoid;
+        }
+        .terms-section {
+          page-break-inside: avoid;
+        }
+        .signature-section {
+          page-break-inside: avoid;
         }
       }
     `;
@@ -179,6 +191,164 @@ function InvoiceView() {
     );
   }
 
+  // Calculate pagination
+  const itemsPerPage = 10;
+  const totalItems = lineItems?.length || 0;
+  
+  // Handle zero items case - ensure at least one page
+  const basePages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const pages = [];
+  
+  // Split items into pages, or create empty page for zero items
+  if (totalItems === 0) {
+    pages.push([]);
+  } else {
+    for (let i = 0; i < basePages; i++) {
+      const startIndex = i * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+      pages.push(lineItems?.slice(startIndex, endIndex) || []);
+    }
+  }
+  
+  // Calculate if summary needs separate page
+  // Rough calculation: summary section needs ~80mm height
+  // Last page has header (15mm) + customer details (20mm if first page) + table header (10mm) + items (8mm each) + margin (8mm)
+  const lastPageItems = pages[pages.length - 1]?.length || 0;
+  const lastPageIsFirstPage = pages.length === 1;
+  const lastPageUsedHeight = 15 + (lastPageIsFirstPage ? 20 : 0) + 10 + (lastPageItems * 8) + 8; // in mm
+  const summaryHeight = 80; // approximate height needed for summary in mm
+  const pageHeight = 297 - 50 - 40; // 297mm total - top margin - bottom margin
+  
+  const summaryNeedsSeparatePage = (lastPageUsedHeight + summaryHeight) > pageHeight;
+  
+  // Calculate total pages including potential summary page
+  const totalPagesWithSummary = pages.length + (summaryNeedsSeparatePage ? 1 : 0);
+
+  // Helper function to render table header
+  const renderTableHeader = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '9.5pt', fontWeight: 'bold', height: '10mm' }}>
+      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Sr. No</div>
+      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Item Code</div>
+      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Packing Size</div>
+      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Product Description</div>
+      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '8pt', lineHeight: '1.1' }}>Qty<br/>(Cartons)</div>
+      <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7pt', lineHeight: '1.1' }}>Rate Per<br/>Carton<br/>(USD)</div>
+      <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '8pt', lineHeight: '1.1' }}>Net Amount<br/>(USD)</div>
+    </div>
+  );
+
+  // Helper function to render customer details section
+  const renderCustomerDetails = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '56mm 56mm 58mm', gap: '0mm', marginBottom: '8mm', fontSize: '10px' }}>
+      {/* Bill To Column */}
+      <div>
+        <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Bill To</div>
+        <div style={{ lineHeight: '1.2' }}>
+          <div style={{ fontWeight: '500' }}>{customer?.name || 'Customer Name'}</div>
+          {customer?.address && (
+            <>
+              <div>{customer.address.street}</div>
+              <div>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</div>
+              <div>{customer.address.country}</div>
+            </>
+          )}
+          <div>TEL : {customer?.phone || ''}</div>
+        </div>
+      </div>
+
+      {/* Ship To Column */}
+      <div>
+        <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Ship To</div>
+        <div style={{ lineHeight: '1.2' }}>
+          <div style={{ fontWeight: '500' }}>{customer?.name || 'Customer Name'}</div>
+          {customer?.address && (
+            <>
+              <div>{customer.address.street}</div>
+              <div>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</div>
+              <div>{customer.address.country}</div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Invoice Details Column */}
+      <div style={{ lineHeight: '1.3' }}>
+        <div>Invoice No : {invoice.invoiceNumber}</div>
+        <div>Invoice Date : {formatDate(invoice.invoiceDate.toString())}</div>
+        <div>Purchase Order No : -</div>
+        <div>Payment Term : Net 30</div>
+        <div>Shipping Info</div>
+        <div>Ship Date : {invoice.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice.invoiceDate.toString())}</div>
+      </div>
+    </div>
+  );
+
+  // Helper function to render summary section
+  const renderSummarySection = () => (
+    <>
+      {/* Summary Table - 2 rows with horizontal layout - NO GAP */}
+      <div className="summary-section" style={{ border: '1px solid black', width: '170mm', fontSize: '12px' }}>
+        {/* Row 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: '1px solid black', padding: '3mm', backgroundColor: '#f9f9f9' }}>
+          <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
+            <strong>Total Cartons:</strong> {calculateTotalCartons()}
+          </div>
+          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
+            <strong>Net Amount:</strong> ${calculateSubtotal().toFixed(2)}
+          </div>
+          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
+            <strong>Net Weight (KGS):</strong> {calculateTotalNetWeight().toFixed(3)}
+          </div>
+          <div style={{ paddingLeft: '3mm' }}>
+            <strong>Freight:</strong> $0.00
+          </div>
+        </div>
+        
+        {/* Row 2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '3mm' }}>
+          <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
+            <strong>Gross Weight (KGS):</strong> {calculateTotalGrossWeight().toFixed(3)}
+          </div>
+          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
+            <strong>Total Invoice Amount:</strong> ${parseFloat(invoice.total).toFixed(2)}
+          </div>
+          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
+            <strong>Gross Weight (LBS):</strong> {(calculateTotalGrossWeight() * 2.20462).toFixed(3)}
+          </div>
+          <div style={{ paddingLeft: '3mm' }}>
+            <strong>Amount In Words:</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Amount in Words - Full Width - NO GAP */}
+      <div className="amount-in-words" style={{ padding: '3mm', border: '1px solid black', backgroundColor: '#f9f9f9', borderTop: 'none' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '2mm' }}>Amount In Words:</div>
+        <div style={{ fontSize: '11px' }}>{numberToWords(parseFloat(invoice.total))}</div>
+      </div>
+
+      {/* Terms and Conditions - NO GAP */}
+      <div className="terms-section" style={{ marginTop: '8mm', fontSize: '10px', lineHeight: '1.4' }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '3mm' }}>Terms and Conditions:</div>
+        <div style={{ marginBottom: '2mm' }}>1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</div>
+        <div style={{ marginBottom: '2mm' }}>2. Overdues balances subject to finance charges of 2% per month.</div>
+        <div style={{ marginBottom: '2mm' }}>3. All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</div>
+        <div>4. Final Sale</div>
+      </div>
+
+      {/* Signature Lines - NO GAP */}
+      <div className="signature-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15mm', marginTop: '8mm', fontSize: '11px' }}>
+        <div>Received By (Name) : _____________</div>
+        <div>Total Pallets : _____________</div>
+        
+        {/* Company Name - NO GAP */}
+        <div style={{ gridColumn: '1 / -1', fontWeight: 'bold', fontSize: '14px', textAlign: 'center', marginTop: '15mm' }}>
+          Kitchen Xpress Overseas Inc.
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="container max-w-6xl mx-auto p-6">
       {/* Action Buttons */}
@@ -201,176 +371,90 @@ function InvoiceView() {
         </div>
       </div>
 
-      {/* Invoice Content - Multi-page layout */}
+      {/* Invoice Content - Dynamic pagination */}
       <div className="invoice-print-content bg-white" style={{ width: '210mm', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
         
-        {/* Page 1 - Invoice Items */}
-        <div style={{ width: '210mm', minHeight: '297mm', padding: '50mm 20mm 40mm 20mm', pageBreakAfter: 'always' }}>
-          {/* Header Section */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '16px', fontWeight: 'bold' }}>
-            <div>INVOICE</div>
-            <div style={{ fontSize: '14px' }}>Page : 1 of 2</div>
-          </div>
-
-          {/* Customer and Invoice Details Section - 3 column layout */}
-          <div style={{ display: 'grid', gridTemplateColumns: '56mm 56mm 58mm', gap: '0mm', marginBottom: '8mm', fontSize: '10px' }}>
-            
-            {/* Bill To Column */}
-            <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Bill To</div>
-              <div style={{ lineHeight: '1.2' }}>
-                <div style={{ fontWeight: '500' }}>{customer?.name || 'Customer Name'}</div>
-                {customer?.address && (
-                  <>
-                    <div>{customer.address.street}</div>
-                    <div>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</div>
-                    <div>{customer.address.country}</div>
-                  </>
-                )}
-                <div>TEL : {customer?.phone || ''}</div>
-              </div>
+        {/* Render data pages */}
+        {pages.map((pageItems, pageIndex) => (
+          <div 
+            key={pageIndex} 
+            style={{ 
+              width: '210mm', 
+              minHeight: '297mm', 
+              padding: '50mm 20mm 40mm 20mm',
+              pageBreakAfter: (pageIndex === pages.length - 1 && !summaryNeedsSeparatePage) ? 'auto' : 'always' 
+            }}
+          >
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '16px', fontWeight: 'bold' }}>
+              <div>INVOICE</div>
+              <div style={{ fontSize: '14px' }}>Page : {pageIndex + 1} of {totalPagesWithSummary}</div>
             </div>
 
-            {/* Ship To Column */}
-            <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Ship To</div>
-              <div style={{ lineHeight: '1.2' }}>
-                <div style={{ fontWeight: '500' }}>{customer?.name || 'Customer Name'}</div>
-                {customer?.address && (
-                  <>
-                    <div>{customer.address.street}</div>
-                    <div>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</div>
-                    <div>{customer.address.country}</div>
-                  </>
-                )}
-              </div>
-            </div>
+            {/* Customer Details only on first page */}
+            {pageIndex === 0 && renderCustomerDetails()}
 
-            {/* Invoice Details Column */}
-            <div style={{ lineHeight: '1.3' }}>
-              <div>Invoice No : {invoice.invoiceNumber}</div>
-              <div>Invoice Date : {formatDate(invoice.invoiceDate.toString())}</div>
-              <div>Purchase Order No : -</div>
-              <div>Payment Term : Net 30</div>
-              <div>Shipping Info</div>
-              <div>Ship Date : {invoice.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice.invoiceDate.toString())}</div>
-            </div>
-          </div>
-
-          {/* Line Items Table - 7 columns with exact specifications (170mm total width) */}
-          <div style={{ border: '1px solid black', marginBottom: '8mm', width: '170mm', marginLeft: '0' }}>
-            
-            {/* Table Header - Height 10mm, Font 9.5pt bold */}
-            <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '9.5pt', fontWeight: 'bold', height: '10mm' }}>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Sr. No</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Item Code</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Packing Size</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Product Description</div>
-              <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '8pt', lineHeight: '1.1' }}>Qty<br/>(Cartons)</div>
-              <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7pt', lineHeight: '1.1' }}>Rate Per<br/>Carton<br/>(USD)</div>
-              <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '8pt', lineHeight: '1.1' }}>Net Amount<br/>(USD)</div>
-            </div>
-
-            {/* Table Rows - Data - Minimum height 8mm */}
-            {lineItems?.map((item: InvoiceLineItem, index: number) => (
-              <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', borderBottom: '1px solid black', fontSize: '8pt', minHeight: '8mm' }}>
-                <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{index + 1}</div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>{item.productCode || '-'}</div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>{item.packingSize || '-'}</div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'flex-start', overflow: 'hidden', fontSize: '7pt', lineHeight: '1.2', wordWrap: 'break-word', whiteSpace: 'normal' }}>
-                  <div style={{ overflow: 'hidden' }}>{item.description}</div>
+            {/* Line Items Table - render even for zero items */}
+            <div style={{ border: '1px solid black', width: '170mm', marginLeft: '0', marginBottom: (pageIndex === pages.length - 1 && !summaryNeedsSeparatePage) ? '0' : '8mm' }}>
+              {renderTableHeader()}
+              
+              {/* Table Rows - Data or empty row for zero items */}
+              {pageItems.length > 0 ? (
+                pageItems.map((item: InvoiceLineItem, itemIndex: number) => {
+                  const globalIndex = pageIndex * itemsPerPage + itemIndex;
+                  return (
+                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', borderBottom: '1px solid black', fontSize: '8pt', minHeight: '8mm' }}>
+                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{globalIndex + 1}</div>
+                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>{item.productCode || '-'}</div>
+                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>{item.packingSize || '-'}</div>
+                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'flex-start', overflow: 'hidden', fontSize: '7pt', lineHeight: '1.2', wordWrap: 'break-word', whiteSpace: 'normal' }}>
+                        <div style={{ overflow: 'hidden' }}>{item.description}</div>
+                      </div>
+                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>{item.quantity}</div>
+                      <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>{parseFloat(item.unitPrice).toFixed(2)}</div>
+                      <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>{parseFloat(item.lineTotal).toFixed(2)}</div>
+                    </div>
+                  );
+                })
+              ) : (
+                // Empty row for zero items case
+                <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', borderBottom: '1px solid black', fontSize: '8pt', minHeight: '20mm' }}>
+                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>-</div>
+                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>-</div>
+                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>-</div>
+                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontSize: '9pt', fontStyle: 'italic' }}>No items</div>
+                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>-</div>
+                  <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>-</div>
+                  <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>-</div>
                 </div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>{item.quantity}</div>
-                <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>{parseFloat(item.unitPrice).toFixed(2)}</div>
-                <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>{parseFloat(item.lineTotal).toFixed(2)}</div>
-              </div>
-            ))}
-
-            {/* Empty Rows */}
-            {Array.from({ length: Math.max(0, 15 - (lineItems?.length || 0)) }).map((_, index) => (
-              <div key={`empty-${index}`} style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', borderBottom: '1px solid black', fontSize: '8pt', minHeight: '8mm' }}>
-                <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{(lineItems?.length || 0) + index + 1}</div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
-                <div style={{ borderRight: '1px solid black', padding: '1mm' }}></div>
-                <div style={{ padding: '1mm' }}></div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Page 2 - Summary Section */}
-        <div style={{ width: '210mm', minHeight: '297mm', padding: '50mm 20mm 40mm 20mm' }}>
-          
-          {/* Header Section for Page 2 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15mm', fontSize: '16px', fontWeight: 'bold' }}>
-            <div>INVOICE</div>
-            <div style={{ fontSize: '14px' }}>Page : 2 of 2</div>
-          </div>
-
-          {/* Summary Table - 2 rows with horizontal layout */}
-          <div style={{ border: '1px solid black', marginBottom: '10mm', width: '170mm', fontSize: '12px' }}>
-            {/* Row 1 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: '1px solid black', padding: '3mm', backgroundColor: '#f9f9f9' }}>
-              <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
-                <strong>Total Cartons:</strong> {calculateTotalCartons()}
-              </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-                <strong>Net Amount:</strong> ${calculateSubtotal().toFixed(2)}
-              </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-                <strong>Net Weight (KGS):</strong> {calculateTotalNetWeight().toFixed(3)}
-              </div>
-              <div style={{ paddingLeft: '3mm' }}>
-                <strong>Freight:</strong> $0.00
-              </div>
+              )}
             </div>
-            
-            {/* Row 2 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '3mm' }}>
-              <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
-                <strong>Gross Weight (KGS):</strong> {calculateTotalGrossWeight().toFixed(3)}
-              </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-                <strong>Total Invoice Amount:</strong> ${parseFloat(invoice.total).toFixed(2)}
-              </div>
-              <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-                <strong>Gross Weight (LBS):</strong> {(calculateTotalGrossWeight() * 2.20462).toFixed(3)}
-              </div>
-              <div style={{ paddingLeft: '3mm' }}>
-                <strong>Amount In Words:</strong>
-              </div>
+
+            {/* Summary section on last data page if it fits */}
+            {pageIndex === pages.length - 1 && !summaryNeedsSeparatePage && renderSummarySection()}
+          </div>
+        ))}
+        
+        {/* Separate summary page if needed */}
+        {summaryNeedsSeparatePage && (
+          <div 
+            style={{ 
+              width: '210mm', 
+              minHeight: '297mm', 
+              padding: '50mm 20mm 40mm 20mm',
+              pageBreakAfter: 'auto' 
+            }}
+          >
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '16px', fontWeight: 'bold' }}>
+              <div>INVOICE</div>
+              <div style={{ fontSize: '14px' }}>Page : {totalPagesWithSummary} of {totalPagesWithSummary}</div>
             </div>
-          </div>
 
-          {/* Amount in Words - Full Width */}
-          <div style={{ marginBottom: '10mm', padding: '3mm', border: '1px solid black', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '2mm' }}>Amount In Words:</div>
-            <div style={{ fontSize: '11px' }}>{numberToWords(parseFloat(invoice.total))}</div>
+            {/* Summary section on dedicated page */}
+            {renderSummarySection()}
           </div>
-
-          {/* Terms and Conditions */}
-          <div style={{ marginBottom: '10mm', fontSize: '10px', lineHeight: '1.4' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '3mm' }}>Terms and Conditions:</div>
-            <div style={{ marginBottom: '2mm' }}>1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</div>
-            <div style={{ marginBottom: '2mm' }}>2. Overdues balances subject to finance charges of 2% per month.</div>
-            <div style={{ marginBottom: '2mm' }}>3. All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</div>
-            <div>4. Final Sale</div>
-          </div>
-
-          {/* Signature Lines */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15mm', marginBottom: '15mm', fontSize: '11px' }}>
-            <div>Received By (Name) : _____________</div>
-            <div>Total Pallets : _____________</div>
-          </div>
-
-          {/* Company Name */}
-          <div style={{ fontWeight: 'bold', fontSize: '14px', textAlign: 'center', marginTop: '20mm' }}>
-            Kitchen Xpress Overseas Inc.
-          </div>
-        </div>
+        )}
 
       </div>
     </div>
