@@ -23,8 +23,8 @@ function InvoiceView() {
 
   // Fetch customer data
   const { data: customer, isLoading: customerLoading } = useQuery({
-    queryKey: [`/api/customers/${invoice?.customerId}`],
-    enabled: !!invoice?.customerId
+    queryKey: [`/api/customers/${(invoice as any)?.customerId}`],
+    enabled: !!(invoice as any)?.customerId
   });
 
   const isLoading = invoiceLoading || lineItemsLoading || customerLoading;
@@ -84,7 +84,7 @@ function InvoiceView() {
   };
 
   const calculateTotalCartons = () => {
-    return lineItems?.reduce((total, item) => total + item.quantity, 0) || 0;
+    return (lineItems as any[])?.reduce((total: number, item: any) => total + item.quantity, 0) || 0;
   };
 
   const calculateSubtotal = () => {
@@ -193,7 +193,7 @@ function InvoiceView() {
 
   // Calculate pagination
   const itemsPerPage = 10;
-  const totalItems = lineItems?.length || 0;
+  const totalItems = (lineItems as any[])?.length || 0;
   
   // Handle zero items case - ensure at least one page
   const basePages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -286,45 +286,81 @@ function InvoiceView() {
   // Helper function to render summary section
   const renderSummarySection = () => (
     <>
-      {/* Summary Table - 2 rows with horizontal layout - NO GAP */}
+      {/* Summary Table - 2 column layout matching attached format - NO GAP */}
       <div className="summary-section" style={{ border: '1px solid black', width: '170mm', fontSize: '12px' }}>
         {/* Row 1 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: '1px solid black', padding: '3mm', backgroundColor: '#f9f9f9' }}>
-          <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
-            <strong>Total Cartons:</strong> {calculateTotalCartons()}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid black' }}>
+          <div style={{ borderRight: '1px solid black', padding: '4mm', backgroundColor: '#f9f9f9' }}>
+            <strong>Total Cartons</strong>
           </div>
-          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-            <strong>Net Amount:</strong> ${calculateSubtotal().toFixed(2)}
-          </div>
-          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-            <strong>Net Weight (KGS):</strong> {calculateTotalNetWeight().toFixed(3)}
-          </div>
-          <div style={{ paddingLeft: '3mm' }}>
-            <strong>Freight:</strong> $0.00
+          <div style={{ padding: '4mm', textAlign: 'right' }}>
+            {calculateTotalCartons()}
           </div>
         </div>
         
         {/* Row 2 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '3mm' }}>
-          <div style={{ borderRight: '1px solid black', paddingRight: '3mm' }}>
-            <strong>Gross Weight (KGS):</strong> {calculateTotalGrossWeight().toFixed(3)}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid black' }}>
+          <div style={{ borderRight: '1px solid black', padding: '4mm' }}>
+            <strong>Net Weight (KGS):</strong>
           </div>
-          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-            <strong>Total Invoice Amount:</strong> ${parseFloat(invoice.total).toFixed(2)}
-          </div>
-          <div style={{ borderRight: '1px solid black', paddingRight: '3mm', paddingLeft: '3mm' }}>
-            <strong>Gross Weight (LBS):</strong> {(calculateTotalGrossWeight() * 2.20462).toFixed(3)}
-          </div>
-          <div style={{ paddingLeft: '3mm' }}>
-            <strong>Amount In Words:</strong>
+          <div style={{ padding: '4mm', textAlign: 'right' }}>
+            {calculateTotalNetWeight().toFixed(3)}
           </div>
         </div>
-      </div>
-
-      {/* Amount in Words - Full Width - NO GAP */}
-      <div className="amount-in-words" style={{ padding: '3mm', border: '1px solid black', backgroundColor: '#f9f9f9', borderTop: 'none' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '2mm' }}>Amount In Words:</div>
-        <div style={{ fontSize: '11px' }}>{numberToWords(parseFloat(invoice.total))}</div>
+        
+        {/* Row 3 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid black' }}>
+          <div style={{ borderRight: '1px solid black', padding: '4mm', backgroundColor: '#f9f9f9' }}>
+            <strong>Gross Weight (KGS):</strong>
+          </div>
+          <div style={{ padding: '4mm', textAlign: 'right' }}>
+            {calculateTotalGrossWeight().toFixed(3)}
+          </div>
+        </div>
+        
+        {/* Row 4 - Amount in Words */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+          <div style={{ borderRight: '1px solid black', padding: '4mm' }}>
+            <strong>Amount in Words:</strong>
+            <div style={{ marginTop: '2mm', fontSize: '11px', fontWeight: 'normal' }}>
+              {numberToWords(parseFloat(invoice.total))}
+            </div>
+          </div>
+          <div style={{ padding: '0mm' }}>
+            {/* Right column nested table */}
+            <div style={{ height: '100%' }}>
+              {/* Net Amount */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid black', height: '33.33%' }}>
+                <div style={{ padding: '4mm', backgroundColor: '#f9f9f9', borderRight: '1px solid black' }}>
+                  <strong>Net Amount</strong>
+                </div>
+                <div style={{ padding: '4mm', textAlign: 'right' }}>
+                  ${calculateSubtotal().toFixed(2)}
+                </div>
+              </div>
+              
+              {/* Freight */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid black', height: '33.33%' }}>
+                <div style={{ padding: '4mm', borderRight: '1px solid black' }}>
+                  <strong>Freight</strong>
+                </div>
+                <div style={{ padding: '4mm', textAlign: 'right' }}>
+                  $0.00
+                </div>
+              </div>
+              
+              {/* Total Invoice Amount */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: '33.34%' }}>
+                <div style={{ padding: '4mm', backgroundColor: '#f9f9f9', borderRight: '1px solid black' }}>
+                  <strong>Total Invoice Amount:</strong>
+                </div>
+                <div style={{ padding: '4mm', textAlign: 'right' }}>
+                  ${parseFloat(invoice.total).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Terms and Conditions - NO GAP */}
