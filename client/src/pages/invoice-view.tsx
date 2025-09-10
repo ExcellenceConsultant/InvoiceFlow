@@ -10,21 +10,21 @@ function InvoiceView() {
   const [, setLocation] = useLocation();
 
   // Fetch invoice data
-  const { data: invoice, isLoading: invoiceLoading } = useQuery({
+  const { data: invoice, isLoading: invoiceLoading } = useQuery<Invoice>({
     queryKey: [`/api/invoices/${id}`],
     enabled: !!id
   });
 
   // Fetch line items
-  const { data: lineItems, isLoading: lineItemsLoading } = useQuery({
+  const { data: lineItems, isLoading: lineItemsLoading } = useQuery<InvoiceLineItem[]>({
     queryKey: [`/api/invoices/${id}/line-items`],
     enabled: !!id
   });
 
   // Fetch customer data
-  const { data: customer, isLoading: customerLoading } = useQuery({
-    queryKey: [`/api/customers/${(invoice as any)?.customerId}`],
-    enabled: !!(invoice as any)?.customerId
+  const { data: customer, isLoading: customerLoading } = useQuery<Customer>({
+    queryKey: [`/api/customers/${invoice?.customerId}`],
+    enabled: !!invoice?.customerId
   });
 
   const isLoading = invoiceLoading || lineItemsLoading || customerLoading;
@@ -68,7 +68,9 @@ function InvoiceView() {
       }
     `;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   const handlePrint = () => {
@@ -84,7 +86,7 @@ function InvoiceView() {
   };
 
   const calculateTotalCartons = () => {
-    return (lineItems as any[])?.reduce((total: number, item: any) => total + item.quantity, 0) || 0;
+    return lineItems?.reduce((total: number, item: InvoiceLineItem) => total + item.quantity, 0) || 0;
   };
 
   const calculateSubtotal = () => {
@@ -193,7 +195,7 @@ function InvoiceView() {
 
   // Calculate pagination
   const itemsPerPage = 10;
-  const totalItems = (lineItems as any[])?.length || 0;
+  const totalItems = lineItems?.length || 0;
   
   // Handle zero items case - ensure at least one page
   const basePages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -226,24 +228,24 @@ function InvoiceView() {
 
   // Helper function to render table header
   const renderTableHeader = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', backgroundColor: '#f5f5f5', borderBottom: '1px solid black', fontSize: '9.5pt', fontWeight: 'bold', height: '10mm' }}>
-      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Sr. No</div>
-      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Item Code</div>
-      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Packing Size</div>
-      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Product Description</div>
-      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '8pt', lineHeight: '1.1' }}>Qty<br/>(Cartons)</div>
-      <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '7pt', lineHeight: '1.1' }}>Rate Per<br/>Carton<br/>(USD)</div>
-      <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '8pt', lineHeight: '1.1' }}>Net Amount<br/>(USD)</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', backgroundColor: 'transparent', border: 'none', fontSize: '11pt', fontWeight: 'bold', height: '10mm', lineHeight: '1' }}>
+      <div style={{ border: 'none', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Sr. No</div>
+      <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Item Code</div>
+      <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Packing Size</div>
+      <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', wordBreak: 'break-word', overflow: 'hidden' }}>Product Description</div>
+      <div style={{ border: 'none', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '11pt', lineHeight: '1' }}>Qty<br/>(Cartons)</div>
+      <div style={{ border: 'none', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '11pt', lineHeight: '1' }}>Rate Per<br/>Carton<br/>(USD)</div>
+      <div style={{ border: 'none', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', wordBreak: 'break-word', overflow: 'hidden', fontSize: '11pt', lineHeight: '1' }}>Net Amount<br/>(USD)</div>
     </div>
   );
 
   // Helper function to render customer details section
   const renderCustomerDetails = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '56mm 56mm 58mm', gap: '0mm', marginBottom: '8mm', fontSize: '10px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '56mm 56mm 58mm', gap: '0mm', marginBottom: '8mm', fontSize: '10pt', lineHeight: '1' }}>
       {/* Bill To Column */}
       <div>
-        <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Bill To</div>
-        <div style={{ lineHeight: '1.2' }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '2mm', fontSize: '11pt' }}>Bill To</div>
+        <div style={{ lineHeight: '1' }}>
           <div style={{ fontWeight: '500' }}>{customer?.name || 'Customer Name'}</div>
           {customer?.address && (
             <>
@@ -258,8 +260,8 @@ function InvoiceView() {
 
       {/* Ship To Column */}
       <div>
-        <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>Ship To</div>
-        <div style={{ lineHeight: '1.2' }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '2mm', fontSize: '11pt' }}>Ship To</div>
+        <div style={{ lineHeight: '1' }}>
           <div style={{ fontWeight: '500' }}>{customer?.name || 'Customer Name'}</div>
           {customer?.address && (
             <>
@@ -272,13 +274,13 @@ function InvoiceView() {
       </div>
 
       {/* Invoice Details Column */}
-      <div style={{ lineHeight: '1.3' }}>
-        <div>Invoice No : {invoice.invoiceNumber}</div>
-        <div>Invoice Date : {formatDate(invoice.invoiceDate.toString())}</div>
+      <div style={{ lineHeight: '1' }}>
+        <div>Invoice No : {invoice?.invoiceNumber}</div>
+        <div>Invoice Date : {formatDate(invoice?.invoiceDate?.toString())}</div>
         <div>Purchase Order No : -</div>
         <div>Payment Term : Net 30</div>
         <div>Shipping Info</div>
-        <div>Ship Date : {invoice.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice.invoiceDate.toString())}</div>
+        <div>Ship Date : {invoice?.dueDate ? formatDate(invoice.dueDate.toString()) : formatDate(invoice?.invoiceDate?.toString())}</div>
       </div>
     </div>
   );
@@ -287,7 +289,7 @@ function InvoiceView() {
   const renderSummarySection = () => (
     <>
       {/* Summary Table - 2 column layout matching attached format - NO GAP */}
-      <div className="summary-section" style={{ border: '1px solid black', width: '170mm', fontSize: '12px' }}>
+      <div className="summary-section" style={{ border: '1px solid black', width: '170mm', fontSize: '10pt', lineHeight: '1' }}>
         {/* Row 1 */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid black' }}>
           <div style={{ borderRight: '1px solid black', padding: '4mm', backgroundColor: '#f9f9f9' }}>
@@ -322,8 +324,8 @@ function InvoiceView() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
           <div style={{ borderRight: '1px solid black', padding: '4mm' }}>
             <strong>Amount in Words:</strong>
-            <div style={{ marginTop: '2mm', fontSize: '11px', fontWeight: 'normal' }}>
-              {numberToWords(parseFloat(invoice.total))}
+            <div style={{ marginTop: '2mm', fontSize: '10pt', fontWeight: 'normal' }}>
+              {numberToWords(parseFloat(invoice?.total || '0'))}
             </div>
           </div>
           <div style={{ padding: '0mm' }}>
@@ -355,7 +357,7 @@ function InvoiceView() {
                   <strong>Total Invoice Amount:</strong>
                 </div>
                 <div style={{ padding: '4mm', textAlign: 'right' }}>
-                  ${parseFloat(invoice.total).toFixed(2)}
+                  ${parseFloat((invoice as any)?.total || '0').toFixed(2)}
                 </div>
               </div>
             </div>
@@ -364,21 +366,21 @@ function InvoiceView() {
       </div>
 
       {/* Terms and Conditions - NO GAP */}
-      <div className="terms-section" style={{ marginTop: '8mm', fontSize: '10px', lineHeight: '1.4' }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '3mm' }}>Terms and Conditions:</div>
-        <div style={{ marginBottom: '2mm' }}>1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</div>
-        <div style={{ marginBottom: '2mm' }}>2. Overdues balances subject to finance charges of 2% per month.</div>
-        <div style={{ marginBottom: '2mm' }}>3. All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</div>
+      <div className="terms-section" style={{ marginTop: '8mm', fontSize: '10pt', lineHeight: '1', textAlign: 'left' }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '3mm', fontSize: '11pt' }}>Terms and Conditions:</div>
+        <div>1. All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</div>
+        <div>2. Overdues balances subject to finance charges of 2% per month.</div>
+        <div>3. All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</div>
         <div>4. Final Sale</div>
       </div>
 
       {/* Signature Lines - NO GAP */}
-      <div className="signature-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15mm', marginTop: '8mm', fontSize: '11px' }}>
+      <div className="signature-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15mm', marginTop: '8mm', fontSize: '10pt', lineHeight: '1' }}>
         <div>Received By (Name) : _____________</div>
         <div>Total Pallets : _____________</div>
         
         {/* Company Name - NO GAP */}
-        <div style={{ gridColumn: '1 / -1', fontWeight: 'bold', fontSize: '14px', textAlign: 'center', marginTop: '15mm' }}>
+        <div style={{ gridColumn: '1 / -1', fontWeight: 'bold', fontSize: '12pt', textAlign: 'left', marginTop: '15mm' }}>
           Kitchen Xpress Overseas Inc.
         </div>
       </div>
@@ -408,7 +410,7 @@ function InvoiceView() {
       </div>
 
       {/* Invoice Content - Dynamic pagination */}
-      <div className="invoice-print-content bg-white" style={{ width: '210mm', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+      <div className="invoice-print-content bg-white" style={{ width: '210mm', margin: '0 auto', fontFamily: 'Times New Roman, serif' }}>
         
         {/* Render data pages */}
         {pages.map((pageItems, pageIndex) => (
@@ -422,16 +424,16 @@ function InvoiceView() {
             }}
           >
             {/* Header Section */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '16px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '12pt', fontWeight: 'bold', lineHeight: '1' }}>
               <div>INVOICE</div>
-              <div style={{ fontSize: '14px' }}>Page : {pageIndex + 1} of {totalPagesWithSummary}</div>
+              <div style={{ fontSize: '10pt' }}>Page : {pageIndex + 1} of {totalPagesWithSummary}</div>
             </div>
 
             {/* Customer Details only on first page */}
             {pageIndex === 0 && renderCustomerDetails()}
 
             {/* Line Items Table - render even for zero items */}
-            <div style={{ border: '1px solid black', width: '170mm', marginLeft: '0', marginBottom: (pageIndex === pages.length - 1 && !summaryNeedsSeparatePage) ? '0' : '8mm' }}>
+            <div style={{ border: 'none', width: '170mm', marginLeft: '0', marginBottom: (pageIndex === pages.length - 1 && !summaryNeedsSeparatePage) ? '0' : '8mm' }}>
               {renderTableHeader()}
               
               {/* Table Rows - Data or empty row for zero items */}
@@ -439,29 +441,29 @@ function InvoiceView() {
                 pageItems.map((item: InvoiceLineItem, itemIndex: number) => {
                   const globalIndex = pageIndex * itemsPerPage + itemIndex;
                   return (
-                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', borderBottom: '1px solid black', fontSize: '8pt', minHeight: '8mm' }}>
-                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{globalIndex + 1}</div>
-                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>{item.productCode || '-'}</div>
-                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>{item.packingSize || '-'}</div>
-                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'flex-start', overflow: 'hidden', fontSize: '7pt', lineHeight: '1.2', wordWrap: 'break-word', whiteSpace: 'normal' }}>
+                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', border: 'none', fontSize: '10pt', minHeight: '8mm', lineHeight: '1' }}>
+                      <div style={{ border: 'none', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>{globalIndex + 1}</div>
+                      <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>{item.productCode || '-'}</div>
+                      <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>{item.packingSize || '-'}</div>
+                      <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'flex-start', overflow: 'hidden', lineHeight: '1', wordWrap: 'break-word', whiteSpace: 'normal' }}>
                         <div style={{ overflow: 'hidden' }}>{item.description}</div>
                       </div>
-                      <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>{item.quantity}</div>
-                      <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>{parseFloat(item.unitPrice).toFixed(2)}</div>
-                      <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>{parseFloat(item.lineTotal).toFixed(2)}</div>
+                      <div style={{ border: 'none', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>{item.quantity}</div>
+                      <div style={{ border: 'none', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>{parseFloat(item.unitPrice).toFixed(2)}</div>
+                      <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>{parseFloat(item.lineTotal).toFixed(2)}</div>
                     </div>
                   );
                 })
               ) : (
                 // Empty row for zero items case
-                <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', borderBottom: '1px solid black', fontSize: '8pt', minHeight: '20mm' }}>
-                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>-</div>
-                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>-</div>
-                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden', fontSize: '7pt' }}>-</div>
-                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontSize: '9pt', fontStyle: 'italic' }}>No items</div>
-                  <div style={{ borderRight: '1px solid black', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>-</div>
-                  <div style={{ borderRight: '1px solid black', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>-</div>
-                  <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden', fontSize: '7pt' }}>-</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '9.09mm 25.45mm 20.00mm 68.18mm 17.27mm 10.00mm 20.00mm', border: 'none', fontSize: '10pt', minHeight: '20mm', lineHeight: '1' }}>
+                  <div style={{ border: 'none', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>-</div>
+                  <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>-</div>
+                  <div style={{ border: 'none', padding: '1mm', textAlign: 'left', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>-</div>
+                  <div style={{ border: 'none', padding: '1mm', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontStyle: 'italic' }}>No items</div>
+                  <div style={{ border: 'none', padding: '1mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>-</div>
+                  <div style={{ border: 'none', padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>-</div>
+                  <div style={{ padding: '0.5mm', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>-</div>
                 </div>
               )}
             </div>
@@ -482,9 +484,9 @@ function InvoiceView() {
             }}
           >
             {/* Header Section */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '16px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10mm', fontSize: '12pt', fontWeight: 'bold' }}>
               <div>INVOICE</div>
-              <div style={{ fontSize: '14px' }}>Page : {totalPagesWithSummary} of {totalPagesWithSummary}</div>
+              <div style={{ fontSize: '10pt' }}>Page : {totalPagesWithSummary} of {totalPagesWithSummary}</div>
             </div>
 
             {/* Summary section on dedicated page */}
