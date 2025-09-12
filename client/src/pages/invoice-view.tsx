@@ -6,13 +6,6 @@ import { Invoice, InvoiceLineItem, Customer } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 
-/**
- * Updated InvoiceView
- * - Implements a print-ready A4 invoice format matching your "Bill Format Edited.docx".
- * - Supports multi-page printing (simple pagination using itemsPerPage).
- * - Uses fields available from invoice & lineItems (productCode, packingSize, description, quantity, unitPrice, lineTotal, netWeightKgs, grossWeightKgs).
- */
-
 function formatCurrency(num: number) {
   if (Number.isNaN(num) || num === null || num === undefined) return '$0.00';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
@@ -23,17 +16,15 @@ function toNumber(v: any) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Simple number -> words for USD integer portion (handles up to billions)
+// Simple integer portion to words
 function numberToWords(num: number): string {
   if (num === 0) return 'zero';
   const a = [
-    '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
-    'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen',
-    'fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'
+    '', 'one','two','three','four','five','six','seven','eight','nine','ten','eleven',
+    'twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'
   ];
   const b = ['', '', 'twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
   const thousand = ['','thousand','million','billion'];
-
   function chunk(n: number) {
     const words: string[] = [];
     if (n >= 100) {
@@ -48,7 +39,6 @@ function numberToWords(num: number): string {
     }
     return words.join(' ');
   }
-
   let wordParts: string[] = [];
   let i = 0;
   while (num > 0) {
@@ -66,19 +56,16 @@ function InvoiceView() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
 
-  // Fetch invoice data
   const { data: invoice, isLoading: invoiceLoading } = useQuery<Invoice>({
     queryKey: [`/api/invoices/${id}`],
     enabled: !!id
   });
 
-  // Fetch line items
   const { data: lineItemsRaw, isLoading: lineItemsLoading } = useQuery<InvoiceLineItem[]>({
     queryKey: [`/api/invoices/${id}/line-items`],
     enabled: !!id
   });
 
-  // Fetch customer data
   const { data: customer, isLoading: customerLoading } = useQuery<Customer>({
     queryKey: [`/api/customers/${invoice?.customerId}`],
     enabled: !!invoice?.customerId
@@ -86,7 +73,6 @@ function InvoiceView() {
 
   const isLoading = invoiceLoading || lineItemsLoading || customerLoading;
 
-  // prepare items array (defensive)
   const lineItems = (lineItemsRaw || []).map(item => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -99,7 +85,6 @@ function InvoiceView() {
   }));
 
   useEffect(() => {
-    // Ensure the printed area is visible & set page size/margins for A4
     const style = document.createElement('style');
     style.id = 'invoice-print-styles';
     style.textContent = `
@@ -109,7 +94,6 @@ function InvoiceView() {
         .invoice-page { box-shadow: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
       }
-      /* Desktop preview */
       .invoice-page { width: 210mm; min-height: 297mm; margin: 10px auto; padding: 16mm; background: white; box-sizing: border-box; }
       .company-name { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
       .small-label { font-size: 12px; color: #374151; }
@@ -126,9 +110,7 @@ function InvoiceView() {
     };
   }, []);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   if (isLoading) {
     return (
@@ -158,7 +140,6 @@ function InvoiceView() {
     );
   }
 
-  // totals (across all pages)
   const totalCartons = lineItems.reduce((s, it) => s + (it.quantity || 0), 0);
   const netAmount = lineItems.reduce((s, it) => s + (toNumber(it.lineTotal)), 0);
   const netWeightKgs = lineItems.reduce((s, it) => s + ((it.netWeightKgs || 0) * (it.quantity || 0)), 0);
@@ -167,22 +148,23 @@ function InvoiceView() {
   const totalInvoiceAmount = netAmount + freight;
   const grossWeightLbs = grossWeightKgs * 2.20462;
 
-  // Pagination for printing: choose a reasonable items per page
   const itemsPerPage = 14;
   const pageCount = Math.max(1, Math.ceil(lineItems.length / itemsPerPage));
   const pages = Array.from({ length: pageCount }).map((_, pIndex) =>
     lineItems.slice(pIndex * itemsPerPage, (pIndex + 1) * itemsPerPage)
   );
 
+  // build address strings for Bill To / Ship To
+  const billAddress = customer?.address || (invoice as any).billToAddress;
+  const shipAddress = (invoice as any).shipToAddress;
+
   return (
     <div className="container max-w-6xl mx-auto p-6">
-      {/* Action Buttons */}
       <div className="flex items-center justify-between gap-4 mb-6 print-hide">
         <Button variant="outline" size="sm" onClick={() => setLocation('/invoices')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Invoices
         </Button>
-
         <div className="flex gap-2">
           <Button onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
@@ -191,7 +173,6 @@ function InvoiceView() {
         </div>
       </div>
 
-      {/* Invoice pages (will render multiple pages if needed) */}
       {pages.map((pageItems, pageIndex) => (
         <div key={pageIndex} className={`invoice-page bg-white ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}>
           {/* Header */}
@@ -201,28 +182,29 @@ function InvoiceView() {
               <div className="small-label">14001 Townsend Rd. Philadelphia, PA 19154-1007</div>
               <div className="small-label">Phone - +1 (267) 667 4923 | Fax: +1 (445) 776 5416 | Email: info@kxol.us</div>
             </div>
-
             <div className="text-right">
               <div style={{ fontSize: 20, fontWeight: 700 }}>INVOICE</div>
               <div className="small-label">Page : {pageIndex + 1} of {pages.length}</div>
             </div>
           </div>
 
-          {/* Bill To / Ship To / Invoice details */}
+          {/* Bill To / Ship To */}
           <div className="grid grid-cols-12 gap-4 mb-4">
             <div className="col-span-5">
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
-                <div>{customer?.name || invoice?.billToName || '—'}</div>
-                {customer?.address && (
+                <div>{customer?.name || (invoice as any).billToName || '—'}</div>
+                {billAddress && (
                   <div className="small-label">
-                    <div>{customer.address.street}</div>
-                    <div>{customer.address.city}{customer.address.state ? `, ${customer.address.state}` : ''} {customer.address.zipCode || ''}</div>
-                    <div>{customer.address.country || ''}</div>
+                    {billAddress.street && <div>{billAddress.street}</div>}
+                    {billAddress.city && (
+                      <div>{billAddress.city}{billAddress.state ? `, ${billAddress.state}` : ''} {billAddress.zipCode || ''}</div>
+                    )}
+                    {billAddress.country && <div>{billAddress.country}</div>}
                   </div>
                 )}
-                {(!customer?.address && (invoice as any).billToAddress) && (
-                  <div className="small-label">{(invoice as any).billToAddress}</div>
+                {((customer as any)?.phone || (invoice as any).billToPhone) && (
+                  <div className="small-label">TEL : {(customer as any)?.phone || (invoice as any).billToPhone}</div>
                 )}
               </div>
             </div>
@@ -231,7 +213,22 @@ function InvoiceView() {
               <div className="font-semibold">Ship To</div>
               <div className="mt-1">
                 <div>{(invoice as any).shipToName || customer?.name || '—'}</div>
-                <div className="small-label">{(invoice as any).shipToAddress || ''}</div>
+                {shipAddress && (
+                  <div className="small-label">
+                    {typeof shipAddress === 'string' ? shipAddress : (
+                      <>
+                        {shipAddress.street && <div>{shipAddress.street}</div>}
+                        {shipAddress.city && (
+                          <div>{shipAddress.city}{shipAddress.state ? `, ${shipAddress.state}` : ''} {shipAddress.zipCode || ''}</div>
+                        )}
+                        {shipAddress.country && <div>{shipAddress.country}</div>}
+                      </>
+                    )}
+                  </div>
+                )}
+                {((invoice as any).shipToPhone) && (
+                  <div className="small-label">TEL : {(invoice as any).shipToPhone}</div>
+                )}
               </div>
             </div>
 
@@ -253,52 +250,50 @@ function InvoiceView() {
             </div>
           </div>
 
-          {/* Table of items */}
-          <div>
-            <table className="invoice-table">
-              <thead>
+          {/* Table */}
+          <table className="invoice-table">
+            <thead>
+              <tr>
+                <th style={{ width: '5%' }}>Sr. No</th>
+                <th style={{ width: '13%' }}>Item Code</th>
+                <th style={{ width: '12%' }}>Packing Size</th>
+                <th style={{ width: '40%' }}>Product Description</th>
+                <th style={{ width: '8%' }}>Qty (Cartons)</th>
+                <th style={{ width: '11%' }}>Rate Per Carton (USD)</th>
+                <th style={{ width: '11%' }}>Net Amount (USD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageItems.length === 0 && (
                 <tr>
-                  <th style={{ width: '5%' }}>Sr. No</th>
-                  <th style={{ width: '13%' }}>Item Code</th>
-                  <th style={{ width: '12%' }}>Packing Size</th>
-                  <th style={{ width: '40%' }}>Product Description</th>
-                  <th style={{ width: '8%' }}>Qty (Cartons)</th>
-                  <th style={{ width: '11%' }}>Rate Per Carton (USD)</th>
-                  <th style={{ width: '11%' }}>Net Amount (USD)</th>
+                  <td colSpan={7} className="text-center small-label">No items</td>
                 </tr>
-              </thead>
-              <tbody>
-                {pageItems.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="text-center small-label">No items</td>
+              )}
+              {pageItems.map((item, idx) => {
+                const globalIndex = pageIndex * itemsPerPage + idx;
+                const qty = toNumber(item.quantity);
+                const rate = toNumber(item.unitPrice);
+                const lineTotal = toNumber(item.lineTotal);
+                const isFree = !!(item as any).isFreeFromScheme;
+                return (
+                  <tr key={item.id || globalIndex}>
+                    <td className="text-center">{globalIndex + 1}</td>
+                    <td>{item.productCode || (item as any).itemCode || '—'}</td>
+                    <td>{item.packingSize || '—'}</td>
+                    <td>
+                      <div>{item.description}</div>
+                      {isFree && <div className="small-label">FREE (Promotional)</div>}
+                    </td>
+                    <td className="text-center">{qty || '—'}</td>
+                    <td className="text-right">{isFree ? 'FREE' : formatCurrency(rate)}</td>
+                    <td className="text-right">{isFree ? 'FREE' : formatCurrency(lineTotal)}</td>
                   </tr>
-                )}
-                {pageItems.map((item, idx) => {
-                  const globalIndex = pageIndex * itemsPerPage + idx;
-                  const qty = toNumber(item.quantity);
-                  const rate = toNumber(item.unitPrice);
-                  const lineTotal = toNumber(item.lineTotal);
-                  const isFree = !!(item as any).isFreeFromScheme;
-                  return (
-                    <tr key={item.id || globalIndex}>
-                      <td className="text-center">{globalIndex + 1}</td>
-                      <td>{item.productCode || (item as any).itemCode || '—'}</td>
-                      <td>{item.packingSize || '—'}</td>
-                      <td>
-                        <div>{item.description}</div>
-                        {isFree && <div className="small-label">FREE (Promotional)</div>}
-                      </td>
-                      <td className="text-center">{qty || '—'}</td>
-                      <td className="text-right">{isFree ? 'FREE' : formatCurrency(rate)}</td>
-                      <td className="text-right">{isFree ? 'FREE' : formatCurrency(lineTotal)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
 
-          {/* Totals and summary only on last page (like doc): */}
+          {/* Totals (only on last page) */}
           {pageIndex === pages.length - 1 && (
             <>
               <div className="mt-4">
