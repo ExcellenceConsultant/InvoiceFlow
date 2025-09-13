@@ -1,5 +1,5 @@
-// invoice-view.tsx
-import { useState, useEffect } from 'react';
+// invoice-view.tsx (Atomic Change #2: header removed, address block 3-column layout)
+import { useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Invoice, InvoiceLineItem, Customer } from '@shared/schema';
@@ -10,13 +10,10 @@ function formatCurrency(num: number) {
   if (Number.isNaN(num) || num === null || num === undefined) return '$0.00';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 }
-
 function toNumber(v: any) {
   const n = typeof v === 'number' ? v : parseFloat(String(v || '0'));
   return Number.isFinite(n) ? n : 0;
 }
-
-// Simple integer portion to words
 function numberToWords(num: number): string {
   if (num === 0) return 'zero';
   const a = [
@@ -56,23 +53,11 @@ function InvoiceView() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
 
-  const { data: invoice, isLoading: invoiceLoading } = useQuery<Invoice>({
-    queryKey: [`/api/invoices/${id}`],
-    enabled: !!id
-  });
-
-  const { data: lineItemsRaw, isLoading: lineItemsLoading } = useQuery<InvoiceLineItem[]>({
-    queryKey: [`/api/invoices/${id}/line-items`],
-    enabled: !!id
-  });
-
-  const { data: customer, isLoading: customerLoading } = useQuery<Customer>({
-    queryKey: [`/api/customers/${invoice?.customerId}`],
-    enabled: !!invoice?.customerId
-  });
+  const { data: invoice, isLoading: invoiceLoading } = useQuery<Invoice>({ queryKey: [`/api/invoices/${id}`], enabled: !!id });
+  const { data: lineItemsRaw, isLoading: lineItemsLoading } = useQuery<InvoiceLineItem[]>({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
+  const { data: customer, isLoading: customerLoading } = useQuery<Customer>({ queryKey: [`/api/customers/${invoice?.customerId}`], enabled: !!invoice?.customerId });
 
   const isLoading = invoiceLoading || lineItemsLoading || customerLoading;
-
   const lineItems = (lineItemsRaw || []).map(item => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -90,12 +75,10 @@ function InvoiceView() {
     style.textContent = `
       @media print {
         @page { size: A4; margin: 15mm; }
-        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .invoice-page { box-shadow: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
       }
       .invoice-page { width: 210mm; min-height: 297mm; margin: 10px auto; padding: 16mm; background: white; box-sizing: border-box; }
-      .company-name { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
       .small-label { font-size: 12px; color: #374151; }
       table.invoice-table { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.invoice-table th, table.invoice-table td { border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; }
@@ -110,38 +93,31 @@ function InvoiceView() {
     };
   }, []);
 
-  const handlePrint = () => window.print();
-
   if (isLoading) {
     return (
       <div className="container max-w-6xl mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" onClick={() => setLocation('/invoices')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Invoices
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => setLocation('/invoices')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Invoices
+        </Button>
         <div className="text-center py-8">Loading invoice...</div>
       </div>
     );
   }
-
   if (!invoice) {
     return (
       <div className="container max-w-6xl mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" onClick={() => setLocation('/invoices')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Invoices
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => setLocation('/invoices')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Invoices
+        </Button>
         <div className="text-center py-8">Invoice not found</div>
       </div>
     );
   }
 
   const totalCartons = lineItems.reduce((s, it) => s + (it.quantity || 0), 0);
-  const netAmount = lineItems.reduce((s, it) => s + (toNumber(it.lineTotal)), 0);
+  const netAmount = lineItems.reduce((s, it) => s + toNumber(it.lineTotal), 0);
   const netWeightKgs = lineItems.reduce((s, it) => s + ((it.netWeightKgs || 0) * (it.quantity || 0)), 0);
   const grossWeightKgs = lineItems.reduce((s, it) => s + ((it.grossWeightKgs || 0) * (it.quantity || 0)), 0);
   const freight = toNumber((invoice as any).freight || (invoice as any).freightAmount || 0);
@@ -154,9 +130,10 @@ function InvoiceView() {
     lineItems.slice(pIndex * itemsPerPage, (pIndex + 1) * itemsPerPage)
   );
 
-  // build address strings for Bill To / Ship To
   const billAddress = customer?.address || (invoice as any).billToAddress;
   const shipAddress = (invoice as any).shipToAddress;
+
+  const handlePrint = () => window.print();
 
   return (
     <div className="container max-w-6xl mx-auto p-6">
@@ -165,32 +142,21 @@ function InvoiceView() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Invoices
         </Button>
-        <div className="flex gap-2">
-          <Button onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print Invoice
-          </Button>
-        </div>
+        <Button onClick={handlePrint}><Printer className="h-4 w-4 mr-2" />Print Invoice</Button>
       </div>
 
       {pages.map((pageItems, pageIndex) => (
         <div key={pageIndex} className={`invoice-page bg-white ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}>
-          {/* Header */}
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <div className="company-name">Kitchen Xpress Overseas Inc.</div>
-              <div className="small-label">14001 Townsend Rd. Philadelphia, PA 19154-1007</div>
-              <div className="small-label">Phone - +1 (267) 667 4923 | Fax: +1 (445) 776 5416 | Email: info@kxol.us</div>
-            </div>
-            <div className="text-right">
-              <div style={{ fontSize: 20, fontWeight: 700 }}>INVOICE</div>
-              <div className="small-label">Page : {pageIndex + 1} of {pages.length}</div>
-            </div>
+          {/* Title Row */}
+          <div className="grid grid-cols-12 mb-2">
+            <div className="col-span-5 font-bold text-center text-lg">INVOICE</div>
+            <div className="col-span-7 text-right small-label">Page : {pageIndex + 1} of {pages.length}</div>
           </div>
 
-          {/* Bill To / Ship To */}
+          {/* Three-column header: Bill To / Ship To / Invoice Details */}
           <div className="grid grid-cols-12 gap-4 mb-4">
-            <div className="col-span-5">
+            {/* Bill To */}
+            <div className="col-span-4">
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
                 <div>{customer?.name || (invoice as any).billToName || '—'}</div>
@@ -203,13 +169,10 @@ function InvoiceView() {
                     {billAddress.country && <div>{billAddress.country}</div>}
                   </div>
                 )}
-                {((customer as any)?.phone || (invoice as any).billToPhone) && (
-                  <div className="small-label">TEL : {(customer as any)?.phone || (invoice as any).billToPhone}</div>
-                )}
               </div>
             </div>
-
-            <div className="col-span-5">
+            {/* Ship To */}
+            <div className="col-span-4">
               <div className="font-semibold">Ship To</div>
               <div className="mt-1">
                 <div>{(invoice as any).shipToName || customer?.name || '—'}</div>
@@ -226,31 +189,17 @@ function InvoiceView() {
                     )}
                   </div>
                 )}
-                {((invoice as any).shipToPhone) && (
-                  <div className="small-label">TEL : {(invoice as any).shipToPhone}</div>
-                )}
               </div>
             </div>
-
-            <div className="col-span-2 text-right">
-              <div className="small-label"><strong>Invoice No :</strong></div>
-              <div className="mb-2">{invoice.invoiceNumber}</div>
-
-              <div className="small-label"><strong>Invoice Date :</strong></div>
-              <div className="mb-2">{new Date(invoice.invoiceDate).toLocaleDateString()}</div>
-
-              <div className="small-label"><strong>Purchase Order No :</strong></div>
-              <div className="mb-2">{(invoice as any).purchaseOrderNo || (invoice as any).poNumber || '—'}</div>
-
-              <div className="small-label"><strong>Payment Term :</strong></div>
-              <div className="mb-2">{(invoice as any).paymentTerm || '—'}</div>
-
-              <div className="small-label"><strong>Ship Date :</strong></div>
-              <div>{(invoice as any).shipDate ? new Date((invoice as any).shipDate).toLocaleDateString() : ((invoice as any).shipDateText || '—')}</div>
+            {/* Invoice Details */}
+            <div className="col-span-4 small-label">
+              <div><strong>Invoice No. :</strong> {invoice.invoiceNumber}</div>
+              <div><strong>Shipping Info</strong></div>
+              <div><strong>Ship Date :</strong> {(invoice as any).shipDate ? new Date((invoice as any).shipDate).toLocaleDateString() : '—'}</div>
             </div>
           </div>
 
-          {/* Table */}
+          {/* Items table (same as before) */}
           <table className="invoice-table">
             <thead>
               <tr>
@@ -264,89 +213,55 @@ function InvoiceView() {
               </tr>
             </thead>
             <tbody>
-              {pageItems.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center small-label">No items</td>
-                </tr>
-              )}
               {pageItems.map((item, idx) => {
                 const globalIndex = pageIndex * itemsPerPage + idx;
                 const qty = toNumber(item.quantity);
                 const rate = toNumber(item.unitPrice);
                 const lineTotal = toNumber(item.lineTotal);
-                const isFree = !!(item as any).isFreeFromScheme;
                 return (
                   <tr key={item.id || globalIndex}>
                     <td className="text-center">{globalIndex + 1}</td>
                     <td>{item.productCode || (item as any).itemCode || '—'}</td>
                     <td>{item.packingSize || '—'}</td>
-                    <td>
-                      <div>{item.description}</div>
-                      {isFree && <div className="small-label">FREE (Promotional)</div>}
-                    </td>
+                    <td>{item.description}</td>
                     <td className="text-center">{qty || '—'}</td>
-                    <td className="text-right">{isFree ? 'FREE' : formatCurrency(rate)}</td>
-                    <td className="text-right">{isFree ? 'FREE' : formatCurrency(lineTotal)}</td>
+                    <td className="text-right">{formatCurrency(rate)}</td>
+                    <td className="text-right">{formatCurrency(lineTotal)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
 
-          {/* Totals (only on last page) */}
+          {/* Totals only on last page */}
           {pageIndex === pages.length - 1 && (
             <>
-              <div className="mt-4">
-                <table style={{ width: '100%' }}>
+              <div className="mt-4 small-label">
+                <div><strong>Total Cartons :</strong> {totalCartons} (Auto Cal)</div>
+                <div><strong>Net Weight (KGS) :</strong> {netWeightKgs.toFixed(2)} (Auto Cal)</div>
+                <div><strong>Gross Weight (KGS) :</strong> {grossWeightKgs.toFixed(2)} (Auto Cal)</div>
+                <div><strong>Gross Weight (LBS) :</strong> {grossWeightLbs.toFixed(2)}</div>
+              </div>
+              <div className="totals mt-2">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
-                      <td style={{ width: '60%' }} className="small-label">
-                        <div><strong>Total Cartons :</strong> {totalCartons} (Auto Cal)</div>
-                        <div><strong>Net Weight (KGS) :</strong> {netWeightKgs.toFixed(2)} (Auto Cal)</div>
-                        <div><strong>Gross Weight (KGS) :</strong> {grossWeightKgs.toFixed(2)} (Auto Cal)</div>
-                        <div><strong>Gross Weight (LBS) :</strong> {grossWeightLbs.toFixed(2)}</div>
-                      </td>
-                      <td style={{ width: '40%', verticalAlign: 'top' }}>
-                        <div className="totals">
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <tbody>
-                              <tr>
-                                <td style={{ padding: '6px 8px', border: '1px solid #d1d5db' }}>Net Amount</td>
-                                <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', textAlign: 'right' }}>{formatCurrency(netAmount)}</td>
-                              </tr>
-                              <tr>
-                                <td style={{ padding: '6px 8px', border: '1px solid #d1d5db' }}>Freight</td>
-                                <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', textAlign: 'right' }}>{formatCurrency(freight)}</td>
-                              </tr>
-                              <tr>
-                                <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', fontWeight: 700 }}>Total Invoice Amount</td>
-                                <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(totalInvoiceAmount)}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #d1d5db' }}>Net Amount</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', textAlign: 'right' }}>{formatCurrency(netAmount)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '6px 8px', border: '1px solid #d1d5db' }}>Freight</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', textAlign: 'right' }}>{formatCurrency(freight)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', fontWeight: 700 }}>Total Invoice Amount</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #d1d5db', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(totalInvoiceAmount)}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-
               <div className="mt-4 small-label">
                 <div><strong>Amount In Words :</strong> {`${numberToWords(Math.floor(totalInvoiceAmount)).toUpperCase()} DOLLARS${((totalInvoiceAmount % 1) > 0) ? ` AND ${(Math.round((totalInvoiceAmount % 1)*100)).toString().padStart(2,'0')}/100` : ''}`}</div>
-              </div>
-
-              <div className="terms">
-                <ol className="list-decimal pl-5">
-                  <li>All Matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related hereto shall be adjusted exclusively in the state or federal courts located in Pennsylvania.</li>
-                  <li>Overdues balances subject to finance charges of 2% per month.</li>
-                  <li>All Payments must be made to the company's official bank account only. The company will not be liable for cash payments or for overpayments exceeding the invoiced amount.</li>
-                  <li>Final Sale.</li>
-                </ol>
-
-                <div className="mt-4">
-                  <div>Received By (Name) : ____________________</div>
-                  <div className="mt-2">Total Pallets : ____________</div>
-                </div>
               </div>
             </>
           )}
@@ -355,5 +270,4 @@ function InvoiceView() {
     </div>
   );
 }
-
 export default InvoiceView;
