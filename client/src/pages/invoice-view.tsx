@@ -1,4 +1,4 @@
-// invoice-view.tsx (Atomic Change #2: header removed, address block 3-column layout)
+// invoice-view.tsx (Atomic Change #4: Invoice Details block adjusted)
 import { useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
@@ -147,15 +147,14 @@ function InvoiceView() {
 
       {pages.map((pageItems, pageIndex) => (
         <div key={pageIndex} className={`invoice-page bg-white ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}>
-          {/* Title Row */}
-          <div className="grid grid-cols-12 mb-2">
-            <div className="col-span-5 font-bold text-center text-lg">INVOICE</div>
-            <div className="col-span-7 text-right small-label">Page : {pageIndex + 1} of {pages.length}</div>
+          {/* Title & page number */}
+          <div className="mb-2 relative">
+            <div className="text-center font-bold text-lg">INVOICE</div>
+            <div className="absolute right-0 top-0 small-label">Page : {pageIndex + 1} of {pages.length}</div>
           </div>
 
-          {/* Three-column header: Bill To / Ship To / Invoice Details */}
+          {/* Bill To / Ship To / Invoice Details */}
           <div className="grid grid-cols-12 gap-4 mb-4">
-            {/* Bill To */}
             <div className="col-span-4">
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
@@ -171,7 +170,6 @@ function InvoiceView() {
                 )}
               </div>
             </div>
-            {/* Ship To */}
             <div className="col-span-4">
               <div className="font-semibold">Ship To</div>
               <div className="mt-1">
@@ -191,15 +189,15 @@ function InvoiceView() {
                 )}
               </div>
             </div>
-            {/* Invoice Details */}
             <div className="col-span-4 small-label">
+              <div className="font-semibold">Invoice Details</div>
               <div><strong>Invoice No. :</strong> {invoice.invoiceNumber}</div>
-              <div><strong>Shipping Info</strong></div>
+              <div><strong>Shipping Info :</strong> {(invoice as any).purchaseOrderNo || (invoice as any).poNumber || '—'}</div>
               <div><strong>Ship Date :</strong> {(invoice as any).shipDate ? new Date((invoice as any).shipDate).toLocaleDateString() : '—'}</div>
             </div>
           </div>
 
-          {/* Items table (same as before) */}
+          {/* Table */}
           <table className="invoice-table">
             <thead>
               <tr>
