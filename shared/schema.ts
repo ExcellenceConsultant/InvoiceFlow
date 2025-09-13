@@ -100,6 +100,7 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
   packingSize: text("packing_size"),
   grossWeightKgs: decimal("gross_weight_kgs", { precision: 10, scale: 3 }),
   netWeightKgs: decimal("net_weight_kgs", { precision: 10, scale: 3 }),
+  category: text("category"),
   isFreeFromScheme: boolean("is_free_from_scheme").default(false),
   schemeId: varchar("scheme_id").references(() => productSchemes.id),
   createdAt: timestamp("created_at").defaultNow(),

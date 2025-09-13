@@ -342,6 +342,7 @@ export class MemStorage implements IStorage {
       quantity: lineItemData.quantity,
       unitPrice: lineItemData.unitPrice,
       lineTotal: lineItemData.lineTotal,
+      category: (lineItemData as any).category || null,
       isFreeFromScheme: lineItemData.isFreeFromScheme || null,
       schemeId: lineItemData.schemeId || null,
       id,
