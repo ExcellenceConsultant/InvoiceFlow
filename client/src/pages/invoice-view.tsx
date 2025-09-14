@@ -182,18 +182,29 @@ function InvoiceView() {
   const grossWeightLbs = grossWeightKgs * 2.20462;
 
   // 14 rows first page, continuous SR numbers
-  const itemsPerPage = 14;
-  const totalItems = lineItems.length;
-  const pageCount = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-  const pages = Array.from({ length: pageCount }).map((_, pageIndex) => {
-    const start = pageIndex * itemsPerPage;
-    const end = start + itemsPerPage;
-    const slice = lineItems.slice(start, end);
+  const firstPageRows = 14;
+  const otherPageRows = 15;
+
+  let pages: { rows: any[]; blanks: any[]; startIndex: number }[] = [];
+  let start = 0;
+
+  // page 1
+  const sliceFirst = lineItems.slice(start, start + firstPageRows);
+  const blanksFirst = Array.from({
+    length: Math.max(0, firstPageRows - sliceFirst.length),
+  }).map(() => null);
+  pages.push({ rows: sliceFirst, blanks: blanksFirst, startIndex: start });
+  start += sliceFirst.length;
+
+  // pages 2+
+  while (start < lineItems.length) {
+    const slice = lineItems.slice(start, start + otherPageRows);
     const blanks = Array.from({
-      length: Math.max(0, itemsPerPage - slice.length),
+      length: Math.max(0, otherPageRows - slice.length),
     }).map(() => null);
-    return { rows: slice, blanks, startIndex: start };
-  });
+    pages.push({ rows: slice, blanks, startIndex: start });
+    start += slice.length;
+  }
 
   const billAddress = customer?.address || (invoice as any).billToAddress;
   const shipAddress = (invoice as any).shipToAddress;
@@ -236,8 +247,11 @@ function InvoiceView() {
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
                 <div>
-                  {customer?.name || (invoice as any).billToName || "—"}
-                </div>
+                  {customer?.name ||
+                    (invoice as any).customerName ||
+                    (invoice as any).billToName ||
+                    "—"}
+                </div>{" "}
                 {billAddress && (
                   <div className="small-label">
                     {billAddress.street && <div>{billAddress.street}</div>}
@@ -257,7 +271,10 @@ function InvoiceView() {
               <div className="font-semibold">Ship To</div>
               <div className="mt-1">
                 <div>
-                  {(invoice as any).shipToName || customer?.name || "—"}
+                  {(invoice as any).shipToName ||
+                    (invoice as any).customerName ||
+                    customer?.name ||
+                    "—"}
                 </div>
                 {shipAddress && (
                   <div className="small-label">
@@ -318,14 +335,16 @@ function InvoiceView() {
               </tr>
             </thead>
             <tbody>
-              {pageIndex === 0 && page.rows.length > 0 && (
+              {page.rows.length > 0 && (
                 <tr className="category-row">
-                  <td colSpan={7}>
+                  <td
+                    colSpan={7}
+                    className="text-center font-semibold bg-gray-100"
+                  >
                     {page.rows[0].category || "Uncategorized"}
                   </td>
                 </tr>
               )}
-
               {page.rows.map((item, idx) => {
                 const sr = page.startIndex + idx + 1;
                 const qty = toNumber(item.quantity);
@@ -358,103 +377,176 @@ function InvoiceView() {
             </tbody>
           </table>
 
-          {/* Totals only on last page */}
+          {/* Summary only on last page */}
           {pageIndex === pages.length - 1 && (
             <>
-              <div className="mt-4 small-label">
-                <div>
-                  <strong>Total Cartons :</strong> {totalCartons} (Auto Cal)
-                </div>
-                <div>
-                  <strong>Net Weight (KGS) :</strong> {netWeightKgs.toFixed(2)}{" "}
-                  (Auto Cal)
-                </div>
-                <div>
-                  <strong>Gross Weight (KGS) :</strong>{" "}
-                  {grossWeightKgs.toFixed(2)} (Auto Cal)
-                </div>
-                <div>
-                  <strong>Gross Weight (LBS) :</strong>{" "}
-                  {grossWeightLbs.toFixed(2)}
-                </div>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontFamily: "Calibri, sans-serif",
+                  fontSize: "13px",
+                  marginTop: "0",
+                }}
+              >
+                <tbody>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                        width: "50%",
+                      }}
+                    >
+                      <strong>Total Cartons :</strong> {totalCartons}
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                        width: "50%",
+                      }}
+                    >
+                      <strong>Net Amount :</strong> {formatCurrency(netAmount)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      <strong>Net Weight (KGS) :</strong>{" "}
+                      {netWeightKgs.toFixed(2)}
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      <strong>Freight :</strong> {formatCurrency(freight)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      <strong>Gross Weight (KGS) :</strong>{" "}
+                      {grossWeightKgs.toFixed(2)}
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      <strong>Total Invoice Amount :</strong>{" "}
+                      {formatCurrency(totalInvoiceAmount)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      <strong>Gross Weight (LBS) :</strong>{" "}
+                      {grossWeightLbs.toFixed(2)}
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      <strong>Amount In Words :</strong>{" "}
+                      {`${numberToWords(Math.floor(totalInvoiceAmount)).toUpperCase()} DOLLARS${
+                        totalInvoiceAmount % 1 > 0
+                          ? ` AND ${Math.round((totalInvoiceAmount % 1) * 100)
+                              .toString()
+                              .padStart(2, "0")}/100`
+                          : ""
+                      }`}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontFamily: "Calibri, sans-serif",
+                  marginTop: "2px",
+                }}
+              >
+                <ol style={{ paddingLeft: "18px", margin: "4px 0" }}>
+                  <li>
+                    All Matters related to this invoice or the goods shall be
+                    governed by the laws of Pennsylvania, and all disputes
+                    related hereto shall be adjusted exclusively in the state or
+                    federal courts located in Pennsylvania.
+                  </li>
+                  <li>
+                    Overdues balances subject to finance charges of 2% per
+                    month.
+                  </li>
+                  <li>
+                    All Payments must be made to the company’s official bank
+                    account only. The company will not be liable for cash
+                    payments or for overpayments exceeding the invoiced amount.
+                  </li>
+                  <li>Final Sale</li>
+                </ol>
               </div>
-              <div className="totals mt-2">
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    <tr>
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                        }}
-                      >
-                        Net Amount
-                      </td>
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                          textAlign: "right",
-                        }}
-                      >
-                        {formatCurrency(netAmount)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                        }}
-                      >
-                        Freight
-                      </td>
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                          textAlign: "right",
-                        }}
-                      >
-                        {formatCurrency(freight)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                          fontWeight: 700,
-                        }}
-                      >
-                        Total Invoice Amount
-                      </td>
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                          textAlign: "right",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {formatCurrency(totalInvoiceAmount)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-4 small-label">
-                <div>
-                  <strong>Amount In Words :</strong>{" "}
-                  {`${numberToWords(Math.floor(totalInvoiceAmount)).toUpperCase()} DOLLARS${
-                    totalInvoiceAmount % 1 > 0
-                      ? ` AND ${Math.round((totalInvoiceAmount % 1) * 100)
-                          .toString()
-                          .padStart(2, "0")}/100`
-                      : ""
-                  }`}
-                </div>
-              </div>
+
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontFamily: "Calibri, sans-serif",
+                  fontSize: "13px",
+                  marginTop: "2px",
+                }}
+              >
+                <tbody>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                        width: "33%",
+                      }}
+                    >
+                      Received By (Name): ___________________
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                        width: "33%",
+                      }}
+                    >
+                      Total Pallets: ___________________
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                        width: "34%",
+                        textAlign: "center",
+                      }}
+                    >
+                      Kitchen Xpress Overseas Inc.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </>
           )}
         </div>
