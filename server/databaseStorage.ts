@@ -216,7 +216,18 @@ export class DatabaseStorage implements IStorage {
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
     const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
-    return invoice;
+    if (!invoice) return undefined;
+    
+    // Include customer data in the invoice response
+    let customer = null;
+    if (invoice.customerId) {
+      customer = await this.getCustomer(invoice.customerId);
+    }
+    
+    return {
+      ...invoice,
+      customer: customer || null
+    } as any;
   }
 
   async createInvoice(insertInvoice: InsertInvoice & { userId: string }): Promise<Invoice> {

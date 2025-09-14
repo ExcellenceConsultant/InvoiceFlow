@@ -89,15 +89,12 @@ function InvoiceView() {
     queryKey: [`/api/invoices/${id}`],
     enabled: !!id,
   });
+
   const { data: lineItemsRaw, isLoading: lineItemsLoading } = useQuery<
     InvoiceLineItem[]
   >({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
-  const { data: customer, isLoading: customerLoading } = useQuery<Customer>({
-    queryKey: [`/api/customers/${invoice?.customerId}`],
-    enabled: !!invoice?.customerId,
-  });
 
-  const isLoading = invoiceLoading || lineItemsLoading || customerLoading;
+  const isLoading = invoiceLoading || lineItemsLoading;
   const lineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -247,8 +244,10 @@ function InvoiceView() {
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
                 <div>
-                  {customer?.name || (invoice as any).billToName || "—"}
-                </div>{" "}
+                  {(invoice as any).customer?.name ||
+                    (invoice as any).billToName ||
+                    "—"}
+                </div>
                 {billAddress && (
                   <div className="small-label">
                     {billAddress.street && <div>{billAddress.street}</div>}
@@ -268,7 +267,9 @@ function InvoiceView() {
               <div className="font-semibold">Ship To</div>
               <div className="mt-1">
                 <div>
-                  {(invoice as any).shipToName || customer?.name || "—"}
+                  {(invoice as any).shipToName ||
+                    (invoice as any).customer?.name ||
+                    "—"}
                 </div>
                 {shipAddress && (
                   <div className="small-label">
