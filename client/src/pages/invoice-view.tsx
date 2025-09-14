@@ -247,10 +247,7 @@ function InvoiceView() {
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
                 <div>
-                  {customer?.name ||
-                    (invoice as any).customerName ||
-                    (invoice as any).billToName ||
-                    "—"}
+                  {customer?.name || (invoice as any).billToName || "—"}
                 </div>{" "}
                 {billAddress && (
                   <div className="small-label">
@@ -271,10 +268,7 @@ function InvoiceView() {
               <div className="font-semibold">Ship To</div>
               <div className="mt-1">
                 <div>
-                  {(invoice as any).shipToName ||
-                    (invoice as any).customerName ||
-                    customer?.name ||
-                    "—"}
+                  {(invoice as any).shipToName || customer?.name || "—"}
                 </div>
                 {shipAddress && (
                   <div className="small-label">
