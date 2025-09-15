@@ -602,7 +602,9 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                   netWeightKgs: parseFloat(
                                     product.netWeightKgs || "0",
                                   ),
-                                  category: product.category || "", // 👈 add this
+                                  category:
+                                    product.category ||
+                                    updatedItems[index].category, // 👈 add this
                                   lineTotal:
                                     updatedItems[index].quantity * unitPrice,
                                 };
@@ -628,6 +630,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                 </SelectItem>
                               ) : (
                                 (() => {
+                                  // normal filtered list based on global categoryFilter
                                   const filteredProducts =
                                     categoryFilter === "all"
                                       ? products
@@ -636,9 +639,26 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                             product.category === categoryFilter,
                                         );
 
-                                  return filteredProducts &&
-                                    filteredProducts.length > 0 ? (
-                                    filteredProducts.map((product: any) => (
+                                  // always include the currently selected product if not in filtered list
+                                  const currentProduct =
+                                    products?.find(
+                                      (p: any) => p.id === item.productId,
+                                    ) || null;
+
+                                  const displayProducts =
+                                    filteredProducts || [];
+
+                                  if (
+                                    currentProduct &&
+                                    !displayProducts.some(
+                                      (p: any) => p.id === currentProduct.id,
+                                    )
+                                  ) {
+                                    displayProducts.unshift(currentProduct);
+                                  }
+
+                                  return displayProducts.length > 0 ? (
+                                    displayProducts.map((product: any) => (
                                       <SelectItem
                                         key={product.id}
                                         value={product.id}
@@ -651,9 +671,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                     ))
                                   ) : (
                                     <SelectItem value="no-products" disabled>
-                                      {categoryFilter === "all"
-                                        ? "No products available"
-                                        : `No products in "${categoryFilter}" category`}
+                                      No products available
                                     </SelectItem>
                                   );
                                 })()

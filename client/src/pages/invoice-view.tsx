@@ -112,15 +112,39 @@ function InvoiceView() {
     style.id = "invoice-print-styles";
     style.textContent = `
       @media print {
-        @page { size: A4; margin: 15mm; }
-        .invoice-page { box-shadow: none; margin: 0; width: auto; min-height: auto; }
+        /* more top & bottom margin to fit letterhead header/footer */
+        @page { size: A4; margin: 35mm 15mm 30mm 15mm; }
+        .invoice-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
       }
-      .invoice-page { width: 210mm; min-height: 297mm; margin: 10px auto; padding: 16mm; background: white; box-sizing: border-box; font-family: Calibri, sans-serif; }
+      .invoice-page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 10px auto;
+        /* padding adjusted to match header/footer blank area */
+        padding: 35mm 16mm 30mm 16mm;
+        background: white;
+        box-sizing: border-box;
+        font-family: Calibri, sans-serif;
+        box-shadow: none; /* removes the outer border/shadow */
+        border: none;     /* removes any border */
+      }
       .small-label { font-size: 12px; color: #374151; }
-      table.invoice-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: Calibri, sans-serif; }
-      table.invoice-table th, table.invoice-table td { border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; }
-      table.invoice-table thead th { background: #f3f4f6; font-weight: 600; }
+      table.invoice-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        font-family: Calibri, sans-serif;
+      }
+      table.invoice-table th, table.invoice-table td {
+        border: 1px solid #d1d5db;
+        padding: 6px 8px;
+        vertical-align: top;
+      }
+      table.invoice-table thead th {
+        background: #f3f4f6;
+        font-weight: 600;
+      }
       .totals { width: 320px; float: right; margin-top: 12px; }
       .terms { font-size: 11px; color: #6b7280; margin-top: 12px; }
     `;
@@ -203,7 +227,8 @@ function InvoiceView() {
     start += slice.length;
   }
 
-  const billAddress = customer?.address || (invoice as any).billToAddress;
+  const billAddress =
+    (invoice as any).customer?.address || (invoice as any).billToAddress;
   const shipAddress = (invoice as any).shipToAddress;
 
   const handlePrint = () => window.print();
