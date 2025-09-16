@@ -301,6 +301,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create line items with scheme application
       const createdLineItems = [];
+      const hasFrontendFreeItems = lineItems.some(li => li.isFreeFromScheme);
+      
       for (const item of lineItems) {
         // Skip line items with empty productId
         if (!item.productId || item.productId.trim() === '') {
@@ -317,8 +319,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const lineItem = await storage.createLineItem(lineItemValidation.data);
           createdLineItems.push(lineItem);
           
-          // Check for applicable schemes
-          if (item.productId) {
+          // Check for applicable schemes only if no frontend free items exist
+          if (item.productId && !hasFrontendFreeItems) {
             const schemes = await storage.getProductSchemes(invoice.userId);
             const applicableScheme = schemes.find(
               scheme => scheme.productId === item.productId && 
