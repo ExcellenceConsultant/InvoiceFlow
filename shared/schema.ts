@@ -34,14 +34,16 @@ export const customers = pgTable("customers", {
 
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
+  name: text("name").notNull(), // Product Name
+  date: timestamp("date").notNull(), // Date
+  itemCode: text("item_code"), // Item Code
+  packingSize: text("packing_size"), // Packing Size
+  category: text("category"), // Category
+  qty: integer("qty").notNull().default(0), // Qty
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(), // Base Price
+  grossWeight: decimal("gross_weight", { precision: 10, scale: 3 }), // Gross Weight
+  netWeight: decimal("net_weight", { precision: 10, scale: 3 }), // Net Weight
   description: text("description"),
-  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
-  category: text("category"),
-  itemCode: text("item_code"),
-  packingType: text("packing_type"),
-  grossWeightKgs: decimal("gross_weight_kgs", { precision: 10, scale: 3 }),
-  netWeightKgs: decimal("net_weight_kgs", { precision: 10, scale: 3 }),
   quickbooksItemId: text("quickbooks_item_id"),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -123,6 +125,8 @@ export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   userId: true,
   createdAt: true,
+}).extend({
+  date: z.string().transform((str) => new Date(str)),
 });
 
 export const insertProductVariantSchema = createInsertSchema(productVariants).omit({

@@ -191,12 +191,14 @@ export default function Inventory() {
 
             const product = {
               name: cleanString(row[0]) || `Product ${i}`, // Product Name
-              itemCode: cleanString(row[1]) || null, // Item Code
-              packingType: cleanString(row[2]) || null, // Packing Size
-              category: cleanString(row[3]) || 'Imported', // Category
-              basePrice: cleanNumber(row[4]), // Base Price
-              grossWeightKgs: cleanString(row[5]) || null, // Gross Weight
-              netWeightKgs: cleanString(row[6]) || null, // Net Weight
+              date: cleanString(row[1]) || new Date().toISOString().split('T')[0], // Date
+              itemCode: cleanString(row[2]) || null, // Item Code
+              packingSize: cleanString(row[3]) || null, // Packing Size
+              category: cleanString(row[4]) || 'Imported', // Category
+              qty: cleanNumber(row[5]) || '0', // Qty
+              basePrice: cleanNumber(row[6]), // Base Price
+              grossWeight: cleanString(row[7]) || null, // Gross Weight
+              netWeight: cleanString(row[8]) || null, // Net Weight
               description: 'Imported from Excel',
             };
             
@@ -234,7 +236,7 @@ export default function Inventory() {
         } else {
           toast({
             title: "No Valid Data",
-            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Item Code, Packing Size, Category, Base Price, Gross Weight, Net Weight`,
+            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Gross Weight, Net Weight`,
             variant: "destructive",
           });
         }
@@ -455,9 +457,11 @@ export default function Inventory() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Packing Size</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Qty</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Base Price</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight</th>
@@ -478,23 +482,29 @@ export default function Inventory() {
                             <div className="text-xs text-muted-foreground">{product.description}</div>
                           )}
                         </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-date-${product.id}`}>
+                          {product.date ? new Date(product.date).toLocaleDateString() : '-'}
+                        </td>
                         <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`product-item-code-${product.id}`}>
                           {product.itemCode || '-'}
                         </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-packing-type-${product.id}`}>
-                          {product.packingType || '-'}
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-packing-size-${product.id}`}>
+                          {product.packingSize || '-'}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-category-${product.id}`}>
                           {product.category || "Uncategorized"}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-qty-${product.id}`}>
+                          {product.qty || 0}
                         </td>
                         <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-price-${product.id}`}>
                           ${parseFloat(product.basePrice || 0).toFixed(2)}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-gross-weight-${product.id}`}>
-                          {product.grossWeightKgs ? `${product.grossWeightKgs} kg` : '-'}
+                          {product.grossWeight ? `${product.grossWeight} kg` : '-'}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-net-weight-${product.id}`}>
-                          {product.netWeightKgs ? `${product.netWeightKgs} kg` : '-'}
+                          {product.netWeight ? `${product.netWeight} kg` : '-'}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">
