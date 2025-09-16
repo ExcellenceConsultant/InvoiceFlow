@@ -201,6 +201,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProductScheme(id: string): Promise<boolean> {
+    // First remove references to this scheme from invoice line items
+    await db.update(invoiceLineItems)
+      .set({ schemeId: null, isFreeFromScheme: false })
+      .where(eq(invoiceLineItems.schemeId, id));
+    
+    // Then delete the scheme itself
     const result = await db.delete(productSchemes).where(eq(productSchemes.id, id));
     return (result.rowCount || 0) > 0;
   }

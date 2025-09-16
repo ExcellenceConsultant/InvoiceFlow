@@ -291,28 +291,16 @@ export class MemStorage implements IStorage {
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
-    console.log(`STORAGE: getInvoice called for ${id}`);
     const invoice = this.invoices.get(id);
-    if (!invoice) {
-      console.log(`STORAGE: No invoice found for ${id}`);
-      return undefined;
-    }
+    if (!invoice) return undefined;
     
     // Include customer data in the invoice response
     const customer = invoice.customerId ? this.customers.get(invoice.customerId) : null;
-    console.log(`STORAGE: Customer data for invoice ${id}:`, {
-      customerId: invoice.customerId,
-      customerFound: !!customer,
-      customerName: customer?.name || 'N/A'
-    });
     
-    const result = {
+    return {
       ...invoice,
       customer: customer || null
     } as any;
-    
-    console.log(`STORAGE: Returning invoice with customer:`, !!result.customer);
-    return result;
   }
 
   async createInvoice(invoiceData: InsertInvoice & { userId: string }): Promise<Invoice> {

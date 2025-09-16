@@ -1,5 +1,6 @@
 // invoice-view.tsx
 import { useEffect } from "react";
+import React from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Invoice, InvoiceLineItem, Customer } from "@shared/schema";
@@ -95,7 +96,7 @@ function InvoiceView() {
   >({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
 
   const isLoading = invoiceLoading || lineItemsLoading;
-  const lineItems = (lineItemsRaw || []).map((item) => ({
+  const rawLineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
     quantity: toNumber((item as any).quantity),
     unitPrice: toNumber((item as any).unitPrice),
@@ -107,15 +108,44 @@ function InvoiceView() {
     category: (item as any).category || "",
   }));
 
+  // fix Uncategorized by inheriting from matching product
+  for (const item of rawLineItems) {
+    if (!item.category || String(item.category).trim() === "") {
+      const match = rawLineItems.find(
+        (other) =>
+          other.productCode &&
+          other.productCode === item.productCode &&
+          other.category,
+      );
+      if (match) {
+        item.category = match.category;
+      }
+    }
+  }
+
+  // merge duplicates (like freebies showing multiple times)
+  const itemMap = new Map<string, any>();
+  for (const item of rawLineItems) {
+    const key = `${item.productCode || item.description}::${item.unitPrice}`;
+    if (itemMap.has(key)) {
+      const acc = itemMap.get(key);
+      acc.quantity = toNumber(acc.quantity) + toNumber(item.quantity);
+      acc.lineTotal = toNumber(acc.lineTotal) + toNumber(item.lineTotal);
+    } else {
+      itemMap.set(key, { ...item });
+    }
+  }
+  const lineItems = Array.from(itemMap.values());
   useEffect(() => {
     const style = document.createElement("style");
     style.id = "invoice-print-styles";
     style.textContent = `
-      @media print {
+     @media print {
         /* more top & bottom margin to fit letterhead header/footer */
         @page { size: A4; margin: 35mm 15mm 30mm 15mm; }
         .invoice-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
+        .print-hide { display: none !important; }
       }
       .invoice-page {
         width: 210mm;
@@ -370,16 +400,36 @@ function InvoiceView() {
                 const qty = toNumber(item.quantity);
                 const rate = toNumber(item.unitPrice);
                 const lineTotal = toNumber(item.lineTotal);
+                const prevItem = idx > 0 ? page.rows[idx - 1] : null;
+                const isNewCategory =
+                  idx === 0 || item.category !== (prevItem?.category || "");
+
                 return (
-                  <tr key={item.id || sr}>
-                    <td className="text-center">{sr}</td>
-                    <td>{item.productCode || (item as any).itemCode || "—"}</td>
-                    <td>{item.packingSize || "—"}</td>
-                    <td>{item.description}</td>
-                    <td className="text-center">{qty || "—"}</td>
-                    <td className="text-right">{formatCurrency(rate)}</td>
-                    <td className="text-right">{formatCurrency(lineTotal)}</td>
-                  </tr>
+                  <React.Fragment key={item.id || sr}>
+                    {isNewCategory && (
+                      <tr className="category-row">
+                        <td
+                          colSpan={7}
+                          className="text-center font-semibold bg-gray-100"
+                        >
+                          {item.category || "Uncategorized"}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td className="text-center">{sr}</td>
+                      <td>
+                        {item.productCode || (item as any).itemCode || "—"}
+                      </td>
+                      <td>{item.packingSize || "—"}</td>
+                      <td>{item.description}</td>
+                      <td className="text-center">{qty || "—"}</td>
+                      <td className="text-right">{formatCurrency(rate)}</td>
+                      <td className="text-right">
+                        {formatCurrency(lineTotal)}
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 );
               })}
 
