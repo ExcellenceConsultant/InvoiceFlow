@@ -765,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Update invoice with QuickBooks Journal Entry ID
     await storage.updateInvoice(invoice.id, {
-      quickbooksJournalEntryId: qbJournalEntry.Id,
+      quickbooksInvoiceId: qbJournalEntry.Id,
     });
 
     return res.json({
@@ -910,7 +910,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Create customer if not found
     console.log(`Creating customer "${customerName}" in QuickBooks...`);
     const qbCustomerData = {
-      Name: customerName,
       DisplayName: customerName,
     };
 
@@ -951,7 +950,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Create vendor if not found
     console.log(`Creating vendor "${vendorName}" in QuickBooks...`);
     const qbVendorData = {
-      Name: vendorName,
       DisplayName: vendorName,
     };
 
