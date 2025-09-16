@@ -31,12 +31,12 @@ interface Invoice {
 export default function PackingList() {
   const { id } = useParams<{ id: string }>();
 
-  const { data: invoice } = useQuery({
+  const { data: invoice } = useQuery<Invoice>({
     queryKey: [`/api/invoices/${id}`],
     enabled: !!id,
   });
 
-  const { data: lineItems } = useQuery({
+  const { data: lineItems } = useQuery<InvoiceLineItem[]>({
     queryKey: [`/api/invoices/${id}/line-items`],
     enabled: !!id,
   });

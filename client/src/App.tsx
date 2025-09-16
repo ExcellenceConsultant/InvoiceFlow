@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import Invoices from "@/pages/invoices";
 import InvoiceView from "@/pages/invoice-view";
+import PackingList from "@/pages/packing-list";
 import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import QuickBooksAuth from "@/pages/quickbooks-auth";
@@ -24,6 +25,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/invoices" component={Invoices} />
         <Route path="/invoices/:id" component={InvoiceView} />
+        <Route path="/invoices/:id/packing-list" component={PackingList} />
         <Route path="/inventory" component={Inventory} />
         <Route path="/schemes" component={Schemes} />
         <Route path="/auth/quickbooks" component={QuickBooksAuth} />
