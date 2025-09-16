@@ -273,6 +273,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteInvoice(id: string): Promise<boolean> {
+    // First delete all line items associated with this invoice
+    await this.deleteInvoiceLineItemsByInvoiceId(id);
+    
+    // Then delete the invoice itself
     const result = await db.delete(invoices).where(eq(invoices.id, id));
     return (result.rowCount || 0) > 0;
   }
