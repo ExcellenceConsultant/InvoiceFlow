@@ -679,7 +679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           JournalEntryLineDetail: {
             PostingType: "Debit",
             AccountRef: {
-              value: "84",
+              value: "1150040004",
               name: "Accounts Receivable (A/R)"
             },
             Entity: {
@@ -729,7 +729,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       customerName: qbCustomer.DisplayName,
       invoiceType: 'receivable',
       totalAmount: totalAmount,
-      debitAccount: "84 - Accounts Receivable (A/R)",
+      debitAccount: "1150040004 - Accounts Receivable (A/R)",
       creditAccount: "135 - Sales", 
       message: "Journal Entry successfully created in QuickBooks"
     });
