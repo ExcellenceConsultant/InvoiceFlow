@@ -300,6 +300,61 @@ export default function Inventory() {
   // Get unique categories
   const categories = Array.from(new Set(products?.map((p: any) => p.category).filter(Boolean))) || [];
 
+  // Generate Excel Report Function
+  const generateInventoryReport = () => {
+    if (!products || products.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No products available to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Prepare report data with Amount calculation (Qty × Base Price)
+      const reportData = products.map((product: any) => ({
+        'Product Name': product.name || '',
+        'Date': product.date ? new Date(product.date).toLocaleDateString() : '',
+        'Item Code': product.itemCode || '',
+        'Packing Size': product.packingSize || '',
+        'Category': product.category || '',
+        'Qty': product.qty || 0,
+        'Base Price': parseFloat(product.basePrice || 0).toFixed(2),
+        'Amount': (product.qty * parseFloat(product.basePrice || 0)).toFixed(2),
+        'Gross Weight': product.grossWeight || '',
+        'Net Weight': product.netWeight || '',
+        'Description': product.description || ''
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(reportData);
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Report');
+      
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      const filename = `Inventory_Report_${currentDate}.xlsx`;
+      
+      // Save file
+      XLSX.writeFile(workbook, filename);
+      
+      toast({
+        title: "Report Generated",
+        description: `Inventory report exported successfully as ${filename}`,
+      });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate inventory report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -320,7 +375,11 @@ export default function Inventory() {
               <Upload className="mr-2" size={16} />
               {importExcelMutation.isPending ? 'Importing...' : 'Import Excel'}
             </Button>
-            <Button variant="secondary" data-testid="button-inventory-report">
+            <Button 
+              variant="secondary" 
+              onClick={generateInventoryReport}
+              data-testid="button-inventory-report"
+            >
               <BarChart3 className="mr-2" size={16} />
               Generate Report
             </Button>
