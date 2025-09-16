@@ -483,7 +483,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Customer "${customer.name}" not found in QuickBooks. Creating new customer...`);
         
         const qbCustomerData = {
-          Name: customer.name,
           DisplayName: customer.name,
         };
 
@@ -770,7 +769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     return res.json({
       success: true,
-      quickbooksJournalEntryId: qbJournalEntry.Id,
+      quickbooksInvoiceId: qbJournalEntry.Id,
       invoiceType: 'payable',
       totalAmount: totalAmount,
       debitAccount: "173 - Cost of Goods Sold",
@@ -874,7 +873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     return res.json({ 
       success: true, 
-      quickbooksJournalEntryId: qbJournalEntry.Id,
+      quickbooksInvoiceId: qbJournalEntry.Id,
       customerId: qbCustomer.Id,
       customerName: qbCustomer.DisplayName,
       invoiceType: 'receivable',
