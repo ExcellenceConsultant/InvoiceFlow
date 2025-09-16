@@ -632,6 +632,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function handleARInvoiceSync(invoice: any, user: any, storage: any, res: any) {
     console.log(`Creating QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`);
 
+    // Find or create customer in QuickBooks
+    const customer = await storage.getCustomer(invoice.customerId!);
+    if (!customer) {
+      return res.status(400).json({ message: "Customer not found for this AR invoice" });
+    }
+
+    const qbCustomer = await findOrCreateCustomer(user, customer.name, customer.id, storage);
+
     // Get invoice line items to calculate total
     const lineItems = await storage.getInvoiceLineItems(invoice.id);
     
@@ -662,17 +670,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
       PrivateNote: `JE for Invoice #${invoice.invoiceNumber}`,
       Line: [
-        // Debit Cost of Goods Sold
+        // Debit Accounts Receivable
         {
           Id: "0",
-          Description: "COGS entry for Invoice",
+          Description: "AR entry for Invoice",
           Amount: totalAmount,
           DetailType: "JournalEntryLineDetail",
           JournalEntryLineDetail: {
             PostingType: "Debit",
             AccountRef: {
-              value: "173",
-              name: "Cost of Goods Sold"
+              value: "84",
+              name: "Accounts Receivable (A/R)"
+            },
+            Entity: {
+              Type: "Customer",
+              EntityRef: {
+                value: qbCustomer.Id,
+                name: qbCustomer.DisplayName
+              }
             }
           }
         },
@@ -710,9 +725,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ 
       success: true, 
       quickbooksJournalEntryId: qbJournalEntry.Id,
+      customerId: qbCustomer.Id,
+      customerName: qbCustomer.DisplayName,
       invoiceType: 'receivable',
       totalAmount: totalAmount,
-      debitAccount: "173 - Cost of Goods Sold",
+      debitAccount: "84 - Accounts Receivable (A/R)",
       creditAccount: "135 - Sales", 
       message: "Journal Entry successfully created in QuickBooks"
     });
