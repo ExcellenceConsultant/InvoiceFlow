@@ -189,13 +189,45 @@ export default function Inventory() {
               return isNaN(parseFloat(num)) ? '0.00' : num;
             };
 
+            const cleanInteger = (value: any) => {
+              if (!value || value === undefined || value === null) return 0;
+              const num = parseInt(String(value).trim());
+              return isNaN(num) ? 0 : num;
+            };
+
+            const convertExcelDate = (value: any) => {
+              if (!value || value === undefined || value === null) {
+                return new Date().toISOString().split('T')[0];
+              }
+              
+              const strValue = String(value).trim();
+              
+              // Check if it's an Excel date serial number (like 45658)
+              if (/^\d+$/.test(strValue)) {
+                const excelDate = parseInt(strValue);
+                // Excel date calculation: Excel epoch is Dec 30, 1899
+                const excelEpoch = new Date(1899, 11, 30);
+                const jsDate = new Date(excelEpoch.getTime() + excelDate * 24 * 60 * 60 * 1000);
+                return jsDate.toISOString().split('T')[0];
+              }
+              
+              // Try to parse as regular date
+              const parsedDate = new Date(strValue);
+              if (!isNaN(parsedDate.getTime())) {
+                return parsedDate.toISOString().split('T')[0];
+              }
+              
+              // Default to today's date
+              return new Date().toISOString().split('T')[0];
+            };
+
             const product = {
               name: cleanString(row[0]) || `Product ${i}`, // Product Name
-              date: cleanString(row[1]) || new Date().toISOString().split('T')[0], // Date
+              date: convertExcelDate(row[1]), // Date (converted from Excel format)
               itemCode: cleanString(row[2]) || null, // Item Code
               packingSize: cleanString(row[3]) || null, // Packing Size
               category: cleanString(row[4]) || 'Imported', // Category
-              qty: cleanNumber(row[5]) || '0', // Qty
+              qty: cleanInteger(row[5]), // Qty (as integer)
               basePrice: cleanNumber(row[6]), // Base Price
               grossWeight: cleanString(row[7]) || null, // Gross Weight
               netWeight: cleanString(row[8]) || null, // Net Weight
