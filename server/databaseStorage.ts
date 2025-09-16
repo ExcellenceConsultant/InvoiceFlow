@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -171,6 +171,32 @@ export class DatabaseStorage implements IStorage {
   // Product Schemes
   async getProductSchemes(userId: string): Promise<ProductScheme[]> {
     return await db.select().from(productSchemes).where(eq(productSchemes.userId, userId));
+  }
+
+  async getSchemeUsageCounts(userId: string): Promise<{ [key: string]: number }> {
+    const counts = await db
+      .select({
+        schemeId: invoiceLineItems.schemeId,
+        count: sql<number>`COUNT(*)`.as('count')
+      })
+      .from(invoiceLineItems)
+      .innerJoin(invoices, eq(invoiceLineItems.invoiceId, invoices.id))
+      .where(
+        and(
+          eq(invoices.userId, userId),
+          isNotNull(invoiceLineItems.schemeId),
+          eq(invoiceLineItems.isFreeFromScheme, true)
+        )
+      )
+      .groupBy(invoiceLineItems.schemeId);
+    
+    const result: { [key: string]: number } = {};
+    counts.forEach(count => {
+      if (count.schemeId) {
+        result[count.schemeId] = count.count;
+      }
+    });
+    return result;
   }
 
   async getProductScheme(id: string): Promise<ProductScheme | undefined> {

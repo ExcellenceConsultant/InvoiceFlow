@@ -314,7 +314,7 @@ export default function Schemes() {
                       <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                         <span className="text-sm text-muted-foreground">Applied:</span>
                         <span className="text-sm font-medium text-foreground" data-testid={`scheme-usage-${scheme.id}`}>
-                          {Math.floor(Math.random() * 50)} times
+                          {(scheme as any).usageCount || 0} times
                         </span>
                       </div>
                     </div>

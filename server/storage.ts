@@ -33,6 +33,7 @@ export interface IStorage {
 
   // Product Schemes
   getProductSchemes(userId: string): Promise<ProductScheme[]>;
+  getSchemeUsageCounts(userId: string): Promise<{ [key: string]: number }>;
   getScheme(id: string): Promise<ProductScheme | undefined>;
   createScheme(scheme: InsertProductScheme & { userId: string }): Promise<ProductScheme>;
   updateScheme(id: string, updates: Partial<ProductScheme>): Promise<ProductScheme | undefined>;
@@ -250,6 +251,25 @@ export class MemStorage implements IStorage {
   // Product Schemes
   async getProductSchemes(userId: string): Promise<ProductScheme[]> {
     return Array.from(this.productSchemes.values()).filter(scheme => scheme.userId === userId);
+  }
+
+  async getSchemeUsageCounts(userId: string): Promise<{ [key: string]: number }> {
+    const counts: { [key: string]: number } = {};
+    const userInvoices = Array.from(this.invoices.values()).filter(inv => inv.userId === userId);
+    
+    for (const invoice of userInvoices) {
+      const lineItems = Array.from(this.invoiceLineItems.values()).filter(item => 
+        item.invoiceId === invoice.id && item.schemeId && item.isFreeFromScheme
+      );
+      
+      lineItems.forEach(item => {
+        if (item.schemeId) {
+          counts[item.schemeId] = (counts[item.schemeId] || 0) + 1;
+        }
+      });
+    }
+    
+    return counts;
   }
 
   async getScheme(id: string): Promise<ProductScheme | undefined> {

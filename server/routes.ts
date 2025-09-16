@@ -220,7 +220,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const schemes = await storage.getProductSchemes(userId);
-      res.json(schemes);
+      const usageCounts = await storage.getSchemeUsageCounts(userId);
+      
+      const schemesWithCounts = schemes.map(scheme => ({
+        ...scheme,
+        usageCount: usageCounts[scheme.id] || 0
+      }));
+      
+      res.json(schemesWithCounts);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch schemes" });
     }
