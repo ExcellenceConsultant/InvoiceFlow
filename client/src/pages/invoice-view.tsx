@@ -191,13 +191,20 @@ function InvoiceView() {
         font-family: Calibri, sans-serif;
       }
       table.invoice-table th, table.invoice-table td {
-        border: 1px solid #d1d5db;
         padding: 6px 8px;
         vertical-align: top;
+        border: 0;
       }
       table.invoice-table thead th {
         background: #f3f4f6;
         font-weight: 600;
+      }
+      
+      /* Add borders only for screen view */
+      @media screen {
+        table.invoice-table th, table.invoice-table td {
+          border: 1px solid #d1d5db;
+        }
       }
       .totals { width: 320px; float: right; margin-top: 12px; }
       .terms { font-size: 11px; color: #6b7280; margin-top: 12px; }
