@@ -50,6 +50,7 @@ export default function PackingList() {
         @page { size: A4; margin: 35mm 15mm 30mm 15mm; }
         .packing-list-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .print-hide { display: none !important; }
+        .print-hide-content { display: none !important; }
         
         /* Keep table structure for print to match PDF */
         .packing-list-page {
@@ -178,8 +179,8 @@ export default function PackingList() {
 
         {/* Packing List Content */}
         <div className="packing-list-page bg-white">
-          {/* Letter Head Header */}
-          <div className="letter-head">
+          {/* Letter Head Header - hidden during print */}
+          <div className="letter-head print-hide-content">
             <strong>Letter Head Header</strong>
           </div>
 
@@ -291,18 +292,16 @@ export default function PackingList() {
               {/* Spacer rows */}
               <tr><td colSpan={5}>&nbsp;</td></tr>
               <tr><td colSpan={5}>&nbsp;</td></tr>
-
-              {/* Total Row */}
-              <tr className="totals-row">
-                <td colSpan={3}></td>
-                <td className="text-center"><strong>Total Carton</strong></td>
-                <td className="text-center"><strong>{totalCartons}</strong></td>
-              </tr>
             </tbody>
           </table>
 
-          {/* Letter Head Footer */}
-          <div className="letter-footer">
+          {/* Total Summary - outside table to match PDF */}
+          <div className="text-right mt-4">
+            <strong>Total Carton: {totalCartons}</strong>
+          </div>
+
+          {/* Letter Head Footer - hidden during print */}
+          <div className="letter-footer print-hide-content">
             <strong>Letter Head Footer</strong>
           </div>
         </div>
