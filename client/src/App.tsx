@@ -16,7 +16,7 @@ import NotFound from "@/pages/not-found";
 
 function Router() {
   const [location] = useLocation();
-  const isInvoiceView = location.startsWith("/invoices/") && location !== "/invoices";
+  const isInvoiceView = (location.startsWith("/invoices/") && location !== "/invoices");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20">

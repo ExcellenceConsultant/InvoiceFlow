@@ -5,7 +5,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Invoice, InvoiceLineItem, Customer } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Package } from "lucide-react";
 
 function formatCurrency(num: number) {
   if (Number.isNaN(num) || num === null || num === undefined) return "$0.00";
@@ -292,14 +292,25 @@ function InvoiceView() {
           variant="outline"
           size="sm"
           onClick={() => setLocation("/invoices")}
+          data-testid="button-back"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Invoices
         </Button>
-        <Button onClick={handlePrint}>
-          <Printer className="h-4 w-4 mr-2" />
-          Print Invoice
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setLocation(`/invoices/${id}/packing-list`)}
+            data-testid="button-packing-list"
+          >
+            <Package className="h-4 w-4 mr-2" />
+            View Packing List
+          </Button>
+          <Button onClick={handlePrint} data-testid="button-print">
+            <Printer className="h-4 w-4 mr-2" />
+            Print Invoice
+          </Button>
+        </div>
       </div>
 
       {pages.map((page, pageIndex) => (
