@@ -280,7 +280,7 @@ export default function PackingList() {
                   {items.map((item) => (
                     <tr key={item.id}>
                       <td className="text-center">{serialNumber++}</td>
-                      <td>{item.productCode || "—"}</td>
+                      <td>{item.productCode ? item.productCode.slice(-5) : "—"}</td>
                       <td>{item.description}</td>
                       <td>{item.packingSize ? item.packingSize.replace(/GM/g, 'G') : "—"}</td>
                       <td className="text-center">{item.quantity}</td>
