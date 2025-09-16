@@ -107,8 +107,8 @@ export default function PackingList() {
       }
       .category-header {
         font-weight: 600;
-        text-align: left;
-        padding-left: 40px;
+        text-align: center;
+        padding-left: 0;
       }
       .letter-head {
         text-align: center;
