@@ -356,26 +356,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const item of lineItems) {
         if (item.productId && item.productId.trim() !== '') {
           try {
+            console.log(`[INVENTORY DEBUG] Processing product ID: ${item.productId} with quantity: ${item.quantity}`);
             const currentProduct = await storage.getProduct(item.productId);
+            console.log(`[INVENTORY DEBUG] Retrieved product:`, currentProduct);
+            
             if (currentProduct) {
               let newQty = currentProduct.qty;
+              console.log(`[INVENTORY DEBUG] Current qty in product:`, currentProduct.qty);
               
               // AR Invoice (receivable): Reduce inventory (selling to customer)
               if (invoice.invoiceType === 'receivable') {
                 newQty = Math.max(0, currentProduct.qty - item.quantity);
-                console.log(`Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`);
+                console.log(`[INVENTORY DEBUG] Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`);
               }
               // AP Invoice (payable): Increase inventory (buying from supplier) 
               else if (invoice.invoiceType === 'payable') {
                 newQty = currentProduct.qty + item.quantity;
-                console.log(`Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`);
+                console.log(`[INVENTORY DEBUG] Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`);
               }
               
+              console.log(`[INVENTORY DEBUG] About to update product ${item.productId} with qty: ${newQty}`);
+              
               // Update the product quantity
-              await storage.updateProduct(item.productId, { qty: newQty });
+              const updatedProduct = await storage.updateProduct(item.productId, { qty: newQty });
+              console.log(`[INVENTORY DEBUG] Updated product result:`, updatedProduct);
+            } else {
+              console.log(`[INVENTORY DEBUG] Product not found for ID: ${item.productId}`);
             }
           } catch (inventoryError) {
-            console.error(`Failed to update inventory for product ${item.productId}:`, inventoryError);
+            console.error(`[INVENTORY DEBUG] Failed to update inventory for product ${item.productId}:`, inventoryError);
             // Don't fail the entire invoice creation if inventory update fails
           }
         }
