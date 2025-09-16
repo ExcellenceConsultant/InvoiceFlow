@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import React from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -50,14 +51,16 @@ export default function PackingList() {
         .packing-list-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .print-hide { display: none !important; }
         
-        /* Remove all borders for clean print */
-        .packing-list-page, .packing-list-page * {
-          border: 0 !important;
+        /* Keep table structure for print to match PDF */
+        .packing-list-page {
+          border: none !important;
           box-shadow: none !important;
         }
-        table { 
-          border-collapse: separate !important; 
-          border-spacing: 0 !important; 
+        table.packing-table { 
+          border-collapse: collapse !important; 
+        }
+        table.packing-table th, table.packing-table td {
+          border: 1px solid #000 !important;
         }
         thead, tbody, tr { 
           page-break-inside: avoid; 
@@ -265,9 +268,9 @@ export default function PackingList() {
             </thead>
             <tbody>
               {Object.entries(groupedItems).map(([category, items]) => (
-                <>
+                <React.Fragment key={`category-${category}`}>
                   {/* Category Header Row */}
-                  <tr key={`category-${category}`} className="category-row">
+                  <tr className="category-row">
                     <td colSpan={5} className="category-header">
                       {category}
                     </td>
@@ -282,7 +285,7 @@ export default function PackingList() {
                       <td className="text-center">{item.quantity}</td>
                     </tr>
                   ))}
-                </>
+                </React.Fragment>
               ))}
 
               {/* Spacer rows */}
