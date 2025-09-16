@@ -385,16 +385,6 @@ function InvoiceView() {
               </tr>
             </thead>
             <tbody>
-              {page.rows.length > 0 && (
-                <tr className="category-row">
-                  <td
-                    colSpan={7}
-                    className="text-center font-semibold bg-gray-100"
-                  >
-                    {page.rows[0].category || "Uncategorized"}
-                  </td>
-                </tr>
-              )}
               {page.rows.map((item, idx) => {
                 const sr = page.startIndex + idx + 1;
                 const qty = toNumber(item.quantity);
