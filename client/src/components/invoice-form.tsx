@@ -313,6 +313,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
             quantity: schemeItem.quantity,
             unitPrice: schemeItem.unitPrice.toString(),
             lineTotal: schemeItem.lineTotal.toString(),
+            category: item.category || null,
             isFreeFromScheme: true,
             schemeId: schemeItem.schemeId,
           });
