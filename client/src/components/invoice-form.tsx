@@ -207,6 +207,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                 lineTotal: 0,
                 isFreeFromScheme: true,
                 schemeId: applicableScheme.id,
+                category: updatedItems[index].category,
               },
             ],
           });

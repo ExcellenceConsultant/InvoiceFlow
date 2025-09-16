@@ -341,6 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   lineTotal: "0.00",
                   isFreeFromScheme: true,
                   schemeId: applicableScheme.id,
+                  category: item.category,
                 });
                 createdLineItems.push(freeLineItem);
               }
