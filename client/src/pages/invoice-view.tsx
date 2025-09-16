@@ -146,6 +146,23 @@ function InvoiceView() {
         .invoice-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
         .print-hide { display: none !important; }
+        
+        /* Fix table borders at page breaks */
+        table.invoice-table { 
+          border-collapse: separate; 
+          border-spacing: 0; 
+          page-break-inside: auto;
+        }
+        table.invoice-table thead th {
+          page-break-after: avoid;
+          border-bottom: 1px solid #d1d5db;
+        }
+        table.invoice-table tbody tr {
+          page-break-inside: avoid;
+        }
+        table.invoice-table tbody tr:last-child td {
+          border-bottom: none;
+        }
       }
       .invoice-page {
         width: 210mm;
