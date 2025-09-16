@@ -201,7 +201,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
             ...showSchemeItems,
             [index]: [
               {
-                description: `${updatedItems[index].description} (Free from scheme)`,
+                description: `${updatedItems[index].description} & ${applicableScheme.name}`,
                 quantity: freeQuantity,
                 unitPrice: 0,
                 lineTotal: 0,
