@@ -147,18 +147,18 @@ function InvoiceView() {
         .page-break { page-break-after: always; }
         .print-hide { display: none !important; }
         
-        /* Remove ALL borders, shadows, and backgrounds for print */
-        .invoice-page, .invoice-page * {
-          border: 0 !important;
-          box-shadow: none !important;
-          background: transparent !important;
-          outline: 0 !important;
+        /* Only remove table borders while preserving other formatting */
+        table.invoice-table, table.invoice-table th, table.invoice-table td { 
+          border: 0 !important; 
         }
-        table { 
+        table.invoice-table { 
           border-collapse: separate !important; 
           border-spacing: 0 !important; 
         }
-        thead, tbody, tr { 
+        table.invoice-table thead th {
+          page-break-after: avoid;
+        }
+        table.invoice-table tbody tr { 
           page-break-inside: avoid; 
         }
       }
