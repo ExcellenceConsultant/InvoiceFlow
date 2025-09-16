@@ -674,6 +674,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to handle AR invoice sync - Creates Journal Entry instead of Invoice
+  // Handle AP Invoice Sync
+  async function handleAPInvoiceSync(invoice: any, user: any, storage: any, res: any) {
+    console.log(`Creating QuickBooks Journal Entry for AP invoice ${invoice.invoiceNumber}`);
+
+    // Find or create vendor in QuickBooks
+    const customer = await storage.getCustomer(invoice.customerId!);
+    if (!customer) {
+      return res.status(400).json({ message: "Vendor not found for this AP invoice" });
+    }
+
+    const qbVendor = await findOrCreateVendor(user, customer.name, customer.id, storage);
+
+    // Get invoice line items to calculate total
+    const lineItems = await storage.getInvoiceLineItems(invoice.id);
+    
+    console.log('AP Invoice data:', { id: invoice.id, total: invoice.total, invoiceNumber: invoice.invoiceNumber });
+    console.log('AP Line items for amount calculation:', lineItems);
+    
+    // Calculate total from invoice total first, then fallback to line items
+    let totalAmount = parseFloat(invoice.total) || 0;
+    
+    // If invoice total is 0, calculate from line items
+    if (totalAmount === 0) {
+      totalAmount = lineItems.reduce((sum: number, item: any) => {
+        const itemTotal = parseFloat(item.lineTotal) || 0;
+        console.log(`AP Line item ${item.description}: ${itemTotal}`);
+        return sum + itemTotal;
+      }, 0);
+    }
+    
+    console.log('Final calculated AP total amount:', totalAmount);
+    
+    // Ensure we have a valid amount
+    if (totalAmount === 0) {
+      throw new Error('AP Invoice total amount is 0. Cannot create journal entry.');
+    }
+    
+    // Create Journal Entry data for AP invoice - COGS dr to Account Payable cr
+    const journalEntryData = {
+      TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+      PrivateNote: `JE for AP Invoice #${invoice.invoiceNumber}`,
+      Line: [
+        // Debit COGS
+        {
+          Id: "0",
+          Description: "COGS entry for AP Invoice",
+          Amount: totalAmount,
+          DetailType: "JournalEntryLineDetail",
+          JournalEntryLineDetail: {
+            PostingType: "Debit",
+            AccountRef: {
+              value: "173",
+              name: "Cost of Goods Sold"
+            }
+          }
+        },
+        // Credit Account Payable with Vendor entity reference
+        {
+          Id: "1", 
+          Description: "Account Payable entry for AP Invoice",
+          Amount: totalAmount,
+          DetailType: "JournalEntryLineDetail",
+          JournalEntryLineDetail: {
+            PostingType: "Credit",
+            AccountRef: {
+              value: "1150040005",
+              name: "Accounts Payable (A/P)"
+            },
+            Entity: {
+              Type: "Vendor",
+              EntityRef: {
+                value: qbVendor.Id,
+                name: qbVendor.DisplayName
+              }
+            }
+          }
+        }
+      ]
+    };
+
+    console.log('Creating AP QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
+
+    // Call QuickBooks API to create journal entry
+    const qbJournalEntry = await quickBooksService.createJournalEntry(
+      user.quickbooksAccessToken!,
+      user.quickbooksCompanyId!,
+      journalEntryData
+    );
+
+    // Update invoice with QuickBooks Journal Entry ID
+    await storage.updateInvoice(invoice.id, {
+      quickbooksJournalEntryId: qbJournalEntry.Id,
+    });
+
+    return res.json({
+      success: true,
+      quickbooksJournalEntryId: qbJournalEntry.Id,
+      invoiceType: 'payable',
+      totalAmount: totalAmount,
+      debitAccount: "173 - Cost of Goods Sold",
+      creditAccount: "1150040005 - Accounts Payable (A/P)", 
+      message: "AP Journal Entry successfully created in QuickBooks"
+    });
+  }
+
   async function handleARInvoiceSync(invoice: any, user: any, storage: any, res: any) {
     console.log(`Creating QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`);
 
@@ -780,71 +885,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  // Helper function to handle AP invoice sync
-  async function handleAPInvoiceSync(invoice: any, user: any, storage: any, res: any) {
-    // For AP invoices, we treat the "customer" as a vendor
-    const vendor = await storage.getCustomer(invoice.customerId!);
-    if (!vendor) {
-      return res.status(400).json({ message: "Vendor not found for this AP invoice" });
-    }
-
-    console.log(`Syncing AP invoice ${invoice.invoiceNumber} for vendor: "${vendor.name}"`);
-
-    // Step 2: Ensure vendor exists in QuickBooks and get Vendor ID
-    let qbVendor = await findOrCreateVendor(user, vendor.name);
-
-    // Step 3: Get invoice line items
-    const lineItems = await storage.getInvoiceLineItems(invoice.id);
-    
-    // Step 4: Create QuickBooks AP bill
-    const billData = {
-      VendorRef: { 
-        value: qbVendor.Id, 
-        name: qbVendor.DisplayName 
-      },
-      TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-      DueDate: invoice.dueDate ? invoice.dueDate.toISOString().split('T')[0] : undefined,
-      DocNumber: invoice.invoiceNumber,
-      PrivateNote: `AP Bill ${invoice.invoiceNumber} from ${vendor.name}`,
-      Line: []
-    };
-
-    // Add line items to the bill (expense lines)
-    const EXPENSES_ACCOUNT_ID = "80"; // Typical expense account ID
-    for (const lineItem of lineItems) {
-      const lineData = {
-        Amount: parseFloat(lineItem.lineTotal),
-        DetailType: "AccountBasedExpenseLineDetail",
-        AccountBasedExpenseLineDetail: {
-          AccountRef: { value: EXPENSES_ACCOUNT_ID, name: "Expenses" },
-          BillableStatus: "NotBillable",
-          Description: lineItem.description
-        }
-      };
-      (billData.Line as any[]).push(lineData);
-    }
-
-    const qbBill = await quickBooksService.createBill(
-      user.quickbooksAccessToken,
-      user.quickbooksCompanyId,
-      billData
-    );
-
-    // Update invoice with QuickBooks bill ID
-    await storage.updateInvoice(invoice.id, {
-      quickbooksInvoiceId: qbBill.Id,
-      status: "sent",
-    });
-
-    return res.json({ 
-      success: true, 
-      quickbooksBillId: qbBill.Id,
-      vendorId: qbVendor.Id,
-      vendorName: qbVendor.DisplayName,
-      invoiceType: 'payable',
-      message: "AP Bill successfully synced to QuickBooks"
-    });
-  }
 
   // Helper function to find or create customer
   async function findOrCreateCustomer(user: any, customerName: string, customerId: string, storage: any) {
@@ -888,8 +928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return qbCustomer;
   }
 
-  // Helper function to find or create vendor
-  async function findOrCreateVendor(user: any, vendorName: string) {
+  async function findOrCreateVendor(user: any, vendorName: string, customerId: string, storage: any) {
     let qbVendor;
     try {
       qbVendor = await quickBooksService.findVendorByDisplayName(
@@ -921,9 +960,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       user.quickbooksCompanyId,
       qbVendorData
     );
+    
+    // Update local customer record with QuickBooks Vendor ID (for AP invoices, customer record holds vendor info)
+    await storage.updateCustomer(customerId, {
+      quickbooksCustomerId: qbVendor.Id, // Store vendor ID in same field for AP invoices
+    });
 
     return qbVendor;
   }
+
 
   // Debug endpoint to list QuickBooks accounts
   app.get("/api/quickbooks/accounts", async (req, res) => {
