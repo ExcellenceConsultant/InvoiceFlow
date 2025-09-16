@@ -352,6 +352,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Update inventory based on invoice type
+      for (const item of lineItems) {
+        if (item.productId && item.productId.trim() !== '') {
+          try {
+            const currentProduct = await storage.getProduct(item.productId);
+            if (currentProduct) {
+              let newQty = currentProduct.qty;
+              
+              // AR Invoice (receivable): Reduce inventory (selling to customer)
+              if (invoice.invoiceType === 'receivable') {
+                newQty = Math.max(0, currentProduct.qty - item.quantity);
+                console.log(`Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`);
+              }
+              // AP Invoice (payable): Increase inventory (buying from supplier) 
+              else if (invoice.invoiceType === 'payable') {
+                newQty = currentProduct.qty + item.quantity;
+                console.log(`Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`);
+              }
+              
+              // Update the product quantity
+              await storage.updateProduct(item.productId, { qty: newQty });
+            }
+          } catch (inventoryError) {
+            console.error(`Failed to update inventory for product ${item.productId}:`, inventoryError);
+            // Don't fail the entire invoice creation if inventory update fails
+          }
+        }
+      }
+
+      // Also update inventory for any auto-generated free scheme items
+      for (const lineItem of createdLineItems) {
+        if (lineItem.isFreeFromScheme && lineItem.productId && invoice.invoiceType === 'receivable') {
+          try {
+            const currentProduct = await storage.getProduct(lineItem.productId);
+            if (currentProduct) {
+              const newQty = Math.max(0, currentProduct.qty - lineItem.quantity);
+              console.log(`Reducing inventory for free scheme item ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (free quantity ${lineItem.quantity})`);
+              await storage.updateProduct(lineItem.productId, { qty: newQty });
+            }
+          } catch (inventoryError) {
+            console.error(`Failed to update inventory for free scheme item ${lineItem.productId}:`, inventoryError);
+          }
+        }
+      }
+
       res.json({ invoice: createdInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice creation error:", error);
