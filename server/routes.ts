@@ -98,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </style>
     <script>
         setTimeout(() => {
-            window.location.href = '${success === 'true' ? '/#/auth/quickbooks?success=true' : '/'}';
+            window.location.href = '${success === 'true' ? '/#/quickbooks-auth?success=true' : '/'}';
         }, 3000);
     </script>
 </head>
