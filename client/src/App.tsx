@@ -11,7 +11,10 @@ import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import QuickBooksAuth from "@/pages/quickbooks-auth";
 import QuickBooksSync from "@/pages/quickbooks-sync";
+import LegalEULA from "@/pages/legal-eula";
+import LegalPrivacy from "@/pages/legal-privacy";
 import Navbar from "@/components/layout/navbar";
+import Footer from "@/components/layout/footer";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,19 +22,24 @@ function Router() {
   const isInvoiceView = (location.startsWith("/invoices/") && location !== "/invoices");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20 flex flex-col">
       {!isInvoiceView && <Navbar />}
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/invoices" component={Invoices} />
-        <Route path="/invoices/:id" component={InvoiceView} />
-        <Route path="/invoices/:id/packing-list" component={PackingList} />
-        <Route path="/inventory" component={Inventory} />
-        <Route path="/schemes" component={Schemes} />
-        <Route path="/auth/quickbooks" component={QuickBooksAuth} />
-        <Route path="/quickbooks/sync" component={QuickBooksSync} />
-        <Route component={NotFound} />
-      </Switch>
+      <main className="flex-1">
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/invoices" component={Invoices} />
+          <Route path="/invoices/:id" component={InvoiceView} />
+          <Route path="/invoices/:id/packing-list" component={PackingList} />
+          <Route path="/inventory" component={Inventory} />
+          <Route path="/schemes" component={Schemes} />
+          <Route path="/auth/quickbooks" component={QuickBooksAuth} />
+          <Route path="/quickbooks/sync" component={QuickBooksSync} />
+          <Route path="/legal/eula" component={LegalEULA} />
+          <Route path="/legal/privacy-policy" component={LegalPrivacy} />
+          <Route component={NotFound} />
+        </Switch>
+      </main>
+      {!isInvoiceView && <Footer />}
     </div>
   );
 }
