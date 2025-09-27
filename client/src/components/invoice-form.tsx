@@ -523,7 +523,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                 ?.map((p: any) => p.category)
                                 .filter(Boolean),
                             ),
-                          ).map((category: string) => (
+                          ).map((category) => (
                             <SelectItem key={category} value={category}>
                               {category}
                             </SelectItem>
