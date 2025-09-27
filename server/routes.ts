@@ -48,744 +48,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const state = req.query.userId as string;
       const timestamp = Date.now();
+      const authUrl = quickBooksService.getAuthUrl(state, timestamp);
       
-      console.log(`=== NEW UNCACHED OAUTH ENDPOINT [${timestamp}] ===`);
+      console.log(`Generated auth URL with timestamp ${timestamp}:`, authUrl);
       
-      if (!state) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-
-      // FORCE PRODUCTION URL - COMPLETE OVERRIDE TO ELIMINATE CACHING
-      const PRODUCTION_REDIRECT_URI = 'https://invoice-sync-invoiceflow.replit.app/api/auth/quickbooks/callback';
-      const scope = 'com.intuit.quickbooks.accounting';
-      const clientId = process.env.QUICKBOOKS_CLIENT_ID || '';
-      
-      const params = new URLSearchParams({
-        client_id: clientId,
-        scope,
-        redirect_uri: PRODUCTION_REDIRECT_URI,
-        response_type: 'code',
-        access_type: 'offline',
-        state,
-      });
-
-      const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
-      console.log(`=== NEW UNCACHED AUTH URL [${timestamp}]:`, authUrl);
-      console.log(`=== PRODUCTION REDIRECT URI [${timestamp}]:`, PRODUCTION_REDIRECT_URI);
-      
-      res.json({ 
-        authUrl, 
-        timestamp, 
-        redirectUri: PRODUCTION_REDIRECT_URI,
-        clientId: clientId.substring(0, 10) + '...',
-        note: 'Using new uncached endpoint'
-      });
+      res.json({ authUrl });
     } catch (error) {
-      console.error('New OAuth URL generation error:', error);
-      res.status(500).json({ message: "Failed to generate auth URL" });
+      console.error("Error creating QuickBooks auth URL:", error);
+      res.status(500).json({ message: "Failed to create auth URL" });
     }
   });
 
-  // OLD CACHED ENDPOINT - Keep for backward compatibility but will be cached
-  app.get("/api/auth/quickbooks", async (req, res) => {
-    try {
-      // Redirect to new uncached endpoint
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-      
-      console.log('=== REDIRECTING TO NEW UNCACHED ENDPOINT ===');
-      const redirectUrl = `/api/oauth/quickbooks-connect?userId=${encodeURIComponent(userId)}`;
-      res.redirect(redirectUrl);
-    } catch (error) {
-      console.error('OAuth redirect error:', error);
-      res.status(500).json({ message: "Failed to redirect to OAuth" });
-    }
-  });
-
-
+  // QuickBooks OAuth callback
   app.get("/api/auth/quickbooks/callback", async (req, res) => {
     try {
-      const { code, realmId, state } = req.query;
-      
-      console.log('=== OAUTH CALLBACK RECEIVED ===');
-      console.log('Code:', code ? 'Present' : 'Missing');
-      console.log('RealmId:', realmId);
-      console.log('State:', state);
-      
-      if (!code || !realmId || !state) {
-        console.log('❌ Missing required OAuth parameters');
-        return res.redirect("/#/quickbooks-auth?error=missing_params");
+      const { code, state, error } = req.query;
+
+      if (error) {
+        console.error("OAuth error:", error);
+        return res.redirect(`/?error=${encodeURIComponent(error as string)}`);
       }
 
-      console.log('=== STARTING TOKEN EXCHANGE ===');
-      const tokens = await quickBooksService.exchangeCodeForTokens(
-        code as string,
-        realmId as string
-      );
+      if (!code || !state) {
+        console.error("Missing code or state in callback");
+        return res.redirect("/?error=missing_params");
+      }
 
-      console.log('=== TOKEN EXCHANGE SUCCESSFUL ===');
-      console.log('Company ID:', tokens.companyId);
-      console.log('Token expires in:', tokens.expiresIn, 'seconds');
+      console.log("QuickBooks callback received:", { code, state });
 
-      // Update user with QuickBooks tokens
+      // Exchange code for tokens
+      const tokens = await quickBooksService.exchangeCodeForTokens(code as string);
+      console.log("Token exchange successful, company ID:", tokens.realmId);
+
+      // Update user with QuickBooks info
       await storage.updateUser(state as string, {
-        quickbooksCompanyId: tokens.companyId,
-        quickbooksAccessToken: tokens.accessToken,
-        quickbooksRefreshToken: tokens.refreshToken,
-        quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
+        quickbooksAccessToken: tokens.access_token,
+        quickbooksRefreshToken: tokens.refresh_token,
+        quickbooksCompanyId: tokens.realmId,
       });
 
-      console.log('=== USER UPDATED SUCCESSFULLY ===');
-      console.log('Redirecting to success page...');
+      console.log(`User ${state} connected to QuickBooks company ${tokens.realmId}`);
 
-      res.redirect("/#/quickbooks-auth?success=true");
+      // Redirect to success page
+      res.redirect("/?quickbooks=connected");
     } catch (error) {
-      console.error("❌ QuickBooks callback error:", error);
-      console.error("Error details:", error instanceof Error ? error.message : 'Unknown error');
-      res.redirect("/#/quickbooks-auth?error=auth_failed");
+      console.error("Error in QuickBooks callback:", error);
+      res.redirect("/?error=callback_failed");
     }
   });
 
-
-  // Disconnect URL - endpoint for QuickBooks disconnection
-  app.get("/disconnect", async (req, res) => {
-    const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InvoiceFlow - Disconnected</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-        .container { background: white; padding: 40px; border-radius: 8px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .logo { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 20px; }
-        .message { color: #dc2626; margin-bottom: 20px; }
-        .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 10px; }
-        .reconnect { background: #16a34a; }
-    </style>
-    <script>
-        setTimeout(() => {
-            window.location.href = '/#/auth/quickbooks';
-        }, 5000);
-    </script>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">InvoiceFlow</div>
-        <div class="message">❌ Disconnected from QuickBooks</div>
-        <p>Your QuickBooks connection has been removed. You can reconnect anytime to continue using InvoiceFlow.</p>
-        <a href="/#/auth/quickbooks" class="button reconnect">Reconnect to QuickBooks</a>
-        <a href="/" class="button">Return to Dashboard</a>
-        <p style="margin-top: 30px; color: #666; font-size: 12px;">© 2025 Kitchen Express overseas inc. All rights reserved.</p>
-    </div>
-</body>
-</html>`;
-    res.send(html);
-  });
-
-  // Customer routes
-  app.get("/api/customers", async (req, res) => {
+  // QuickBooks disconnect endpoint
+  app.post("/api/auth/quickbooks/disconnect", async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
+      const { userId } = req.body;
       
-      const customers = await storage.getCustomers(userId);
-      res.json(customers);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch customers" });
-    }
-  });
-
-  app.post("/api/customers", async (req, res) => {
-    try {
-      const validation = insertCustomerSchema.extend({
-        userId: z.string(),
-      }).safeParse(req.body);
+      console.log(`Disconnecting QuickBooks for user: ${userId}`);
       
-      if (!validation.success) {
-        return res.status(400).json({ message: "Invalid customer data", errors: validation.error.errors });
-      }
+      // Update user to remove QuickBooks connection
+      await storage.updateUser(userId, {
+        quickbooksAccessToken: null,
+        quickbooksRefreshToken: null, 
+        quickbooksCompanyId: null,
+      });
 
-      const customer = await storage.createCustomer(validation.data);
-      res.json(customer);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create customer" });
-    }
-  });
-
-  // Product routes
-  app.get("/api/products", async (req, res) => {
-    try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
+      console.log(`QuickBooks disconnected for user: ${userId}`);
       
-      const products = await storage.getProducts(userId);
-      res.json(products);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch products" });
-    }
-  });
-
-  app.post("/api/products", async (req, res) => {
-    try {
-      console.log("Creating product with data:", req.body);
-      
-      const validation = insertProductSchema.extend({
-        userId: z.string(),
-      }).safeParse(req.body);
-      
-      if (!validation.success) {
-        console.error("Product validation failed:", validation.error.errors);
-        return res.status(400).json({ message: "Invalid product data", errors: validation.error.errors });
-      }
-
-      const product = await storage.createProduct(validation.data);
-      console.log("Product created successfully:", product.id, product.name);
-      res.json(product);
-    } catch (error) {
-      console.error("Product creation error:", error);
-      const err = error as any;
-      res.status(500).json({ message: "Failed to create product", error: err.message });
-    }
-  });
-
-  app.delete("/api/products", async (req, res) => {
-    try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-      
-      const success = await storage.deleteAllProducts(userId);
-      res.json({ success: true, message: "All products deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete all products" });
-    }
-  });
-
-  app.delete("/api/products/:id", async (req, res) => {
-    try {
-      const success = await storage.deleteProduct(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Product not found" });
-      }
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete product" });
+      console.error("Error disconnecting QuickBooks:", error);
+      res.status(500).json({ message: "Failed to disconnect QuickBooks" });
     }
   });
 
-  // Product variant routes
-  app.get("/api/products/:productId/variants", async (req, res) => {
-    try {
-      const variants = await storage.getProductVariants(req.params.productId);
-      res.json(variants);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch product variants" });
+  // Helper function to find or create a customer in QuickBooks
+  async function findOrCreateCustomer(user: any, customerName: string, localCustomerId: string, storage: any) {
+    console.log(`Finding or creating customer: ${customerName}`);
+    
+    // Try to find existing customer in QuickBooks
+    const existingCustomer = await quickBooksService.findCustomerByName(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      customerName
+    );
+
+    if (existingCustomer) {
+      console.log(`Found existing QuickBooks customer: ${existingCustomer.DisplayName} (ID: ${existingCustomer.Id})`);
+      return existingCustomer;
     }
-  });
 
-  app.post("/api/variants", async (req, res) => {
-    try {
-      const validation = insertProductVariantSchema.safeParse(req.body);
-      
-      if (!validation.success) {
-        return res.status(400).json({ message: "Invalid variant data", errors: validation.error.errors });
-      }
-
-      const variant = await storage.createVariant(validation.data);
-      res.json(variant);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create variant" });
-    }
-  });
-
-  // Product scheme routes
-  app.get("/api/schemes", async (req, res) => {
-    try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-      
-      const schemes = await storage.getProductSchemes(userId);
-      const usageCounts = await storage.getSchemeUsageCounts(userId);
-      
-      const schemesWithCounts = schemes.map(scheme => ({
-        ...scheme,
-        usageCount: usageCounts[scheme.id] || 0
-      }));
-      
-      res.json(schemesWithCounts);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch schemes" });
-    }
-  });
-
-  app.post("/api/schemes", async (req, res) => {
-    try {
-      const validation = insertProductSchemeSchema.extend({
-        userId: z.string(),
-      }).safeParse(req.body);
-      
-      if (!validation.success) {
-        return res.status(400).json({ message: "Invalid scheme data", errors: validation.error.errors });
-      }
-
-      const scheme = await storage.createScheme(validation.data);
-      res.json(scheme);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create scheme" });
-    }
-  });
-
-  app.delete("/api/schemes/:id", async (req, res) => {
-    try {
-      const success = await storage.deleteScheme(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Scheme not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete scheme" });
-    }
-  });
-
-  // Invoice routes
-  app.get("/api/invoices", async (req, res) => {
-    try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-      
-      const invoices = await storage.getInvoices(userId);
-      res.json(invoices);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch invoices" });
-    }
-  });
-
-  app.post("/api/invoices", async (req, res) => {
-    try {
-      console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
-      const { invoice, lineItems } = req.body;
-      
-      if (!invoice || !lineItems) {
-        console.error("Missing invoice or lineItems in request body");
-        return res.status(400).json({ message: "Invoice and line items are required" });
-      }
-      
-      const invoiceValidation = insertInvoiceSchema.extend({
-        userId: z.string(),
-      }).safeParse(invoice);
-      
-      if (!invoiceValidation.success) {
-        console.error("Invoice validation failed:", invoiceValidation.error.errors);
-        return res.status(400).json({ message: "Invalid invoice data", errors: invoiceValidation.error.errors });
-      }
-
-      // Create invoice
-      const createdInvoice = await storage.createInvoice(invoiceValidation.data);
-      
-      // Create line items with scheme application
-      const createdLineItems = [];
-      const hasFrontendFreeItems = lineItems.some((li: any) => li.isFreeFromScheme);
-      
-      for (const item of lineItems) {
-        // Skip line items with empty productId
-        if (!item.productId || item.productId.trim() === '') {
-          console.log('Skipping line item with empty productId:', item);
-          continue;
+    // Customer doesn't exist, create new one
+    console.log(`Creating new QuickBooks customer: ${customerName}`);
+    
+    // Get local customer data for address info
+    const localCustomer = await storage.getCustomer(localCustomerId);
+    
+    const customerData = {
+      Name: customerName,
+      DisplayName: customerName,
+      ...(localCustomer?.address && {
+        BillAddr: {
+          Line1: localCustomer.address.street || '',
+          City: localCustomer.address.city || '',
+          CountrySubDivisionCode: localCustomer.address.state || '',
+          PostalCode: localCustomer.address.zipCode || '',
+          Country: localCustomer.address.country || 'USA'
         }
+      })
+    };
 
-        const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
-          ...item,
-          invoiceId: createdInvoice.id,
-        });
-        
-        if (lineItemValidation.success) {
-          const lineItem = await storage.createLineItem(lineItemValidation.data);
-          createdLineItems.push(lineItem);
-          
-          // Check for applicable schemes only if no frontend free items exist
-          if (item.productId && !hasFrontendFreeItems) {
-            const schemes = await storage.getProductSchemes(invoice.userId);
-            const applicableScheme = schemes.find(
-              scheme => scheme.productId === item.productId && 
-                       scheme.isActive && 
-                       item.quantity >= scheme.buyQuantity
-            );
-            
-            if (applicableScheme) {
-              const freeQuantity = Math.floor(item.quantity / applicableScheme.buyQuantity) * applicableScheme.freeQuantity;
-              if (freeQuantity > 0) {
-                const freeLineItem = await storage.createLineItem({
-                  invoiceId: createdInvoice.id,
-                  productId: item.productId,
-                  variantId: item.variantId,
-                  description: `${item.description} & ${applicableScheme.name}`,
-                  quantity: freeQuantity,
-                  unitPrice: "0.00",
-                  lineTotal: "0.00",
-                  isFreeFromScheme: true,
-                  schemeId: applicableScheme.id,
-                  category: item.category,
-                });
-                createdLineItems.push(freeLineItem);
-              }
-            }
-          }
-        } else {
-          console.error("Line item validation failed:", lineItemValidation.error.errors, "for item:", item);
-        }
-      }
+    const newCustomer = await quickBooksService.createCustomer(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      customerData
+    );
 
-      // Update inventory based on invoice type
-      for (const item of lineItems) {
-        if (item.productId && item.productId.trim() !== '') {
-          try {
-            const currentProduct = await storage.getProduct(item.productId);
-            if (currentProduct) {
-              let newQty = currentProduct.qty;
-              
-              // AR Invoice (receivable): Reduce inventory (selling to customer)
-              if (invoice.invoiceType === 'receivable') {
-                newQty = Math.max(0, currentProduct.qty - item.quantity);
-                console.log(`Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`);
-              }
-              // AP Invoice (payable): Increase inventory (buying from supplier) 
-              else if (invoice.invoiceType === 'payable') {
-                newQty = currentProduct.qty + item.quantity;
-                console.log(`Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`);
-              }
-              
-              // Update the product quantity
-              await storage.updateProduct(item.productId, { qty: newQty });
-            }
-          } catch (inventoryError) {
-            console.error(`Failed to update inventory for product ${item.productId}:`, inventoryError);
-            // Don't fail the entire invoice creation if inventory update fails
-          }
-        }
-      }
-
-      // Also update inventory for any auto-generated free scheme items
-      for (const lineItem of createdLineItems) {
-        if (lineItem.isFreeFromScheme && lineItem.productId && invoice.invoiceType === 'receivable') {
-          try {
-            const currentProduct = await storage.getProduct(lineItem.productId);
-            if (currentProduct) {
-              const newQty = Math.max(0, currentProduct.qty - lineItem.quantity);
-              console.log(`Reducing inventory for free scheme item ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (free quantity ${lineItem.quantity})`);
-              await storage.updateProduct(lineItem.productId, { qty: newQty });
-            }
-          } catch (inventoryError) {
-            console.error(`Failed to update inventory for free scheme item ${lineItem.productId}:`, inventoryError);
-          }
-        }
-      }
-
-      res.json({ invoice: createdInvoice, lineItems: createdLineItems });
-    } catch (error) {
-      console.error("Invoice creation error:", error);
-      const err = error as any;
-      res.status(500).json({ message: "Failed to create invoice", error: err.message });
-    }
-  });
-
-  app.get("/api/invoices/:id", async (req, res) => {
-    try {
-      const invoice = await storage.getInvoice(req.params.id);
-      if (!invoice) {
-        return res.status(404).json({ message: "Invoice not found" });
-      }
-      res.json(invoice);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch invoice" });
-    }
-  });
-
-  app.get("/api/invoices/:id/line-items", async (req, res) => {
-    try {
-      const lineItems = await storage.getInvoiceLineItems(req.params.id);
-      res.json(lineItems);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch line items" });
-    }
-  });
-
-  app.delete("/api/invoices/:id", async (req, res) => {
-    try {
-      const success = await storage.deleteInvoice(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Invoice not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete invoice" });
-    }
-  });
-
-  app.post("/api/customers/:id/sync-quickbooks", async (req, res) => {
-    try {
-      const customer = await storage.getCustomer(req.params.id);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
-
-      let user = await storage.getUser(customer.userId!);
-      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
-        return res.status(400).json({ message: "QuickBooks not connected" });
-      }
-
-      // Ensure tokens are valid and refresh if needed
-      user = await ensureValidTokens(user);
-
-      // Step 1: Try to find existing customer by DisplayName
-      console.log(`Attempting to sync customer: "${customer.name}"`);
-      
-      let qbCustomer;
-      try {
-        qbCustomer = await quickBooksService.findCustomerByDisplayName(
-          user!.quickbooksAccessToken!,
-          user!.quickbooksCompanyId!,
-          customer.name
-        );
-        
-        if (qbCustomer) {
-          console.log(`Found existing customer in QuickBooks:`, {
-            Id: qbCustomer.Id,
-            DisplayName: qbCustomer.DisplayName,
-            Name: qbCustomer.Name
-          });
-        }
-      } catch (lookupError: any) {
-        console.error("Customer lookup failed:", lookupError.response?.data || lookupError.message);
-        console.error("Lookup error details:", JSON.stringify(lookupError.response?.data, null, 2));
-        // Continue to creation if lookup fails
-        qbCustomer = null;
-      }
-
-      // Step 2: If customer doesn't exist, create it
-      if (!qbCustomer) {
-        console.log(`Customer "${customer.name}" not found in QuickBooks. Creating new customer...`);
-        
-        const qbCustomerData = {
-          DisplayName: customer.name,
-        };
-
-        try {
-          qbCustomer = await quickBooksService.createCustomer(
-            user!.quickbooksAccessToken!,
-            user!.quickbooksCompanyId!,
-            qbCustomerData
-          );
-          
-          console.log(`Successfully created new customer in QuickBooks:`, {
-            Id: qbCustomer.Id,
-            DisplayName: qbCustomer.DisplayName,
-            Name: qbCustomer.Name
-          });
-        } catch (createError: any) {
-          console.error("Customer creation failed:", createError.response?.data || createError.message);
-          console.error("Creation error details:", JSON.stringify(createError.response?.data, null, 2));
-          const errorMessage = createError.response?.data?.Fault?.Error?.[0]?.Detail || 
-                              createError.response?.data?.Fault?.Error?.[0]?.code || 
-                              "Failed to create customer in QuickBooks";
-          return res.status(500).json({ message: errorMessage, action: 'create' });
-        }
-      }
-
-      // Step 3: Update local customer record with QuickBooks ID
-      await storage.updateCustomer(customer.id, {
-        quickbooksCustomerId: qbCustomer.Id,
-      });
-
-      res.json({ 
-        success: true, 
-        quickbooksCustomerId: qbCustomer.Id,
-        action: qbCustomer.Name === customer.name ? 'found' : 'created',
-        displayName: qbCustomer.DisplayName
-      });
-    } catch (error: unknown) {
-      const err = error as any;
-      console.error("QuickBooks customer sync error:", err.response?.data || err.message);
-      console.error("Full error details:", JSON.stringify(err.response?.data, null, 2));
-      const errorMessage = err.response?.data?.Fault?.Error?.[0]?.Detail || 
-                          err.response?.data?.Fault?.Error?.[0]?.code || 
-                          "Failed to sync customer with QuickBooks";
-      res.status(500).json({ message: errorMessage });
-    }
-  });
-
-  app.post("/api/products/:id/sync-quickbooks", async (req, res) => {
-    try {
-      const product = await storage.getProduct(req.params.id);
-      if (!product) {
-        return res.status(404).json({ message: "Product not found" });
-      }
-
-      let user = await storage.getUser(product.userId!);
-      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
-        return res.status(400).json({ message: "QuickBooks not connected" });
-      }
-
-      // Ensure tokens are valid and refresh if needed
-      user = await ensureValidTokens(user);
-
-      // Create unique name to avoid conflicts
-      const timestamp = Date.now();
-      const qbItemData = {
-        Name: `${product.name}_${timestamp}`,
-        Type: "Service",
-      };
-
-      const qbItem = await quickBooksService.createItem(
-        user!.quickbooksAccessToken!,
-        user!.quickbooksCompanyId!,
-        qbItemData
-      );
-
-      // Update product with QuickBooks ID
-      await storage.updateProduct(product.id, {
-        quickbooksItemId: qbItem.Id,
-      });
-
-      res.json({ success: true, quickbooksItemId: qbItem.Id });
-    } catch (error: unknown) {
-      const err = error as any;
-      console.error("QuickBooks product sync error:", err.response?.data || err.message);
-      const errorMessage = err.response?.data?.Fault?.Error?.[0]?.Detail || "Failed to sync product with QuickBooks";
-      res.status(500).json({ message: errorMessage });
-    }
-  });
-
-  // Helper function to ensure valid QuickBooks tokens
-  async function ensureValidTokens(user: any) {
-    if (!user.quickbooksRefreshToken) {
-      throw new Error("No refresh token available. Please reconnect to QuickBooks.");
-    }
-
-    // Check if token is expired (expires in 1 hour, refresh if less than 5 minutes left)
-    const tokenExpiry = user.quickbooksTokenExpiry ? new Date(user.quickbooksTokenExpiry) : new Date(0);
-    const now = new Date();
-    const timeUntilExpiry = tokenExpiry.getTime() - now.getTime();
-    const fiveMinutes = 5 * 60 * 1000;
-
-    if (timeUntilExpiry < fiveMinutes) {
-      console.log('QuickBooks token expired or expiring soon, refreshing...');
-      try {
-        const refreshedTokens = await quickBooksService.refreshAccessToken(user.quickbooksRefreshToken);
-        
-        // Update user with new tokens
-        const expiryTime = new Date(now.getTime() + (3600 * 1000)); // 1 hour from now
-        await storage.updateUser(user.id, {
-          quickbooksAccessToken: refreshedTokens.accessToken,
-          quickbooksRefreshToken: refreshedTokens.refreshToken,
-          quickbooksTokenExpiry: expiryTime,
-        });
-
-        console.log('QuickBooks tokens refreshed successfully');
-        return {
-          ...user,
-          quickbooksAccessToken: refreshedTokens.accessToken,
-          quickbooksRefreshToken: refreshedTokens.refreshToken,
-          quickbooksTokenExpiry: expiryTime,
-        };
-      } catch (tokenError) {
-        console.error('Failed to refresh QuickBooks tokens:', tokenError);
-        throw new Error("QuickBooks token refresh failed. Please reconnect to QuickBooks.");
-      }
-    }
-
-    return user;
+    console.log(`Created QuickBooks customer: ${newCustomer.DisplayName} (ID: ${newCustomer.Id})`);
+    return newCustomer;
   }
 
-  app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
-    try {
-      const invoice = await storage.getInvoice(req.params.id);
-      if (!invoice) {
-        return res.status(404).json({ message: "Invoice not found" });
-      }
+  // Helper function to find or create a vendor in QuickBooks
+  async function findOrCreateVendor(user: any, vendorName: string, localVendorId: string, storage: any) {
+    console.log(`Finding or creating vendor: ${vendorName}`);
+    
+    // Try to find existing vendor in QuickBooks
+    const existingVendor = await quickBooksService.findVendorByName(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      vendorName
+    );
 
-      let user = await storage.getUser(invoice.userId!);
-      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
-        return res.status(400).json({ message: "QuickBooks not connected" });
-      }
-
-      // Ensure tokens are valid and refresh if needed
-      user = await ensureValidTokens(user);
-
-      // Check invoice type to determine if it's AR or AP
-      const invoiceType = (invoice as any).invoiceType || 'receivable'; // Default to receivable for backward compatibility
-      console.log(`Syncing ${invoiceType} invoice ${invoice.invoiceNumber}`);
-
-      if (invoiceType === 'receivable') {
-        // Handle Accounts Receivable (AR) Invoice
-        return await handleARInvoiceSync(invoice, user, storage, res);
-      } else if (invoiceType === 'payable') {
-        // Handle Accounts Payable (AP) Invoice (Bill)
-        return await handleAPInvoiceSync(invoice, user, storage, res);
-      } else {
-        return res.status(400).json({ message: "Invalid invoice type. Must be 'receivable' or 'payable'" });
-      }
-
-    } catch (error: unknown) {
-      const err = error as any;
-      console.error("QuickBooks invoice sync error:", err.response?.data || err.message);
-      console.error("Full error details:", JSON.stringify(err.response?.data, null, 2));
-      
-      // Extract detailed error information
-      let errorMessage = "Failed to sync invoice to QuickBooks";
-      let fullErrorDetails = null;
-      
-      if (err.response?.data?.Fault?.Error?.[0]) {
-        const qbError = err.response.data.Fault.Error[0];
-        
-        errorMessage = qbError.Detail || qbError.code || errorMessage;
-        fullErrorDetails = {
-          code: qbError.code,
-          detail: qbError.Detail,
-          element: qbError.element || null
-        };
-        
-        console.error("QuickBooks Error Code:", qbError.code);
-        console.error("QuickBooks Error Detail:", qbError.Detail);
-      }
-      
-      res.status(500).json({ 
-        message: errorMessage,
-        errorDetails: fullErrorDetails
-      });
+    if (existingVendor) {
+      console.log(`Found existing QuickBooks vendor: ${existingVendor.DisplayName} (ID: ${existingVendor.Id})`);
+      return existingVendor;
     }
-  });
 
-  // Helper function to handle AR invoice sync - Creates Journal Entry instead of Invoice
-  // Handle AP Invoice Sync
+    // Vendor doesn't exist, create new one
+    console.log(`Creating new QuickBooks vendor: ${vendorName}`);
+    
+    // Get local vendor data for address info
+    const localVendor = await storage.getCustomer(localVendorId); // Using customer table for vendors
+    
+    const vendorData = {
+      DisplayName: vendorName,
+      ...(localVendor?.address && {
+        BillAddr: {
+          Line1: localVendor.address.street || '',
+          City: localVendor.address.city || '',
+          CountrySubDivisionCode: localVendor.address.state || '',
+          PostalCode: localVendor.address.zipCode || '',
+          Country: localVendor.address.country || 'USA'
+        }
+      })
+    };
+
+    const newVendor = await quickBooksService.createVendor(
+      user.quickbooksAccessToken,
+      user.quickbooksCompanyId,
+      vendorData
+    );
+
+    console.log(`Created QuickBooks vendor: ${newVendor.DisplayName} (ID: ${newVendor.Id})`);
+    return newVendor;
+  }
+
+  // Helper function to handle AP invoice sync (Payable invoices create journal entries)
   async function handleAPInvoiceSync(invoice: any, user: any, storage: any, res: any) {
     console.log(`Creating QuickBooks Journal Entry for AP invoice ${invoice.invoiceNumber}`);
 
-    // Find or create vendor in QuickBooks
-    const customer = await storage.getCustomer(invoice.customerId!);
-    if (!customer) {
+    // Find or create vendor in QuickBooks (AP invoices have vendors, not customers)
+    const vendor = await storage.getCustomer(invoice.customerId!); // Using customer table for vendors
+    if (!vendor) {
       return res.status(400).json({ message: "Vendor not found for this AP invoice" });
     }
 
-    const qbVendor = await findOrCreateVendor(user, customer.name, customer.id, storage);
+    const qbVendor = await findOrCreateVendor(user, vendor.name, vendor.id, storage);
 
     // Get invoice line items to calculate total
     const lineItems = await storage.getInvoiceLineItems(invoice.id);
     
-    console.log('AP Invoice data:', { id: invoice.id, total: invoice.total, invoiceNumber: invoice.invoiceNumber });
-    console.log('AP Line items for amount calculation:', lineItems);
+    console.log('Invoice data:', { id: invoice.id, total: invoice.total, invoiceNumber: invoice.invoiceNumber });
+    console.log('Line items for amount calculation:', lineItems);
     
     // Calculate total from invoice total first, then fallback to line items
     let totalAmount = parseFloat(invoice.total) || 0;
@@ -794,24 +236,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (totalAmount === 0) {
       totalAmount = lineItems.reduce((sum: number, item: any) => {
         const itemTotal = parseFloat(item.lineTotal) || 0;
-        console.log(`AP Line item ${item.description}: ${itemTotal}`);
+        console.log(`Line item ${item.description}: ${itemTotal}`);
         return sum + itemTotal;
       }, 0);
     }
     
-    console.log('Final calculated AP total amount:', totalAmount);
+    console.log('Final calculated total amount:', totalAmount);
     
     // Ensure we have a valid amount
     if (totalAmount === 0) {
-      throw new Error('AP Invoice total amount is 0. Cannot create journal entry.');
+      throw new Error('Invoice total amount is 0. Cannot create journal entry.');
     }
-    
-    // Create Journal Entry data for AP invoice - COGS dr to Account Payable cr
+
+    // Create Journal Entry data with correct QuickBooks API format
     const journalEntryData = {
       TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
       PrivateNote: `JE for AP Invoice #${invoice.invoiceNumber}`,
       Line: [
-        // Debit COGS
+        // Debit Cost of Goods Sold
         {
           Id: "0",
           Description: "COGS entry for AP Invoice",
@@ -825,10 +267,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         },
-        // Credit Account Payable with Vendor entity reference
+        // Credit Accounts Payable
         {
           Id: "1", 
-          Description: "Account Payable entry for AP Invoice",
+          Description: "AP entry for Invoice",
           Amount: totalAmount,
           DetailType: "JournalEntryLineDetail",
           JournalEntryLineDetail: {
@@ -874,6 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Helper function to handle AR invoice sync (Receivable invoices create journal entries)
   async function handleARInvoiceSync(invoice: any, user: any, storage: any, res: any) {
     console.log(`Creating QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`);
 
@@ -946,32 +389,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             PostingType: "Credit",
             AccountRef: {
               value: "135",
-              name: "Sales of Product Income"
+              name: "Sales"
             }
           }
         }
       ]
     };
 
-    console.log('Creating QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
+    console.log('Creating AR QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
 
+    // Call QuickBooks API to create journal entry
     const qbJournalEntry = await quickBooksService.createJournalEntry(
-      user!.quickbooksAccessToken!,
-      user!.quickbooksCompanyId!,
+      user.quickbooksAccessToken!,
+      user.quickbooksCompanyId!,
       journalEntryData
     );
 
-    // Update invoice with QuickBooks journal entry ID
+    // Update invoice with QuickBooks Journal Entry ID
     await storage.updateInvoice(invoice.id, {
       quickbooksInvoiceId: qbJournalEntry.Id,
-      status: "sent",
     });
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       quickbooksInvoiceId: qbJournalEntry.Id,
-      customerId: qbCustomer.Id,
-      customerName: qbCustomer.DisplayName,
       invoiceType: 'receivable',
       totalAmount: totalAmount,
       debitAccount: "1150040004 - Accounts Receivable (A/R)",
@@ -980,88 +421,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-
-  // Helper function to find or create customer
-  async function findOrCreateCustomer(user: any, customerName: string, customerId: string, storage: any) {
-    let qbCustomer;
+  // Sync invoice to QuickBooks (creates journal entries based on invoice type)
+  app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
     try {
-      qbCustomer = await quickBooksService.findCustomerByDisplayName(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
-        customerName
-      );
-      
-      if (qbCustomer) {
-        console.log(`Found existing customer in QuickBooks:`, {
-          Id: qbCustomer.Id,
-          DisplayName: qbCustomer.DisplayName
-        });
-        return qbCustomer;
+      const user = await storage.getUser("user-1");
+      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        return res.status(400).json({ message: "QuickBooks not connected" });
       }
-    } catch (lookupError: any) {
-      console.error("Customer lookup failed:", lookupError.response?.data || lookupError.message);
-    }
 
-    // Create customer if not found
-    console.log(`Creating customer "${customerName}" in QuickBooks...`);
-    const qbCustomerData = {
-      DisplayName: customerName,
-    };
-
-    qbCustomer = await quickBooksService.createCustomer(
-      user.quickbooksAccessToken,
-      user.quickbooksCompanyId,
-      qbCustomerData
-    );
-    
-    // Update local customer record with QuickBooks ID
-    await storage.updateCustomer(customerId, {
-      quickbooksCustomerId: qbCustomer.Id,
-    });
-
-    return qbCustomer;
-  }
-
-  async function findOrCreateVendor(user: any, vendorName: string, customerId: string, storage: any) {
-    let qbVendor;
-    try {
-      qbVendor = await quickBooksService.findVendorByDisplayName(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
-        vendorName
-      );
-      
-      if (qbVendor) {
-        console.log(`Found existing vendor in QuickBooks:`, {
-          Id: qbVendor.Id,
-          DisplayName: qbVendor.DisplayName
-        });
-        return qbVendor;
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
       }
-    } catch (lookupError: any) {
-      console.error("Vendor lookup failed:", lookupError.response?.data || lookupError.message);
+
+      // Check if already synced
+      if (invoice.quickbooksInvoiceId) {
+        return res.json({
+          success: true,
+          quickbooksInvoiceId: invoice.quickbooksInvoiceId,
+          message: "Invoice already synced to QuickBooks"
+        });
+      }
+
+      // Handle based on invoice type
+      if (invoice.invoiceType === 'payable') {
+        return await handleAPInvoiceSync(invoice, user, storage, res);
+      } else if (invoice.invoiceType === 'receivable') {
+        return await handleARInvoiceSync(invoice, user, storage, res);
+      } else {
+        return res.status(400).json({ message: "Invalid invoice type" });
+      }
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      console.error("Error syncing invoice to QuickBooks:", error);
+      
+      // Provide detailed error information for debugging
+      if (error instanceof Error && error.message.includes('account')) {
+        res.status(500).json({ 
+          message: "QuickBooks account configuration error", 
+          error: errorMessage,
+          errorDetails: {
+            code: "ACCOUNT_ERROR",
+            detail: errorMessage,
+            accountIds: {
+              accountsReceivable: "1150040004",
+              sales: "135",
+              costOfGoodsSold: "173",
+              accountsPayable: "1150040005"
+            }
+          }
+        });
+      } else {
+        res.status(500).json({ 
+          message: "Failed to sync invoice to QuickBooks", 
+          error: errorMessage 
+        });
+      }
     }
-
-    // Create vendor if not found
-    console.log(`Creating vendor "${vendorName}" in QuickBooks...`);
-    const qbVendorData = {
-      DisplayName: vendorName,
-    };
-
-    qbVendor = await quickBooksService.createVendor(
-      user.quickbooksAccessToken,
-      user.quickbooksCompanyId,
-      qbVendorData
-    );
-    
-    // Update local customer record with QuickBooks Vendor ID (for AP invoices, customer record holds vendor info)
-    await storage.updateCustomer(customerId, {
-      quickbooksCustomerId: qbVendor.Id, // Store vendor ID in same field for AP invoices
-    });
-
-    return qbVendor;
-  }
-
+  });
 
   // Debug endpoint to list QuickBooks accounts
   app.get("/api/quickbooks/accounts", async (req, res) => {
@@ -1096,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard stats
+  // Dashboard stats endpoint
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const userId = req.query.userId as string;
