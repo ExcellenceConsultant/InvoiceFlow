@@ -36,34 +36,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // QuickBooks OAuth routes
+  // QuickBooks OAuth routes with cache busting
   app.get("/api/auth/quickbooks", async (req, res) => {
     try {
+      // Add cache control headers to prevent caching
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
       const state = req.query.userId as string;
+      const timestamp = Date.now();
+      
+      console.log(`=== PRODUCTION URL OVERRIDE [${timestamp}] ===`);
+      
       if (!state) {
         return res.status(400).json({ message: "User ID required" });
       }
 
-      console.log('=== FORCE REFRESH: Generating new OAuth URL ===');
-      const authUrl = quickBooksService.getAuthorizationUrl(state);
-      console.log('=== FINAL AUTH URL:', authUrl);
-      res.json({ authUrl });
-    } catch (error) {
-      console.error('OAuth URL generation error:', error);
-      res.status(500).json({ message: "Failed to generate auth URL" });
-    }
-  });
-
-  // NEW OAuth endpoint to bypass caching issues
-  app.get("/api/auth/quickbooks-fresh", async (req, res) => {
-    try {
-      const state = req.query.userId as string;
-      if (!state) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-
-      console.log('=== FRESH OAUTH ENDPOINT ===');
-      // Force production redirect URI directly
+      // FORCE PRODUCTION URL - COMPLETE OVERRIDE TO ELIMINATE CACHING
       const PRODUCTION_REDIRECT_URI = 'https://invoice-sync-invoiceflow.replit.app/api/auth/quickbooks/callback';
       const scope = 'com.intuit.quickbooks.accounting';
       const clientId = process.env.QUICKBOOKS_CLIENT_ID || '';
@@ -78,14 +70,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
-      console.log('=== FRESH AUTH URL:', authUrl);
+      console.log(`=== PRODUCTION OVERRIDE AUTH URL [${timestamp}]:`, authUrl);
+      console.log(`=== REDIRECT URI USED [${timestamp}]:`, PRODUCTION_REDIRECT_URI);
       
-      res.json({ authUrl });
+      res.json({ authUrl, timestamp, redirectUri: PRODUCTION_REDIRECT_URI });
     } catch (error) {
-      console.error('Fresh OAuth URL error:', error);
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error('OAuth URL generation error:', error);
+      res.status(500).json({ message: "Failed to generate auth URL" });
     }
   });
+
 
   app.get("/api/auth/quickbooks/callback", async (req, res) => {
     try {
