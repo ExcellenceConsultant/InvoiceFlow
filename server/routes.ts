@@ -82,19 +82,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Launch URL - where users are redirected after successful QuickBooks connection
   app.get("/launch", async (req, res) => {
     const success = req.query.success;
-    if (success === 'true') {
-      // Redirect to the frontend QuickBooks auth page with success message
-      res.redirect("/#/auth/quickbooks?success=true");
-    } else {
-      // Redirect to dashboard for general launch
-      res.redirect("/");
-    }
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvoiceFlow - Welcome</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+        .container { background: white; padding: 40px; border-radius: 8px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .logo { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 20px; }
+        .message { color: #16a34a; margin-bottom: 20px; }
+        .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
+    </style>
+    <script>
+        setTimeout(() => {
+            window.location.href = '${success === 'true' ? '/#/auth/quickbooks?success=true' : '/'}';
+        }, 3000);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">InvoiceFlow</div>
+        ${success === 'true' ? 
+          '<div class="message">✅ Successfully connected to QuickBooks!</div><p>Redirecting to your dashboard...</p>' : 
+          '<div class="message">Welcome to InvoiceFlow</div><p>Redirecting to your dashboard...</p>'
+        }
+        <a href="${success === 'true' ? '/#/auth/quickbooks?success=true' : '/'}" class="button">Continue to App</a>
+        <p style="margin-top: 30px; color: #666; font-size: 12px;">© 2025 Kitchen Express overseas inc. All rights reserved.</p>
+    </div>
+</body>
+</html>`;
+    res.send(html);
   });
 
   // Disconnect URL - endpoint for QuickBooks disconnection
   app.get("/disconnect", async (req, res) => {
-    // This endpoint is for Intuit validation - redirect to QuickBooks auth page
-    res.redirect("/#/auth/quickbooks");
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvoiceFlow - Disconnected</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+        .container { background: white; padding: 40px; border-radius: 8px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .logo { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 20px; }
+        .message { color: #dc2626; margin-bottom: 20px; }
+        .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 10px; }
+        .reconnect { background: #16a34a; }
+    </style>
+    <script>
+        setTimeout(() => {
+            window.location.href = '/#/auth/quickbooks';
+        }, 5000);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">InvoiceFlow</div>
+        <div class="message">❌ Disconnected from QuickBooks</div>
+        <p>Your QuickBooks connection has been removed. You can reconnect anytime to continue using InvoiceFlow.</p>
+        <a href="/#/auth/quickbooks" class="button reconnect">Reconnect to QuickBooks</a>
+        <a href="/" class="button">Return to Dashboard</a>
+        <p style="margin-top: 30px; color: #666; font-size: 12px;">© 2025 Kitchen Express overseas inc. All rights reserved.</p>
+    </div>
+</body>
+</html>`;
+    res.send(html);
   });
 
   // Customer routes
