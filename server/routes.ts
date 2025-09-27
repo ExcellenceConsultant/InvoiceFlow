@@ -109,14 +109,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code, realmId, state } = req.query;
       
+      console.log('=== OAUTH CALLBACK RECEIVED ===');
+      console.log('Code:', code ? 'Present' : 'Missing');
+      console.log('RealmId:', realmId);
+      console.log('State:', state);
+      
       if (!code || !realmId || !state) {
+        console.log('❌ Missing required OAuth parameters');
         return res.redirect("/#/quickbooks-auth?error=missing_params");
       }
 
+      console.log('=== STARTING TOKEN EXCHANGE ===');
       const tokens = await quickBooksService.exchangeCodeForTokens(
         code as string,
         realmId as string
       );
+
+      console.log('=== TOKEN EXCHANGE SUCCESSFUL ===');
+      console.log('Company ID:', tokens.companyId);
+      console.log('Token expires in:', tokens.expiresIn, 'seconds');
 
       // Update user with QuickBooks tokens
       await storage.updateUser(state as string, {
@@ -126,50 +137,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      res.redirect("/launch?success=true");
+      console.log('=== USER UPDATED SUCCESSFULLY ===');
+      console.log('Redirecting to success page...');
+
+      res.redirect("/#/quickbooks-auth?success=true");
     } catch (error) {
-      console.error("QuickBooks callback error:", error);
+      console.error("❌ QuickBooks callback error:", error);
+      console.error("Error details:", error instanceof Error ? error.message : 'Unknown error');
       res.redirect("/#/quickbooks-auth?error=auth_failed");
     }
   });
 
-  // Launch URL - where users are redirected after successful QuickBooks connection
-  app.get("/launch", async (req, res) => {
-    const success = req.query.success;
-    const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InvoiceFlow - Welcome</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-        .container { background: white; padding: 40px; border-radius: 8px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .logo { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 20px; }
-        .message { color: #16a34a; margin-bottom: 20px; }
-        .button { background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; }
-    </style>
-    <script>
-        setTimeout(() => {
-            window.location.href = '${success === 'true' ? '/#/quickbooks-auth?success=true' : '/'}';
-        }, 3000);
-    </script>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">InvoiceFlow</div>
-        ${success === 'true' ? 
-          '<div class="message">✅ Successfully connected to QuickBooks!</div><p>Redirecting to your dashboard...</p>' : 
-          '<div class="message">Welcome to InvoiceFlow</div><p>Redirecting to your dashboard...</p>'
-        }
-        <a href="${success === 'true' ? '/#/auth/quickbooks?success=true' : '/'}" class="button">Continue to App</a>
-        <p style="margin-top: 30px; color: #666; font-size: 12px;">© 2025 Kitchen Express overseas inc. All rights reserved.</p>
-    </div>
-</body>
-</html>`;
-    res.send(html);
-  });
 
   // Disconnect URL - endpoint for QuickBooks disconnection
   app.get("/disconnect", async (req, res) => {
