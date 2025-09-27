@@ -42,17 +42,18 @@ export interface QuickBooksBillData {
 export class QuickBooksService {
   private readonly clientId: string;
   private readonly clientSecret: string;
-  private readonly redirectUri: string;
+  private readonly redirectUri: string = 'https://invoice-sync-invoiceflow.replit.app/api/auth/quickbooks/callback';
   private readonly sandboxBaseUrl = 'https://sandbox-quickbooks.api.intuit.com';
   private readonly oauthBaseUrl = 'https://oauth.platform.intuit.com';
 
   constructor() {
     this.clientId = process.env.QUICKBOOKS_CLIENT_ID || '';
     this.clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET || '';
-    this.redirectUri = process.env.QUICKBOOKS_REDIRECT_URI || '';
+    console.log('QuickBooks Service initialized with redirectUri:', this.redirectUri);
   }
 
   getAuthorizationUrl(state: string): string {
+    console.log('getAuthorizationUrl called with redirectUri:', this.redirectUri);
     const scope = 'com.intuit.quickbooks.accounting';
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -63,7 +64,9 @@ export class QuickBooksService {
       state,
     });
 
-    return `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
+    const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
+    console.log('Generated auth URL:', authUrl);
+    return authUrl;
   }
 
   async exchangeCodeForTokens(code: string, realmId: string): Promise<QuickBooksTokens> {
