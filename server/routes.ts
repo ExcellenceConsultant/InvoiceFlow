@@ -72,11 +72,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      res.redirect("/#/quickbooks-auth?success=true");
+      res.redirect("/launch?success=true");
     } catch (error) {
       console.error("QuickBooks callback error:", error);
       res.redirect("/#/quickbooks-auth?error=auth_failed");
     }
+  });
+
+  // Launch URL - where users are redirected after successful QuickBooks connection
+  app.get("/launch", async (req, res) => {
+    const success = req.query.success;
+    if (success === 'true') {
+      // Redirect to the frontend QuickBooks auth page with success message
+      res.redirect("/#/auth/quickbooks?success=true");
+    } else {
+      // Redirect to dashboard for general launch
+      res.redirect("/");
+    }
+  });
+
+  // Disconnect URL - endpoint for QuickBooks disconnection
+  app.get("/disconnect", async (req, res) => {
+    // This endpoint is for Intuit validation - redirect to QuickBooks auth page
+    res.redirect("/#/auth/quickbooks");
   });
 
   // Customer routes
