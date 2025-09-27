@@ -44,10 +44,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User ID required" });
       }
 
+      console.log('=== FORCE REFRESH: Generating new OAuth URL ===');
       const authUrl = quickBooksService.getAuthorizationUrl(state);
+      console.log('=== FINAL AUTH URL:', authUrl);
       res.json({ authUrl });
     } catch (error) {
+      console.error('OAuth URL generation error:', error);
       res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+
+  // NEW OAuth endpoint to bypass caching issues
+  app.get("/api/auth/quickbooks-fresh", async (req, res) => {
+    try {
+      const state = req.query.userId as string;
+      if (!state) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      console.log('=== FRESH OAUTH ENDPOINT ===');
+      // Force production redirect URI directly
+      const PRODUCTION_REDIRECT_URI = 'https://invoice-sync-invoiceflow.replit.app/api/auth/quickbooks/callback';
+      const scope = 'com.intuit.quickbooks.accounting';
+      const clientId = process.env.QUICKBOOKS_CLIENT_ID || '';
+      
+      const params = new URLSearchParams({
+        client_id: clientId,
+        scope,
+        redirect_uri: PRODUCTION_REDIRECT_URI,
+        response_type: 'code',
+        access_type: 'offline',
+        state,
+      });
+
+      const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
+      console.log('=== FRESH AUTH URL:', authUrl);
+      
+      res.json({ authUrl });
+    } catch (error) {
+      console.error('Fresh OAuth URL error:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -365,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create line items with scheme application
       const createdLineItems = [];
-      const hasFrontendFreeItems = lineItems.some(li => li.isFreeFromScheme);
+      const hasFrontendFreeItems = lineItems.some((li: any) => li.isFreeFromScheme);
       
       for (const item of lineItems) {
         // Skip line items with empty productId

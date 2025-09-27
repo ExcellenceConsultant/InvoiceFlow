@@ -55,16 +55,17 @@ export class QuickBooksService {
   }
 
   getAuthorizationUrl(state: string): string {
-    console.log('=== DEBUG: getAuthorizationUrl called ===');
-    console.log('this.redirectUri:', this.redirectUri);
-    console.log('process.env.REPL_SLUG:', process.env.REPL_SLUG);
-    console.log('process.env.REPL_OWNER:', process.env.REPL_OWNER);
+    // Always use production redirect URI to avoid any caching issues
+    const PRODUCTION_REDIRECT_URI = 'https://invoice-sync-invoiceflow.replit.app/api/auth/quickbooks/callback';
+    
+    console.log('=== OAUTH URL GENERATION ===');
+    console.log('Using production redirectUri:', PRODUCTION_REDIRECT_URI);
     
     const scope = 'com.intuit.quickbooks.accounting';
     const params = new URLSearchParams({
       client_id: this.clientId,
       scope,
-      redirect_uri: this.redirectUri,
+      redirect_uri: PRODUCTION_REDIRECT_URI,
       response_type: 'code',
       access_type: 'offline',
       state,
@@ -72,16 +73,22 @@ export class QuickBooksService {
 
     const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
     console.log('Generated auth URL:', authUrl);
-    console.log('=== END DEBUG ===');
+    console.log('=== END OAUTH GENERATION ===');
     return authUrl;
   }
 
   async exchangeCodeForTokens(code: string, realmId: string): Promise<QuickBooksTokens> {
     try {
+      // Always use production redirect URI to match authorization request
+      const PRODUCTION_REDIRECT_URI = 'https://invoice-sync-invoiceflow.replit.app/api/auth/quickbooks/callback';
+      
+      console.log('=== TOKEN EXCHANGE ===');
+      console.log('Using production redirectUri for token exchange:', PRODUCTION_REDIRECT_URI);
+      
       const tokenData = {
         grant_type: 'authorization_code',
         code,
-        redirect_uri: this.redirectUri,
+        redirect_uri: PRODUCTION_REDIRECT_URI,
       };
 
       const response = await axios.post(
