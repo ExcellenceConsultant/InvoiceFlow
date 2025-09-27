@@ -565,6 +565,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer CRUD routes
+  app.get("/api/customers", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const customers = await storage.getCustomers(userId as string);
+      res.json(customers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  app.post("/api/customers", async (req, res) => {
+    try {
+      const customerData = insertCustomerSchema.parse(req.body);
+      const customer = await storage.createCustomer(customerData);
+      res.json(customer);
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+
+  app.get("/api/customers/:id", async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customer" });
+    }
+  });
+
+  app.patch("/api/customers/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const customer = await storage.updateCustomer(req.params.id, updateData);
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update customer" });
+    }
+  });
+
+  app.delete("/api/customers/:id", async (req, res) => {
+    try {
+      await storage.deleteCustomer(req.params.id);
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete customer" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
