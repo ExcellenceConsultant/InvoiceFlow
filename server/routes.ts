@@ -25,19 +25,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updateData = req.body;
       
-      // Handle null values for QuickBooks disconnection by converting to undefined
-      if (updateData.quickbooksAccessToken === null) {
-        updateData.quickbooksAccessToken = undefined;
-      }
-      if (updateData.quickbooksRefreshToken === null) {
-        updateData.quickbooksRefreshToken = undefined;
-      }
-      if (updateData.quickbooksCompanyId === null) {
-        updateData.quickbooksCompanyId = undefined;
-      }
-      if (updateData.quickbooksTokenExpiry === null) {
-        updateData.quickbooksTokenExpiry = undefined;
-      }
+      // Handle QuickBooks disconnection by keeping null values (don't convert to undefined)
+      // This ensures the database fields are properly set to null for disconnection
       
       const user = await storage.updateUser(id, updateData);
       res.json(user);
