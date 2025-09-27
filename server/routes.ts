@@ -36,8 +36,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // QuickBooks OAuth routes with cache busting
-  app.get("/api/auth/quickbooks", async (req, res) => {
+  // NEW UNCACHED QuickBooks OAuth endpoint - BYPASSES INFRASTRUCTURE CACHING
+  app.get("/api/oauth/quickbooks-connect", async (req, res) => {
     try {
       // Add cache control headers to prevent caching
       res.set({
@@ -49,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const state = req.query.userId as string;
       const timestamp = Date.now();
       
-      console.log(`=== PRODUCTION URL OVERRIDE [${timestamp}] ===`);
+      console.log(`=== NEW UNCACHED OAUTH ENDPOINT [${timestamp}] ===`);
       
       if (!state) {
         return res.status(400).json({ message: "User ID required" });
@@ -70,13 +70,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
-      console.log(`=== PRODUCTION OVERRIDE AUTH URL [${timestamp}]:`, authUrl);
-      console.log(`=== REDIRECT URI USED [${timestamp}]:`, PRODUCTION_REDIRECT_URI);
+      console.log(`=== NEW UNCACHED AUTH URL [${timestamp}]:`, authUrl);
+      console.log(`=== PRODUCTION REDIRECT URI [${timestamp}]:`, PRODUCTION_REDIRECT_URI);
       
-      res.json({ authUrl, timestamp, redirectUri: PRODUCTION_REDIRECT_URI });
+      res.json({ 
+        authUrl, 
+        timestamp, 
+        redirectUri: PRODUCTION_REDIRECT_URI,
+        clientId: clientId.substring(0, 10) + '...',
+        note: 'Using new uncached endpoint'
+      });
     } catch (error) {
-      console.error('OAuth URL generation error:', error);
+      console.error('New OAuth URL generation error:', error);
       res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+
+  // OLD CACHED ENDPOINT - Keep for backward compatibility but will be cached
+  app.get("/api/auth/quickbooks", async (req, res) => {
+    try {
+      // Redirect to new uncached endpoint
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+      
+      console.log('=== REDIRECTING TO NEW UNCACHED ENDPOINT ===');
+      const redirectUrl = `/api/oauth/quickbooks-connect?userId=${encodeURIComponent(userId)}`;
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('OAuth redirect error:', error);
+      res.status(500).json({ message: "Failed to redirect to OAuth" });
     }
   });
 
