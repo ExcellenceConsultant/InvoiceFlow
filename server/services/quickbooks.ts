@@ -43,7 +43,7 @@ export class QuickBooksService {
   private readonly clientId: string;
   private readonly clientSecret: string;
   private readonly redirectUri: string;
-  private readonly sandboxBaseUrl = 'https://sandbox-quickbooks.api.intuit.com';
+  private readonly productionBaseUrl = 'https://quickbooks.api.intuit.com';
   private readonly oauthBaseUrl = 'https://oauth.platform.intuit.com';
 
   constructor() {
@@ -151,7 +151,7 @@ export class QuickBooksService {
       console.log('Creating QuickBooks AR invoice with data:', JSON.stringify(invoiceData, null, 2));
       
       const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/invoice`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/invoice`,
         invoiceData,
         {
           headers: {
@@ -194,7 +194,7 @@ export class QuickBooksService {
       console.log('Creating QuickBooks AP bill with data:', JSON.stringify(billData, null, 2));
       
       const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/bill`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/bill`,
         billData,
         {
           headers: {
@@ -231,7 +231,7 @@ export class QuickBooksService {
   async getCompanyInfo(accessToken: string, companyId: string): Promise<any> {
     try {
       const response = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/companyinfo/${companyId}`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/companyinfo/${companyId}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -256,7 +256,7 @@ export class QuickBooksService {
       console.log('Creating QuickBooks customer with data:', JSON.stringify(customerData, null, 2));
       
       const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/customer`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/customer`,
         customerData,
         {
           headers: {
@@ -298,7 +298,7 @@ export class QuickBooksService {
       console.log(`Searching for vendor with DisplayName: "${vendorName}"`);
       
       const response = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Vendor WHERE DisplayName = '${escapedName}'`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Vendor WHERE DisplayName = '${escapedName}'`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -321,7 +321,7 @@ export class QuickBooksService {
       
       // If exact match fails, try to get all vendors and find by DisplayName
       const allVendorsResponse = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Vendor`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Vendor`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -367,7 +367,7 @@ export class QuickBooksService {
       console.log('Creating QuickBooks vendor with data:', JSON.stringify(vendorData, null, 2));
       
       const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/vendor`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/vendor`,
         vendorData,
         {
           headers: {
@@ -408,7 +408,7 @@ export class QuickBooksService {
   ): Promise<any> {
     try {
       const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/item`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/item`,
         itemData,
         {
           headers: {
@@ -429,7 +429,7 @@ export class QuickBooksService {
   async getAccounts(accessToken: string, companyId: string): Promise<any> {
     try {
       const response = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Account WHERE Active = true`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Account WHERE Active = true`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -453,7 +453,7 @@ export class QuickBooksService {
       console.log(`Searching for customer with DisplayName: "${customerName}"`);
       
       const response = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE DisplayName = '${escapedName}'`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE DisplayName = '${escapedName}'`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -476,7 +476,7 @@ export class QuickBooksService {
       
       // If exact match fails, try to get all customers and find by DisplayName
       const allCustomersResponse = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -521,7 +521,7 @@ export class QuickBooksService {
       console.log(`Searching for customer with exact name: "${customerName}"`);
       
       const response = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE Name = '${escapedName}'`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer WHERE Name = '${escapedName}'`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -540,7 +540,7 @@ export class QuickBooksService {
       
       // If exact match fails, try to get all customers and find by name
       const allCustomersResponse = await axios.get(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/query?query=SELECT * FROM Customer`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -592,7 +592,7 @@ export class QuickBooksService {
       console.log('Posting Journal Entry to QuickBooks:', JSON.stringify(journalEntryData, null, 2));
       
       const response = await axios.post(
-        `${this.sandboxBaseUrl}/v3/company/${companyId}/journalentry`,
+        `${this.productionBaseUrl}/v3/company/${companyId}/journalentry`,
         journalEntryData,
         {
           headers: {
