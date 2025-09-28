@@ -434,7 +434,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", async (req, res) => {
     try {
-      const invoiceData = insertInvoiceSchema.parse(req.body);
+      // Auto-generate required fields if missing
+      const dataToValidate = {
+        ...req.body,
+        invoiceNumber: req.body.invoiceNumber || `INV-${Date.now()}`,
+        subtotal: req.body.subtotal || req.body.total || "0",
+        total: req.body.total || "0", 
+        invoiceDate: req.body.invoiceDate || new Date().toISOString().split('T')[0],
+        userId: req.body.userId || "user-1"
+      };
+      
+      const invoiceData = insertInvoiceSchema.parse(dataToValidate);
       const invoice = await storage.createInvoice(invoiceData);
       
       // Create line items if provided
