@@ -434,22 +434,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", async (req, res) => {
     try {
+      // Extract invoice data from the nested structure
+      const invoicePayload = req.body.invoice || req.body;
+      const lineItemsPayload = req.body.lineItems || [];
+      
+      console.log("Received invoice payload:", invoicePayload);
+      console.log("Received line items:", lineItemsPayload);
+      
       // Auto-generate required fields if missing
       const dataToValidate = {
-        ...req.body,
-        invoiceNumber: req.body.invoiceNumber || `INV-${Date.now()}`,
-        subtotal: req.body.subtotal || req.body.total || "0",
-        total: req.body.total || "0", 
-        invoiceDate: req.body.invoiceDate || new Date().toISOString().split('T')[0],
-        userId: req.body.userId || "user-1"
+        ...invoicePayload,
+        invoiceNumber: invoicePayload.invoiceNumber || `INV-${Date.now()}`,
+        subtotal: invoicePayload.subtotal || invoicePayload.total || "0",
+        total: invoicePayload.total || "0", 
+        invoiceDate: invoicePayload.invoiceDate || new Date().toISOString().split('T')[0],
+        userId: invoicePayload.userId || "user-1"
       };
+      
+      console.log("Data to validate:", dataToValidate);
       
       const invoiceData = insertInvoiceSchema.parse(dataToValidate);
       const invoice = await storage.createInvoice(invoiceData);
       
       // Create line items if provided
-      if (req.body.lineItems && Array.isArray(req.body.lineItems)) {
-        for (const lineItem of req.body.lineItems) {
+      if (lineItemsPayload && Array.isArray(lineItemsPayload)) {
+        for (const lineItem of lineItemsPayload) {
           const lineItemData = insertInvoiceLineItemSchema.parse({
             ...lineItem,
             invoiceId: invoice.id
