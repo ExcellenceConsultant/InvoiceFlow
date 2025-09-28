@@ -326,8 +326,8 @@ function InvoiceView() {
             </div>
           </div>
 
-          {/* Bill To / Invoice Details */}
-          <div className="grid grid-cols-8 gap-4 mb-4">
+          {/* Bill To / Ship To / Invoice Details */}
+          <div className="grid grid-cols-12 gap-4 mb-4">
             <div className="col-span-4">
               <div className="font-semibold">Bill To</div>
               <div className="mt-1">
@@ -347,6 +347,39 @@ function InvoiceView() {
                       </div>
                     )}
                     {billAddress.country && <div>{billAddress.country}</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="col-span-4">
+              <div className="font-semibold">Ship To</div>
+              <div className="mt-1">
+                <div>
+                  {(invoice as any).shipToName ||
+                    (invoice as any).customer?.name ||
+                    "—"}
+                </div>
+                {shipAddress && (
+                  <div className="small-label">
+                    {typeof shipAddress === "string" ? (
+                      shipAddress
+                    ) : (
+                      <>
+                        {shipAddress.street && <div>{shipAddress.street}</div>}
+                        {shipAddress.city && (
+                          <div>
+                            {shipAddress.city}
+                            {shipAddress.state
+                              ? `, ${shipAddress.state}`
+                              : ""}{" "}
+                            {shipAddress.zipCode || ""}
+                          </div>
+                        )}
+                        {shipAddress.country && (
+                          <div>{shipAddress.country}</div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
