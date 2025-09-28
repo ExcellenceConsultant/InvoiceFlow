@@ -95,7 +95,21 @@ function InvoiceView() {
     InvoiceLineItem[]
   >({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
 
-  const isLoading = invoiceLoading || lineItemsLoading;
+  const { data: products, isLoading: productsLoading } = useQuery({
+    queryKey: ["/api/products"],
+    enabled: !!id,
+  });
+
+  const isLoading = invoiceLoading || lineItemsLoading || productsLoading;
+  
+  // Create a mapping from productId to product name
+  const productMap = new Map();
+  if (products) {
+    products.forEach((product: any) => {
+      productMap.set(product.id, product.name);
+    });
+  }
+  
   const rawLineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -439,7 +453,7 @@ function InvoiceView() {
                     )}
                     <tr>
                       <td className="text-center">{sr}</td>
-                      <td>{item.description}</td>
+                      <td>{productMap.get(item.productId) || item.description}</td>
                       <td className="text-center">{qty || "—"}</td>
                       <td className="text-right">{formatCurrency(rate)}</td>
                       <td className="text-right">
