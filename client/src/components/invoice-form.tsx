@@ -30,7 +30,7 @@ const invoiceSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
   invoiceNumber: z.string().min(1, "Invoice number is required"),
   invoiceDate: z.string().min(1, "Invoice date is required"),
-  dueDate: z.string().optional(),
+  paymentTerms: z.number().min(0, "Payment terms must be non-negative").default(30),
   invoiceType: z.enum(["receivable", "payable"], {
     required_error: "Please select invoice type",
   }),
@@ -79,7 +79,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       customerId: "",
       invoiceNumber: `INV-${Date.now()}`,
       invoiceDate: new Date().toISOString().split("T")[0],
-      dueDate: "",
+      paymentTerms: 30,
       invoiceType: "receivable",
     },
   });
@@ -322,6 +322,12 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       }
     });
 
+    // Calculate due date based on invoice date + payment terms
+    const invoiceDate = new Date(data.invoiceDate);
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + data.paymentTerms);
+    const dueDateString = dueDate.toISOString().split("T")[0];
+
     const invoiceData = {
       invoice: {
         ...data,
@@ -330,7 +336,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         status: "draft",
         invoiceType: data.invoiceType,
         invoiceDate: data.invoiceDate,
-        dueDate: data.dueDate || null,
+        dueDate: dueDateString,
         userId: DEFAULT_USER_ID,
       },
       lineItems: allLineItems,
@@ -500,15 +506,17 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
                 <FormField
                   control={form.control}
-                  name="dueDate"
+                  name="paymentTerms"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Due Date (Optional)</FormLabel>
+                      <FormLabel>Payment Terms (days)</FormLabel>
                       <FormControl>
                         <Input
-                          type="date"
+                          type="number"
+                          min="0"
                           {...field}
-                          data-testid="input-due-date"
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          data-testid="input-payment-terms"
                         />
                       </FormControl>
                       <FormMessage />
@@ -546,9 +554,9 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                 ?.map((p: any) => p.category)
                                 .filter(Boolean),
                             ),
-                          ).map((category: string) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
+                          ).map((category) => (
+                            <SelectItem key={category as string} value={category as string}>
+                              {category as string}
                             </SelectItem>
                           ))}
                         </SelectContent>
