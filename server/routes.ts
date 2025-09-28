@@ -48,7 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const state = req.query.userId as string;
       const timestamp = Date.now();
-      const authUrl = quickBooksService.getAuthUrl(state, timestamp);
+      const authUrl = quickBooksService.getAuthorizationUrl(state);
       
       console.log(`Generated auth URL with timestamp ${timestamp}:`, authUrl);
       
@@ -77,17 +77,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("QuickBooks callback received:", { code, state });
 
       // Exchange code for tokens
-      const tokens = await quickBooksService.exchangeCodeForTokens(code as string);
-      console.log("Token exchange successful, company ID:", tokens.realmId);
+      const tokens = await quickBooksService.exchangeCodeForTokens(code as string, state as string);
+      console.log("Token exchange successful, company ID:", tokens.companyId);
 
       // Update user with QuickBooks info
       await storage.updateUser(state as string, {
-        quickbooksAccessToken: tokens.access_token,
-        quickbooksRefreshToken: tokens.refresh_token,
-        quickbooksCompanyId: tokens.realmId,
+        quickbooksAccessToken: tokens.accessToken,
+        quickbooksRefreshToken: tokens.refreshToken,
+        quickbooksCompanyId: tokens.companyId,
       });
 
-      console.log(`User ${state} connected to QuickBooks company ${tokens.realmId}`);
+      console.log(`User ${state} connected to QuickBooks company ${tokens.companyId}`);
 
       // Redirect to success page
       res.redirect("/?quickbooks=connected");
@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Finding or creating vendor: ${vendorName}`);
     
     // Try to find existing vendor in QuickBooks
-    const existingVendor = await quickBooksService.findVendorByName(
+    const existingVendor = await quickBooksService.findVendorByDisplayName(
       user.quickbooksAccessToken,
       user.quickbooksCompanyId,
       vendorName

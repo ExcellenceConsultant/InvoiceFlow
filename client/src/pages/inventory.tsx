@@ -383,7 +383,7 @@ export default function Inventory() {
         console.error('Excel parsing error:', error);
         toast({
           title: "Parse Error",
-          description: `Failed to parse Excel file: ${error.message || 'Unknown error'}. Please ensure it's a valid Excel file.`,
+          description: `Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure it's a valid Excel file.`,
           variant: "destructive",
         });
       }
@@ -769,61 +769,64 @@ export default function Inventory() {
                 </tbody>
               </table>
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    data-testid="button-prev-page"
-                  >
-                    <ChevronLeft size={16} />
-                    Previous
-                  </Button>
-                  <div className="flex items-center space-x-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(pageNum)}
-                          className="w-8 h-8 p-0"
-                          data-testid={`button-page-${pageNum}`}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
+            {(() => {
+              if (totalPages <= 1) return null;
+              return (
+                <div className="flex items-center justify-between px-4 py-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    data-testid="button-next-page"
-                  >
-                    Next
-                    <ChevronRight size={16} />
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      data-testid="button-prev-page"
+                    >
+                      <ChevronLeft size={16} />
+                      Previous
+                    </Button>
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className="w-8 h-8 p-0"
+                            data-testid={`button-page-${pageNum}`}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      data-testid="button-next-page"
+                    >
+                      Next
+                      <ChevronRight size={16} />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           ) : (
             <div className="text-center py-12">
               <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
