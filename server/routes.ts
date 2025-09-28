@@ -447,13 +447,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invoiceNumber: invoicePayload.invoiceNumber || `INV-${Date.now()}`,
         subtotal: invoicePayload.subtotal || invoicePayload.total || "0",
         total: invoicePayload.total || "0", 
-        invoiceDate: invoicePayload.invoiceDate || new Date().toISOString().split('T')[0],
-        userId: invoicePayload.userId || "user-1"
+        invoiceDate: invoicePayload.invoiceDate || new Date().toISOString().split('T')[0]
       };
       
       console.log("Data to validate:", dataToValidate);
       
-      const invoiceData = insertInvoiceSchema.parse(dataToValidate);
+      const validatedData = insertInvoiceSchema.parse(dataToValidate);
+      // Add userId after validation since it's omitted from the schema
+      const invoiceData = {
+        ...validatedData,
+        userId: (invoicePayload.userId as string) || "user-1"
+      };
       const invoice = await storage.createInvoice(invoiceData);
       
       // Create line items if provided
@@ -662,7 +666,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/customers", async (req, res) => {
     try {
-      const customerData = insertCustomerSchema.parse(req.body);
+      const validatedData = insertCustomerSchema.parse(req.body);
+      const customerData = {
+        ...validatedData,
+        userId: (req.body.userId as string) || "user-1"
+      };
       const customer = await storage.createCustomer(customerData);
       res.json(customer);
     } catch (error) {
@@ -715,7 +723,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", async (req, res) => {
     try {
-      const productData = insertProductSchema.parse(req.body);
+      const validatedData = insertProductSchema.parse(req.body);
+      const productData = {
+        ...validatedData,
+        userId: (req.body.userId as string) || "user-1"
+      };
       const product = await storage.createProduct(productData);
       res.json(product);
     } catch (error) {
@@ -770,7 +782,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/schemes", async (req, res) => {
     try {
-      const schemeData = insertProductSchemeSchema.parse(req.body);
+      const validatedData = insertProductSchemeSchema.parse(req.body);
+      const schemeData = {
+        ...validatedData,
+        userId: (req.body.userId as string) || "user-1"
+      };
       const scheme = await storage.createProductScheme(schemeData);
       res.json(scheme);
     } catch (error) {
