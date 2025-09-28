@@ -28,9 +28,11 @@ export default function Inventory() {
 
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
-      return await apiRequest(`/api/products/${productId}`, {
+      const response = await fetch(`/api/products/${productId}`, {
         method: 'DELETE',
       });
+      if (!response.ok) throw new Error('Failed to delete product');
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -45,7 +47,7 @@ export default function Inventory() {
   const deleteSelectedMutation = useMutation({
     mutationFn: async (productIds: string[]) => {
       await Promise.all(productIds.map(id => 
-        apiRequest(`/api/products/${id}`, { method: 'DELETE' })
+        fetch(`/api/products/${id}`, { method: 'DELETE' })
       ));
     },
     onSuccess: () => {
@@ -95,11 +97,12 @@ export default function Inventory() {
           userId: DEFAULT_USER_ID
         };
 
-        await apiRequest('/api/products', {
+        const response = await fetch('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(product)
         });
+        if (!response.ok) throw new Error('Failed to import product');
       }
       
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
