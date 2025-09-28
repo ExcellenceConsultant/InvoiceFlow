@@ -408,13 +408,11 @@ function InvoiceView() {
           <table className="invoice-table">
             <thead>
               <tr>
-                <th style={{ width: "5%" }}>Sr. No</th>
-                <th style={{ width: "13%" }}>Item Code</th>
-                <th style={{ width: "12%" }}>Packing Size</th>
-                <th style={{ width: "40%" }}>Product Description</th>
-                <th style={{ width: "8%" }}>Qty (Cartons)</th>
-                <th style={{ width: "11%" }}>Rate Per Carton (USD)</th>
-                <th style={{ width: "11%" }}>Net Amount (USD)</th>
+                <th style={{ width: "10%" }}>Sr. No</th>
+                <th style={{ width: "50%" }}>Product Name</th>
+                <th style={{ width: "15%" }}>Qty</th>
+                <th style={{ width: "15%" }}>Rate per Carton</th>
+                <th style={{ width: "10%" }}>Net Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -422,7 +420,7 @@ function InvoiceView() {
                 const sr = page.startIndex + idx + 1;
                 const qty = toNumber(item.quantity);
                 const rate = toNumber(item.unitPrice);
-                const lineTotal = toNumber(item.lineTotal);
+                const netAmount = qty * rate;
                 const prevItem = idx > 0 ? page.rows[idx - 1] : null;
                 const isNewCategory =
                   idx === 0 || item.category !== (prevItem?.category || "");
@@ -432,7 +430,7 @@ function InvoiceView() {
                     {isNewCategory && (
                       <tr className="category-row">
                         <td
-                          colSpan={7}
+                          colSpan={5}
                           className="text-center font-semibold bg-gray-100"
                         >
                           {item.category || "Uncategorized"}
@@ -441,19 +439,11 @@ function InvoiceView() {
                     )}
                     <tr>
                       <td className="text-center">{sr}</td>
-                      <td>
-                        {item.productCode || (item as any).itemCode || "—"}
-                      </td>
-                      <td>
-                        {item.packingSize
-                          ? item.packingSize.replace(/GM/g, "G")
-                          : "—"}
-                      </td>
                       <td>{item.description}</td>
                       <td className="text-center">{qty || "—"}</td>
                       <td className="text-right">{formatCurrency(rate)}</td>
                       <td className="text-right">
-                        {formatCurrency(lineTotal)}
+                        {formatCurrency(netAmount)}
                       </td>
                     </tr>
                   </React.Fragment>
@@ -463,8 +453,6 @@ function InvoiceView() {
               {page.blanks.map((_, i) => (
                 <tr key={`blank-${pageIndex}-${i}`}>
                   <td className="text-center">&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
                   <td>&nbsp;</td>
                   <td className="text-center">&nbsp;</td>
                   <td>&nbsp;</td>
