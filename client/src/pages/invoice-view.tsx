@@ -101,7 +101,7 @@ function InvoiceView() {
   });
 
   const isLoading = invoiceLoading || lineItemsLoading || productsLoading;
-  
+
   // Create a mapping from productId to product name
   const productMap = new Map();
   if (products && Array.isArray(products)) {
@@ -109,7 +109,7 @@ function InvoiceView() {
       productMap.set(product.id, product.name);
     });
   }
-  
+
   const rawLineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -160,7 +160,7 @@ function InvoiceView() {
         .invoice-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
         .print-hide { display: none !important; }
-        
+
         /* Only remove table borders while preserving other formatting */
         table.invoice-table, table.invoice-table th, table.invoice-table td { 
           border: 0 !important; 
@@ -204,7 +204,7 @@ function InvoiceView() {
         background: #f3f4f6;
         font-weight: 600;
       }
-      
+
       /* Add borders only for screen view */
       @media screen {
         table.invoice-table th, table.invoice-table td {
@@ -456,9 +456,17 @@ function InvoiceView() {
                     )}
                     <tr>
                       <td className="text-center">{sr}</td>
-                      <td>{item.productCode || (item as any).itemCode || "—"}</td>
-                      <td>{item.packingSize ? item.packingSize.replace(/GM/g, "G") : "—"}</td>
-                      <td>{productMap.get(item.productId) || item.description}</td>
+                      <td>
+                        {item.productCode || (item as any).itemCode || "—"}
+                      </td>
+                      <td>
+                        {item.packingSize
+                          ? item.packingSize.replace(/GM/g, "G")
+                          : "—"}
+                      </td>
+                      <td>
+                        {productMap.get(item.productId) || item.description}
+                      </td>
                       <td className="text-right">{formatCurrency(rate)}</td>
                       <td className="text-center">{qty || "—"}</td>
                       <td className="text-center">{item.category || "—"}</td>
