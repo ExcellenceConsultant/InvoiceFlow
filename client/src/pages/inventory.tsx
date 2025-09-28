@@ -102,14 +102,27 @@ export default function Inventory() {
 
       for (const row of jsonData) {
         try {
+          // Handle Excel date conversion (Excel stores dates as serial numbers)
+          let dateValue = (row as any)['Date'];
+          let dateString = new Date().toISOString().split('T')[0];
+          if (dateValue) {
+            if (typeof dateValue === 'number') {
+              // Excel serial date to JavaScript date
+              const excelDate = new Date((dateValue - 25569) * 86400 * 1000);
+              dateString = excelDate.toISOString().split('T')[0];
+            } else {
+              dateString = dateValue.toString();
+            }
+          }
+
           const product = {
             name: (row as any)['Product Name'] || '',
             description: '',
-            basePrice: parseFloat((row as any)['Base Price'] || '0'),
+            basePrice: String(parseFloat((row as any)['Base Price'] || '0')),
             category: (row as any)['Category'] || 'Uncategorized',
-            itemCode: (row as any)['Item Code'] || '',
+            itemCode: String((row as any)['Item Code'] || ''),
             qty: parseInt((row as any)['Qty'] || '0'),
-            date: (row as any)['Date'] || new Date().toISOString().split('T')[0],
+            date: dateString,
             packingType: (row as any)['Packing Size'] || null,
             grossWeightKgs: (row as any)['Gross Weight(LBS)'] ? parseFloat((row as any)['Gross Weight(LBS)']) * 0.453592 : null,
             netWeightKgs: (row as any)['Net Weight(LBS)'] ? parseFloat((row as any)['Net Weight(LBS)']) * 0.453592 : null,
