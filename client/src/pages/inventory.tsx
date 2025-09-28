@@ -37,28 +37,6 @@ export default function Inventory() {
 
   const isLoading = productsLoading;
 
-  const getStockStatus = (variant: any) => {
-    if (variant.stockQuantity <= 0) {
-      return { 
-        label: "Out of Stock", 
-        className: "bg-destructive text-destructive-foreground",
-        priority: 3 
-      };
-    } else if (variant.stockQuantity <= variant.lowStockThreshold) {
-      return { 
-        label: "Low Stock", 
-        className: "bg-yellow-500 text-white",
-        priority: 2 
-      };
-    } else {
-      return { 
-        label: "In Stock", 
-        className: "bg-accent text-accent-foreground",
-        priority: 1 
-      };
-    }
-  };
-
   const filteredProducts = products?.filter((product: any) => {
     const matchesSearch = 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,140 +64,14 @@ export default function Inventory() {
     setSelectedProducts([]);
   }, [currentPage]);
 
-  // Calculate inventory stats
-  const totalProducts = products?.length || 0;
-  const totalValue = products?.reduce((sum: number, product: any) => 
-    sum + parseFloat(product.basePrice || 0), 0) || 0;
-
-  // Excel import mutation
-  const importExcelMutation = useMutation({
-    mutationFn: async (products: any[]) => {
-      console.log('Starting import of', products.length, 'products');
-      const results = [];
-      let successCount = 0;
-      let errorCount = 0;
-      
-      for (const product of products) {
-        try {
-          const response = await apiRequest('POST', '/api/products', { ...product, userId: DEFAULT_USER_ID });
-          const result = await response.json();
-          results.push(result);
-          successCount++;
-          console.log('Successfully created product:', result.name);
-        } catch (error) {
-          console.error('Failed to create product:', product.name, error);
-          errorCount++;
-        }
-      }
-      
-      return { results, successCount, errorCount, totalAttempted: products.length };
-    },
-    onSuccess: (data) => {
-      console.log('Import completed:', data);
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
-      
-      if (data.errorCount > 0) {
-        toast({
-          title: "Partial Import",
-          description: `Imported ${data.successCount} of ${data.totalAttempted} products. ${data.errorCount} failed.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Import Successful!",
-          description: `Successfully imported ${data.successCount} products to inventory`,
-        });
-      }
-    },
-    onError: (error) => {
-      console.error('Import mutation error:', error);
-      toast({
-        title: "Import Failed",
-        description: "Failed to import products. Please check your file format and try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete products mutation
-  const deleteProductsMutation = useMutation({
-    mutationFn: async (productIds: string[]) => {
-      const results = [];
-      for (const productId of productIds) {
-        try {
-          await apiRequest('DELETE', `/api/products/${productId}`);
-          results.push({ id: productId, success: true });
-        } catch (error) {
-          console.error(`Failed to delete product ${productId}:`, error);
-          results.push({ id: productId, success: false, error });
-        }
-      }
-      return results;
-    },
-    onSuccess: (results) => {
-      const successCount = results.filter(r => r.success).length;
-      const errorCount = results.filter(r => !r.success).length;
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
-      setSelectedProducts([]);
-      
-      if (errorCount > 0) {
-        toast({
-          title: "Partial Deletion",
-          description: `Deleted ${successCount} products. ${errorCount} failed to delete.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Deletion Successful",
-          description: `Successfully deleted ${successCount} product${successCount === 1 ? '' : 's'}`,
-        });
-      }
-    },
-    onError: (error) => {
-      console.error('Delete mutation error:', error);
-      toast({
-        title: "Deletion Failed",
-        description: "Failed to delete products. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle bulk delete
-  const handleBulkDelete = () => {
-    if (selectedProducts.length === 0) {
-      toast({
-        title: "No Selection",
-        description: "Please select products to delete.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (confirm(`Are you sure you want to delete ${selectedProducts.length} product${selectedProducts.length === 1 ? '' : 's'}? This action cannot be undone.`)) {
-      deleteProductsMutation.mutate(selectedProducts);
-    }
-  };
-
-  // Handle individual delete
-  const handleSingleDelete = (productId: string) => {
-    if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
-      deleteProductsMutation.mutate([productId]);
-    }
-  };
-
-  // Handle select all
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const currentPageProductIds = paginatedProducts.map((product: any) => product.id);
-      setSelectedProducts(currentPageProductIds);
+      setSelectedProducts(paginatedProducts.map((product: any) => product.id));
     } else {
       setSelectedProducts([]);
     }
   };
 
-  // Handle individual select
   const handleSelectProduct = (productId: string, checked: boolean) => {
     if (checked) {
       setSelectedProducts(prev => [...prev, productId]);
@@ -228,436 +80,54 @@ export default function Inventory() {
     }
   };
 
-  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const validExtensions = ['.xlsx', '.xls', '.csv'];
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    if (!validExtensions.includes(fileExtension)) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please upload a valid Excel file (.xlsx, .xls, or .csv)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log('Processing file:', file.name, 'Size:', file.size, 'Type:', file.type);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        console.log('File read successfully, size:', data.length);
-        
-        const workbook = XLSX.read(data, { type: 'array' });
-        console.log('Workbook parsed. Sheet names:', workbook.SheetNames);
-        
-        // Get first worksheet
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        
-        // Convert to JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        console.log('JSON data extracted:', jsonData.length, 'rows');
-        console.log('First few rows:', jsonData.slice(0, 3));
-        
-        if (jsonData.length < 2) {
-          toast({
-            title: "Invalid File",
-            description: `Excel file must contain header row and data rows. Found ${jsonData.length} rows.`,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const headers = jsonData[0] as string[];
-        console.log('Headers found:', headers);
-        const products = [];
-        let skippedRows = 0;
-
-        for (let i = 1; i < jsonData.length; i++) {
-          const row = jsonData[i] as any[];
-          console.log(`Processing row ${i}:`, row);
-          
-          if (row && row.filter(cell => cell !== null && cell !== undefined && cell !== '').length >= 3) {
-            // More flexible: require at least 3 non-empty columns instead of exactly 7
-            const cleanString = (value: any) => {
-              if (!value || value === undefined || value === null) return null;
-              const str = String(value).trim();
-              return str === '' ? null : str;
-            };
-            
-            const cleanNumber = (value: any) => {
-              if (!value || value === undefined || value === null) return '0.00';
-              const num = String(value).trim();
-              return isNaN(parseFloat(num)) ? '0.00' : num;
-            };
-
-            const cleanInteger = (value: any) => {
-              if (!value || value === undefined || value === null) return 0;
-              const num = parseInt(String(value).trim());
-              return isNaN(num) ? 0 : num;
-            };
-
-            const convertExcelDate = (value: any) => {
-              if (!value || value === undefined || value === null) {
-                return new Date().toISOString().split('T')[0];
-              }
-              
-              const strValue = String(value).trim();
-              
-              // Check if it's an Excel date serial number (like 45658)
-              if (/^\d+$/.test(strValue)) {
-                const excelDate = parseInt(strValue);
-                // Excel date calculation: Excel epoch is Dec 30, 1899
-                const excelEpoch = new Date(1899, 11, 30);
-                const jsDate = new Date(excelEpoch.getTime() + excelDate * 24 * 60 * 60 * 1000);
-                return jsDate.toISOString().split('T')[0];
-              }
-              
-              // Try to parse as regular date
-              const parsedDate = new Date(strValue);
-              if (!isNaN(parsedDate.getTime())) {
-                return parsedDate.toISOString().split('T')[0];
-              }
-              
-              // Default to today's date
-              return new Date().toISOString().split('T')[0];
-            };
-
-            const product = {
-              name: cleanString(row[0]) || `Product ${i}`, // Product Name
-              date: convertExcelDate(row[1]), // Date (converted from Excel format)
-              itemCode: cleanString(row[2]) || null, // Item Code
-              packingSize: cleanString(row[3]) || null, // Packing Size
-              category: cleanString(row[4]) || 'Imported', // Category
-              qty: cleanInteger(row[5]), // Qty (as integer)
-              basePrice: cleanNumber(row[6]), // Base Price
-              grossWeight: cleanString(row[7]) || null, // Gross Weight
-              netWeight: cleanString(row[8]) || null, // Net Weight
-              description: 'Imported from Excel',
-            };
-            
-            console.log(`Parsed product for row ${i}:`, product);
-            
-            // More lenient validation: just require a name and a valid price (including 0)
-            if (product.name && product.name !== `Product ${i}` && !isNaN(parseFloat(product.basePrice))) {
-              products.push(product);
-            } else {
-              console.log(`Skipping row ${i} - validation failed:`, {
-                hasName: !!product.name && product.name !== `Product ${i}`,
-                hasValidPrice: !isNaN(parseFloat(product.basePrice)),
-                product
-              });
-              skippedRows++;
-            }
-          } else {
-            console.log(`Skipping row ${i} - insufficient data:`, row);
-            skippedRows++;
-          }
-        }
-
-        console.log('Processing complete:', {
-          totalRows: jsonData.length - 1,
-          validProducts: products.length,
-          skippedRows
-        });
-        
-        if (products.length > 0) {
-          toast({
-            title: "Processing Import",
-            description: `Found ${products.length} valid products${skippedRows > 0 ? `, skipped ${skippedRows} rows` : ''}. Starting import...`,
-          });
-          importExcelMutation.mutate(products);
-        } else {
-          toast({
-            title: "No Valid Data",
-            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Gross Weight, Net Weight`,
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Excel parsing error:', error);
-        toast({
-          title: "Parse Error",
-          description: `Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}. Please ensure it's a valid Excel file.`,
-          variant: "destructive",
-        });
-      }
-    };
-    
-    reader.onerror = (error) => {
-      console.error('File reading error:', error);
-      toast({
-        title: "File Read Error",
-        description: "Failed to read the uploaded file. Please try again.",
-        variant: "destructive",
-      });
-    };
-    
-    reader.readAsArrayBuffer(file);
-    
-    // Reset the file input
-    event.target.value = '';
-  };
-
-  // Get unique categories
-  const categories = Array.from(new Set(products?.map((p: any) => p.category).filter(Boolean))) || [];
-
-  // Generate Excel Report Function
-  const generateInventoryReport = () => {
-    if (!products || products.length === 0) {
-      toast({
-        title: "No Data",
-        description: "No products available to export",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Prepare report data with Amount calculation (Qty × Base Price)
-      const reportData = products.map((product: any) => ({
-        'Product Name': product.name || '',
-        'Date': product.date ? new Date(product.date).toLocaleDateString() : '',
-        'Item Code': product.itemCode || '',
-        'Packing Size': product.packingSize || '',
-        'Category': product.category || '',
-        'Qty': product.qty || 0,
-        'Base Price': parseFloat(product.basePrice || 0).toFixed(2),
-        'Amount': (product.qty * parseFloat(product.basePrice || 0)).toFixed(2),
-        'Gross Weight': product.grossWeight || '',
-        'Net Weight': product.netWeight || '',
-        'Description': product.description || ''
-      }));
-
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(reportData);
-      
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Report');
-      
-      // Generate filename with current date
-      const currentDate = new Date().toISOString().split('T')[0];
-      const filename = `Inventory_Report_${currentDate}.xlsx`;
-      
-      // Save file
-      XLSX.writeFile(workbook, filename);
-      
-      toast({
-        title: "Report Generated",
-        description: `Inventory report exported successfully as ${filename}`,
-      });
-    } catch (error) {
-      console.error('Excel export error:', error);
-      toast({
-        title: "Export Failed",
-        description: "Failed to generate inventory report. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Inventory Management</h1>
-            <p className="text-muted-foreground mt-1">Track and manage your product inventory</p>
-          </div>
-          
-          <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-            <Button 
-              variant="secondary" 
-              onClick={() => fileInputRef.current?.click()} 
-              disabled={importExcelMutation.isPending}
-              data-testid="button-import-excel"
-            >
-              <Upload className="mr-2" size={16} />
-              {importExcelMutation.isPending ? 'Importing...' : 'Import Excel'}
-            </Button>
-            <Button 
-              variant="secondary" 
-              onClick={generateInventoryReport}
-              data-testid="button-inventory-report"
-            >
-              <BarChart3 className="mr-2" size={16} />
-              Generate Report
-            </Button>
-            {selectedProducts.length > 0 && (
-              <Button 
-                variant="destructive" 
-                onClick={handleBulkDelete}
-                disabled={deleteProductsMutation.isPending}
-                data-testid="button-bulk-delete"
-              >
-                <Trash2 className="mr-2" size={16} />
-                {deleteProductsMutation.isPending ? 'Deleting...' : `Delete Selected (${selectedProducts.length})`}
-              </Button>
-            )}
-            <Button 
-              onClick={() => {
-                setEditingProduct(null);
-                setShowProductForm(true);
-              }}
-              data-testid="button-add-product"
-            >
-              <Plus className="mr-2" size={16} />
-              Add Product
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
+          <p className="text-muted-foreground">
+            Manage your product inventory
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowProductForm(true)}
+            data-testid="button-add-product"
+          >
+            <Plus className="mr-2" size={16} />
+            Add Product
+          </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="stats-card" data-testid="stats-total-products">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm font-medium">Total Products</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="total-products-value">
-                  {totalProducts}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Package className="text-primary" size={20} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-muted-foreground">Active products</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="stats-card" data-testid="stats-inventory-value">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm font-medium">Inventory Value</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="inventory-value">
-                  ${totalValue.toFixed(2)}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-chart-1/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="text-chart-1" size={20} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-accent font-medium">+8.2%</span>
-              <span className="text-muted-foreground ml-1">from last month</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="stats-card" data-testid="stats-avg-price">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm font-medium">Average Price</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="avg-price">
-                  ${totalProducts > 0 ? (totalValue / totalProducts).toFixed(2) : '0.00'}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-500/10 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="text-yellow-500" size={20} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-muted-foreground">Per product</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="stats-card" data-testid="stats-categories">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm font-medium">Categories</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="categories-count">
-                  {categories.length}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-chart-3/10 rounded-lg flex items-center justify-center">
-                <BarChart3 className="text-chart-3" size={20} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-muted-foreground">Active categories</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card className="mb-6" data-testid="inventory-filters-card">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
                 <Input
-                  placeholder="Search products, variants, or SKU..."
+                  placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-inventory"
+                  className="pl-8 w-64"
+                  data-testid="input-search-products"
                 />
               </div>
-            </div>
-            
-            <div className="w-full md:w-48">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger data-testid="select-category-filter">
-                  <SelectValue placeholder="Filter by category" />
+                <SelectTrigger className="w-48" data-testid="select-category-filter">
+                  <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {(categories as string[]).map((category: string) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="Electronics">Electronics</SelectItem>
+                  <SelectItem value="Clothing">Clothing</SelectItem>
+                  <SelectItem value="Food">Food</SelectItem>
+                  <SelectItem value="Books">Books</SelectItem>
+                  <SelectItem value="Home">Home</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="w-full md:w-48">
-              <Select value={stockFilter} onValueChange={setStockFilter}>
-                <SelectTrigger data-testid="select-stock-filter">
-                  <SelectValue placeholder="Filter by stock" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stock Levels</SelectItem>
-                  <SelectItem value="in">In Stock</SelectItem>
-                  <SelectItem value="low">Low Stock</SelectItem>
-                  <SelectItem value="out">Out of Stock</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Inventory Table */}
-      <Card data-testid="inventory-table-card">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Package className="mr-2 text-chart-3" size={20} />
-              Inventory Items ({filteredProducts.length})
-            </div>
-            {filteredProducts.length > itemsPerPage && (
-              <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length}
-              </div>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -668,8 +138,9 @@ export default function Inventory() {
               ))}
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full" data-testid="inventory-table">
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full" data-testid="inventory-table">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-12">
@@ -682,12 +153,9 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Packing Size</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Qty</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Base Price</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -719,23 +187,16 @@ export default function Inventory() {
                         <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`product-item-code-${product.id}`}>
                           {product.itemCode || '-'}
                         </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-packing-size-${product.id}`}>
-                          {product.packingSize || '-'}
-                        </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-category-${product.id}`}>
-                          {product.category || "Uncategorized"}
+                          <Badge variant="secondary" className="text-xs">
+                            {product.category || 'Uncategorized'}
+                          </Badge>
                         </td>
-                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-qty-${product.id}`}>
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-qty-${product.id}`}>
                           {product.qty || 0}
                         </td>
-                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-price-${product.id}`}>
+                        <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`product-price-${product.id}`}>
                           ${parseFloat(product.basePrice || 0).toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-gross-weight-${product.id}`}>
-                          {product.grossWeight ? `${product.grossWeight} kg` : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-net-weight-${product.id}`}>
-                          {product.netWeight ? `${product.netWeight} kg` : '-'}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">
@@ -751,16 +212,6 @@ export default function Inventory() {
                             >
                               <Edit size={14} />
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onClick={() => handleSingleDelete(product.id)}
-                              disabled={deleteProductsMutation.isPending}
-                              data-testid={`button-delete-product-${product.id}`}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -769,64 +220,62 @@ export default function Inventory() {
                 </tbody>
               </table>
             </div>
-            {(() => {
-              if (totalPages <= 1) return null;
-              return (
-                <div className="flex items-center justify-between px-4 py-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      data-testid="button-prev-page"
-                    >
-                      <ChevronLeft size={16} />
-                      Previous
-                    </Button>
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 p-0"
-                            data-testid={`button-page-${pageNum}`}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      data-testid="button-next-page"
-                    >
-                      Next
-                      <ChevronRight size={16} />
-                    </Button>
-                  </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
                 </div>
-              );
-            })()}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft size={16} />
+                    Previous
+                  </Button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-8 h-8 p-0"
+                          data-testid={`button-page-${pageNum}`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight size={16} />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           ) : (
             <div className="text-center py-12">
               <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
@@ -853,16 +302,6 @@ export default function Inventory() {
         </CardContent>
       </Card>
 
-      {/* Hidden File Input for Excel Import */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleExcelImport}
-        accept=".xlsx,.xls,.csv"
-        style={{ display: 'none' }}
-      />
-
-      {/* Product Form Modal */}
       {showProductForm && (
         <ProductForm
           product={editingProduct}
