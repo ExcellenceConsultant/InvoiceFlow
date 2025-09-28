@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, ChevronLeft, ChevronRight, FileDown, FileUp, DollarSign } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,73 @@ export default function Inventory() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const response = await fetch(`/api/products/${productId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete product');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Product deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete product", variant: "destructive" });
+    },
+  });
+
+  const deleteSelectedMutation = useMutation({
+    mutationFn: async (productIds: string[]) => {
+      await Promise.all(productIds.map(id => 
+        fetch(`/api/products/${id}`, { method: 'DELETE' })
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      setSelectedProducts([]);
+      toast({ title: "Selected products deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete selected products", variant: "destructive" });
+    },
+  });
+
+  const handleDeleteProduct = (productId: string) => {
+    deleteMutation.mutate(productId);
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedProducts.length > 0) {
+      deleteSelectedMutation.mutate(selectedProducts);
+    }
+  };
+
+  const handleImport = () => {
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('inventory:open-import');
+      window.dispatchEvent(event);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    try {
+      const response = await fetch('/api/inventory/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: DEFAULT_USER_ID })
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      toast({ title: "Failed to generate report", variant: "destructive" });
+    }
+  };
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["/api/products"],
@@ -64,6 +131,15 @@ export default function Inventory() {
     setSelectedProducts([]);
   }, [currentPage]);
 
+  // Calculate dashboard metrics
+  const totalValue = filteredProducts.reduce((sum: number, product: any) => {
+    return sum + ((product.qty || 0) * parseFloat(product.basePrice || 0));
+  }, 0);
+  const totalSKUs = filteredProducts.length;
+  const totalQuantity = filteredProducts.reduce((sum: number, product: any) => {
+    return sum + (product.qty || 0);
+  }, 0);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedProducts(paginatedProducts.map((product: any) => product.id));
@@ -91,6 +167,22 @@ export default function Inventory() {
         </div>
         <div className="flex gap-2">
           <Button
+            variant="outline"
+            onClick={handleImport}
+            data-testid="button-import"
+          >
+            <FileUp className="mr-2" size={16} />
+            Import
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleGenerateReport}
+            data-testid="button-generate-report"
+          >
+            <FileDown className="mr-2" size={16} />
+            Generate Report
+          </Button>
+          <Button
             onClick={() => setShowProductForm(true)}
             data-testid="button-add-product"
           >
@@ -100,10 +192,53 @@ export default function Inventory() {
         </div>
       </div>
 
+      {/* Dashboard Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <div className="text-sm font-medium text-muted-foreground">Total Value</div>
+            </div>
+            <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Package className="h-4 w-4 text-muted-foreground" />
+              <div className="text-sm font-medium text-muted-foreground">Total SKUs</div>
+            </div>
+            <div className="text-2xl font-bold">{totalSKUs}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <div className="text-sm font-medium text-muted-foreground">Total Quantity</div>
+            </div>
+            <div className="text-2xl font-bold">{totalQuantity}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {selectedProducts.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  disabled={deleteSelectedMutation.isPending}
+                  data-testid="button-delete-selected"
+                >
+                  <Trash2 className="mr-2" size={14} />
+                  Delete Selected ({selectedProducts.length})
+                </Button>
+              )}
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
                 <Input
@@ -211,6 +346,16 @@ export default function Inventory() {
                               data-testid={`button-edit-product-${product.id}`}
                             >
                               <Edit size={14} />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteProduct(product.id)}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-product-${product.id}`}
+                            >
+                              <Trash2 size={14} />
                             </Button>
                           </div>
                         </td>

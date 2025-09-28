@@ -444,7 +444,11 @@ function InvoiceView() {
                       <td>
                         {item.productCode || (item as any).itemCode || "—"}
                       </td>
-                      <td>{item.packingSize ? item.packingSize.replace(/GM/g, 'G') : "—"}</td>
+                      <td>
+                        {item.packingSize
+                          ? item.packingSize.replace(/GM/g, "G")
+                          : "—"}
+                      </td>
                       <td>{item.description}</td>
                       <td className="text-center">{qty || "—"}</td>
                       <td className="text-right">{formatCurrency(rate)}</td>
