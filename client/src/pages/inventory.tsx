@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
-import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -18,6 +19,9 @@ export default function Inventory() {
   const [stockFilter, setStockFilter] = useState("all");
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -65,6 +69,22 @@ export default function Inventory() {
     
     return matchesSearch && matchesCategory;
   }) || [];
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, stockFilter]);
+
+  // Clear selection when page changes
+  React.useEffect(() => {
+    setSelectedProducts([]);
+  }, [currentPage]);
 
   // Calculate inventory stats
   const totalProducts = products?.length || 0;
@@ -120,6 +140,93 @@ export default function Inventory() {
       });
     },
   });
+
+  // Delete products mutation
+  const deleteProductsMutation = useMutation({
+    mutationFn: async (productIds: string[]) => {
+      const results = [];
+      for (const productId of productIds) {
+        try {
+          await apiRequest('DELETE', `/api/products/${productId}`);
+          results.push({ id: productId, success: true });
+        } catch (error) {
+          console.error(`Failed to delete product ${productId}:`, error);
+          results.push({ id: productId, success: false, error });
+        }
+      }
+      return results;
+    },
+    onSuccess: (results) => {
+      const successCount = results.filter(r => r.success).length;
+      const errorCount = results.filter(r => !r.success).length;
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      setSelectedProducts([]);
+      
+      if (errorCount > 0) {
+        toast({
+          title: "Partial Deletion",
+          description: `Deleted ${successCount} products. ${errorCount} failed to delete.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Deletion Successful",
+          description: `Successfully deleted ${successCount} product${successCount === 1 ? '' : 's'}`,
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Delete mutation error:', error);
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete products. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle bulk delete
+  const handleBulkDelete = () => {
+    if (selectedProducts.length === 0) {
+      toast({
+        title: "No Selection",
+        description: "Please select products to delete.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (confirm(`Are you sure you want to delete ${selectedProducts.length} product${selectedProducts.length === 1 ? '' : 's'}? This action cannot be undone.`)) {
+      deleteProductsMutation.mutate(selectedProducts);
+    }
+  };
+
+  // Handle individual delete
+  const handleSingleDelete = (productId: string) => {
+    if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+      deleteProductsMutation.mutate([productId]);
+    }
+  };
+
+  // Handle select all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const currentPageProductIds = paginatedProducts.map((product: any) => product.id);
+      setSelectedProducts(currentPageProductIds);
+    } else {
+      setSelectedProducts([]);
+    }
+  };
+
+  // Handle individual select
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(prev => [...prev, productId]);
+    } else {
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+    }
+  };
 
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -383,6 +490,17 @@ export default function Inventory() {
               <BarChart3 className="mr-2" size={16} />
               Generate Report
             </Button>
+            {selectedProducts.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={handleBulkDelete}
+                disabled={deleteProductsMutation.isPending}
+                data-testid="button-bulk-delete"
+              >
+                <Trash2 className="mr-2" size={16} />
+                {deleteProductsMutation.isPending ? 'Deleting...' : `Delete Selected (${selectedProducts.length})`}
+              </Button>
+            )}
             <Button 
               onClick={() => {
                 setEditingProduct(null);
@@ -530,9 +648,16 @@ export default function Inventory() {
       {/* Inventory Table */}
       <Card data-testid="inventory-table-card">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Package className="mr-2 text-chart-3" size={20} />
-            Inventory Items ({filteredProducts.length})
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Package className="mr-2 text-chart-3" size={20} />
+              Inventory Items ({filteredProducts.length})
+            </div>
+            {filteredProducts.length > itemsPerPage && (
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length}
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -547,6 +672,13 @@ export default function Inventory() {
               <table className="w-full" data-testid="inventory-table">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-12">
+                      <Checkbox
+                        checked={paginatedProducts.length > 0 && paginatedProducts.every((product: any) => selectedProducts.includes(product.id))}
+                        onCheckedChange={handleSelectAll}
+                        data-testid="checkbox-select-all"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
@@ -560,13 +692,21 @@ export default function Inventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product: any) => {
+                  {paginatedProducts.map((product: any) => {
+                    const isSelected = selectedProducts.includes(product.id);
                     return (
                       <tr 
                         key={product.id} 
-                        className="border-b border-border hover:bg-muted/20 transition-colors"
+                        className={`border-b border-border hover:bg-muted/20 transition-colors ${isSelected ? 'bg-muted/10' : ''}`}
                         data-testid={`inventory-row-${product.id}`}
                       >
+                        <td className="py-3 px-4 text-sm text-foreground w-12">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handleSelectProduct(product.id, checked as boolean)}
+                            data-testid={`checkbox-select-${product.id}`}
+                          />
+                        </td>
                         <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-name-${product.id}`}>
                           <div className="font-medium">{product.name}</div>
                           {product.description && (
@@ -615,6 +755,8 @@ export default function Inventory() {
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleSingleDelete(product.id)}
+                              disabled={deleteProductsMutation.isPending}
                               data-testid={`button-delete-product-${product.id}`}
                             >
                               <Trash2 size={14} />
@@ -627,6 +769,61 @@ export default function Inventory() {
                 </tbody>
               </table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft size={16} />
+                    Previous
+                  </Button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-8 h-8 p-0"
+                          data-testid={`button-page-${pageNum}`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight size={16} />
+                  </Button>
+                </div>
+              </div>
+            )}
           ) : (
             <div className="text-center py-12">
               <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
