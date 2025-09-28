@@ -352,9 +352,14 @@ function InvoiceView() {
               </div>
             </div>
             <div className="col-span-4 small-label">
-              <div className="font-semibold">Invoice Details</div>
               <div>
                 <strong>Invoice No. :</strong> {invoice.invoiceNumber}
+              </div>
+              <div>
+                <strong>Invoice Date :</strong>{" "}
+                {invoice.invoiceDate
+                  ? new Date(invoice.invoiceDate).toLocaleDateString()
+                  : "—"}
               </div>
               <div>
                 <strong>Payment Terms :</strong>{" "}
