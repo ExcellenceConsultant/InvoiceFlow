@@ -97,30 +97,53 @@ export default function Inventory() {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      for (const row of jsonData) {
-        const product = {
-          name: (row as any).name || (row as any)['Product Name'] || '',
-          description: (row as any).description || '',
-          basePrice: parseFloat((row as any).basePrice || (row as any)['Base Price'] || '0'),
-          category: (row as any).category || 'Uncategorized',
-          itemCode: (row as any).itemCode || (row as any)['Item Code'] || '',
-          qty: parseInt((row as any).qty || (row as any)['Quantity'] || '0'),
-          date: new Date().toISOString().split('T')[0],
-          userId: DEFAULT_USER_ID
-        };
+      let successCount = 0;
+      let errorCount = 0;
 
-        const response = await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(product)
-        });
-        if (!response.ok) throw new Error('Failed to import product');
+      for (const row of jsonData) {
+        try {
+          const product = {
+            name: (row as any)['Product Name'] || '',
+            description: '',
+            basePrice: parseFloat((row as any)['Base Price'] || '0'),
+            category: (row as any)['Category'] || 'Uncategorized',
+            itemCode: (row as any)['Item Code'] || '',
+            qty: parseInt((row as any)['Qty'] || '0'),
+            date: (row as any)['Date'] || new Date().toISOString().split('T')[0],
+            packingType: (row as any)['Packing Size'] || null,
+            grossWeightKgs: (row as any)['Gross Weight(LBS)'] ? parseFloat((row as any)['Gross Weight(LBS)']) * 0.453592 : null,
+            netWeightKgs: (row as any)['Net Weight(LBS)'] ? parseFloat((row as any)['Net Weight(LBS)']) * 0.453592 : null,
+            userId: DEFAULT_USER_ID
+          };
+
+          const response = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(product)
+          });
+          
+          if (response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (rowError) {
+          errorCount++;
+        }
       }
       
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Products imported successfully" });
+      
+      if (errorCount === 0) {
+        toast({ title: `Successfully imported ${successCount} products` });
+      } else {
+        toast({ 
+          title: `Import completed: ${successCount} success, ${errorCount} failed`,
+          variant: errorCount > successCount ? "destructive" : "default"
+        });
+      }
     } catch (error) {
-      toast({ title: "Failed to import products", variant: "destructive" });
+      toast({ title: "Failed to read Excel file", variant: "destructive" });
     }
     
     // Reset file input
