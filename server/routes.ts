@@ -664,7 +664,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/products/:id", async (req, res) => {
     try {
-      await storage.deleteProduct(req.params.id);
+      const deleted = await storage.deleteProduct(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Product not found" });
+      }
       res.json({ message: "Product deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete product" });
@@ -690,6 +693,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating scheme:", error);
       res.status(500).json({ message: "Failed to create scheme" });
+    }
+  });
+
+  // Inventory report endpoint
+  app.post("/api/inventory/report", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      const products = await storage.getProducts(userId || 'user-1');
+      
+      // Create CSV content
+      const headers = ['Product Name', 'Item Code', 'Category', 'Quantity', 'Base Price', 'Total Value'];
+      const csvContent = [
+        headers.join(','),
+        ...products.map(product => [
+          `"${product.name}"`,
+          `"${product.itemCode || ''}"`,
+          `"${product.category || ''}"`,
+          product.qty || 0,
+          product.basePrice || 0,
+          ((product.qty || 0) * parseFloat(product.basePrice || '0')).toFixed(2)
+        ].join(','))
+      ].join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="inventory-report.csv"');
+      res.send(csvContent);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate report" });
     }
   });
 

@@ -70,10 +70,46 @@ export default function Inventory() {
   };
 
   const handleImport = () => {
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('inventory:open-import');
-      window.dispatchEvent(event);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      for (const row of jsonData) {
+        const product = {
+          name: (row as any).name || (row as any)['Product Name'] || '',
+          description: (row as any).description || '',
+          basePrice: parseFloat((row as any).basePrice || (row as any)['Base Price'] || '0'),
+          category: (row as any).category || 'Uncategorized',
+          itemCode: (row as any).itemCode || (row as any)['Item Code'] || '',
+          qty: parseInt((row as any).qty || (row as any)['Quantity'] || '0'),
+          date: new Date().toISOString().split('T')[0],
+          userId: DEFAULT_USER_ID
+        };
+
+        await apiRequest('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(product)
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Products imported successfully" });
+    } catch (error) {
+      toast({ title: "Failed to import products", variant: "destructive" });
     }
+    
+    // Reset file input
+    if (event.target) event.target.value = '';
   };
 
   const handleGenerateReport = async () => {
@@ -456,6 +492,14 @@ export default function Inventory() {
           }}
         />
       )}
+      
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileImport}
+        accept=".xlsx,.xls,.csv"
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }
