@@ -421,6 +421,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Invoice CRUD routes
+  app.get("/api/invoices", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const invoices = await storage.getInvoices(userId as string);
+      res.json(invoices);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.post("/api/invoices", async (req, res) => {
+    try {
+      const invoiceData = insertInvoiceSchema.parse(req.body);
+      const invoice = await storage.createInvoice(invoiceData);
+      
+      // Create line items if provided
+      if (req.body.lineItems && Array.isArray(req.body.lineItems)) {
+        for (const lineItem of req.body.lineItems) {
+          const lineItemData = insertInvoiceLineItemSchema.parse({
+            ...lineItem,
+            invoiceId: invoice.id
+          });
+          await storage.createInvoiceLineItem(lineItemData);
+        }
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.get("/api/invoices/:id", async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.patch("/api/invoices/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const invoice = await storage.updateInvoice(req.params.id, updateData);
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", async (req, res) => {
+    try {
+      await storage.deleteInvoice(req.params.id);
+      res.json({ message: "Invoice deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
   // Sync invoice to QuickBooks (creates journal entries based on invoice type)
   app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
     try {
