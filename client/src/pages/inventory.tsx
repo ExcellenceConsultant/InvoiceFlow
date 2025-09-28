@@ -39,16 +39,24 @@ export default function Inventory() {
       queryClient.refetchQueries({ queryKey: ["/api/products"] });
       toast({ title: "Product deleted successfully" });
     },
-    onError: () => {
-      toast({ title: "Failed to delete product", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Cannot delete product", 
+        description: "Product is used in existing invoices and cannot be deleted",
+        variant: "destructive" 
+      });
     },
   });
 
   const deleteSelectedMutation = useMutation({
     mutationFn: async (productIds: string[]) => {
-      await Promise.all(productIds.map(id => 
+      const responses = await Promise.all(productIds.map(id => 
         fetch(`/api/products/${id}`, { method: 'DELETE' })
       ));
+      const failedDeletes = responses.filter(response => !response.ok);
+      if (failedDeletes.length > 0) {
+        throw new Error(`${failedDeletes.length} products could not be deleted`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -56,8 +64,12 @@ export default function Inventory() {
       setSelectedProducts([]);
       toast({ title: "Selected products deleted successfully" });
     },
-    onError: () => {
-      toast({ title: "Failed to delete selected products", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ 
+        title: "Cannot delete some products", 
+        description: "Some products are used in existing invoices and cannot be deleted",
+        variant: "destructive" 
+      });
     },
   });
 
