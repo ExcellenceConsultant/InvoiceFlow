@@ -513,7 +513,7 @@ function InvoiceView() {
                         padding: "4px 6px",
                       }}
                     >
-                      <strong>Net Weight (KGS) :</strong>{" "}
+                      <strong>Net Weight (LBS) :</strong>{" "}
                       {netWeightKgs.toFixed(2)}
                     </td>
                     <td
@@ -550,15 +550,7 @@ function InvoiceView() {
                       style={{
                         border: "1px solid #d1d5db",
                         padding: "4px 6px",
-                      }}
-                    >
-                      <strong>Gross Weight (LBS) :</strong>{" "}
-                      {grossWeightLbs.toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
+                        width: "50%",
                       }}
                     >
                       <strong>Amount In Words :</strong>{" "}
@@ -569,6 +561,14 @@ function InvoiceView() {
                               .padStart(2, "0")}/100`
                           : ""
                       }`}
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "4px 6px",
+                        width: "50%",
+                      }}
+                    >
                     </td>
                   </tr>
                 </tbody>
