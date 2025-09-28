@@ -618,6 +618,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Product CRUD routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const products = await storage.getProducts(userId as string);
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const productData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(productData);
+      res.json(product);
+    } catch (error) {
+      console.error("Error creating product:", error);
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
+  app.patch("/api/products/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const product = await storage.updateProduct(req.params.id, updateData);
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      await storage.deleteProduct(req.params.id);
+      res.json({ message: "Product deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // Product scheme routes
+  app.get("/api/schemes", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const schemes = await storage.getProductSchemes(userId as string);
+      res.json(schemes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch schemes" });
+    }
+  });
+
+  app.post("/api/schemes", async (req, res) => {
+    try {
+      const schemeData = insertProductSchemeSchema.parse(req.body);
+      const scheme = await storage.createProductScheme(schemeData);
+      res.json(scheme);
+    } catch (error) {
+      console.error("Error creating scheme:", error);
+      res.status(500).json({ message: "Failed to create scheme" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
