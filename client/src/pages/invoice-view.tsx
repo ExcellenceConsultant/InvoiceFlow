@@ -104,7 +104,7 @@ function InvoiceView() {
   
   // Create a mapping from productId to product name
   const productMap = new Map();
-  if (products) {
+  if (products && Array.isArray(products)) {
     products.forEach((product: any) => {
       productMap.set(product.id, product.name);
     });
@@ -422,11 +422,14 @@ function InvoiceView() {
           <table className="invoice-table">
             <thead>
               <tr>
-                <th style={{ width: "10%" }}>Sr. No</th>
-                <th style={{ width: "50%" }}>Product Name</th>
-                <th style={{ width: "15%" }}>Qty</th>
-                <th style={{ width: "15%" }}>Rate per Carton</th>
-                <th style={{ width: "10%" }}>Net Amount</th>
+                <th style={{ width: "8%" }}>Sr. No</th>
+                <th style={{ width: "12%" }}>Product Code</th>
+                <th style={{ width: "12%" }}>Packing Size</th>
+                <th style={{ width: "25%" }}>Product Name</th>
+                <th style={{ width: "10%" }}>Rate</th>
+                <th style={{ width: "8%" }}>Quantity</th>
+                <th style={{ width: "12%" }}>Category</th>
+                <th style={{ width: "13%" }}>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -444,7 +447,7 @@ function InvoiceView() {
                     {isNewCategory && (
                       <tr className="category-row">
                         <td
-                          colSpan={5}
+                          colSpan={8}
                           className="text-center font-semibold bg-gray-100"
                         >
                           {item.category || "Uncategorized"}
@@ -453,9 +456,12 @@ function InvoiceView() {
                     )}
                     <tr>
                       <td className="text-center">{sr}</td>
+                      <td>{item.productCode || (item as any).itemCode || "—"}</td>
+                      <td>{item.packingSize ? item.packingSize.replace(/GM/g, "G") : "—"}</td>
                       <td>{productMap.get(item.productId) || item.description}</td>
-                      <td className="text-center">{qty || "—"}</td>
                       <td className="text-right">{formatCurrency(rate)}</td>
+                      <td className="text-center">{qty || "—"}</td>
+                      <td className="text-center">{item.category || "—"}</td>
                       <td className="text-right">
                         {formatCurrency(netAmount)}
                       </td>
@@ -468,8 +474,11 @@ function InvoiceView() {
                 <tr key={`blank-${pageIndex}-${i}`}>
                   <td className="text-center">&nbsp;</td>
                   <td>&nbsp;</td>
-                  <td className="text-center">&nbsp;</td>
                   <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td className="text-center">&nbsp;</td>
+                  <td className="text-center">&nbsp;</td>
                   <td>&nbsp;</td>
                 </tr>
               ))}
