@@ -117,11 +117,13 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
+  userId: true,
   createdAt: true,
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
+  userId: true,
   createdAt: true,
 }).extend({
   date: z.string().transform((str) => new Date(str)),
@@ -134,6 +136,7 @@ export const insertProductVariantSchema = createInsertSchema(productVariants).om
 
 export const insertProductSchemeSchema = createInsertSchema(productSchemes).omit({
   id: true,
+  userId: true,
   createdAt: true,
 });
 

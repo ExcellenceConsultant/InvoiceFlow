@@ -95,21 +95,7 @@ function InvoiceView() {
     InvoiceLineItem[]
   >({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
 
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ["/api/products"],
-    enabled: !!id,
-  });
-
-  const isLoading = invoiceLoading || lineItemsLoading || productsLoading;
-
-  // Create a mapping from productId to product name
-  const productMap = new Map();
-  if (products && Array.isArray(products)) {
-    products.forEach((product: any) => {
-      productMap.set(product.id, product.name);
-    });
-  }
-
+  const isLoading = invoiceLoading || lineItemsLoading;
   const rawLineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -160,7 +146,7 @@ function InvoiceView() {
         .invoice-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
         .page-break { page-break-after: always; }
         .print-hide { display: none !important; }
-
+        
         /* Only remove table borders while preserving other formatting */
         table.invoice-table, table.invoice-table th, table.invoice-table td { 
           border: 0 !important; 
@@ -204,7 +190,7 @@ function InvoiceView() {
         background: #f3f4f6;
         font-weight: 600;
       }
-
+      
       /* Add borders only for screen view */
       @media screen {
         table.invoice-table th, table.invoice-table td {
@@ -422,14 +408,13 @@ function InvoiceView() {
           <table className="invoice-table">
             <thead>
               <tr>
-                <th style={{ width: "8%" }}>Sr. No</th>
-                <th style={{ width: "12%" }}>Product Code</th>
+                <th style={{ width: "5%" }}>Sr. No</th>
+                <th style={{ width: "13%" }}>Item Code</th>
                 <th style={{ width: "12%" }}>Packing Size</th>
-                <th style={{ width: "25%" }}>Product Name</th>
-                <th style={{ width: "10%" }}>Rate</th>
-                <th style={{ width: "8%" }}>Quantity</th>
-                <th style={{ width: "12%" }}>Category</th>
-                <th style={{ width: "13%" }}>Amount</th>
+                <th style={{ width: "40%" }}>Product Description</th>
+                <th style={{ width: "8%" }}>Qty (Cartons)</th>
+                <th style={{ width: "11%" }}>Rate Per Carton (USD)</th>
+                <th style={{ width: "11%" }}>Net Amount (USD)</th>
               </tr>
             </thead>
             <tbody>
@@ -437,7 +422,7 @@ function InvoiceView() {
                 const sr = page.startIndex + idx + 1;
                 const qty = toNumber(item.quantity);
                 const rate = toNumber(item.unitPrice);
-                const netAmount = qty * rate;
+                const lineTotal = toNumber(item.lineTotal);
                 const prevItem = idx > 0 ? page.rows[idx - 1] : null;
                 const isNewCategory =
                   idx === 0 || item.category !== (prevItem?.category || "");
@@ -447,7 +432,7 @@ function InvoiceView() {
                     {isNewCategory && (
                       <tr className="category-row">
                         <td
-                          colSpan={8}
+                          colSpan={7}
                           className="text-center font-semibold bg-gray-100"
                         >
                           {item.category || "Uncategorized"}
@@ -459,19 +444,12 @@ function InvoiceView() {
                       <td>
                         {item.productCode || (item as any).itemCode || "—"}
                       </td>
-                      <td>
-                        {item.packingSize
-                          ? item.packingSize.replace(/GM/g, "G")
-                          : "—"}
-                      </td>
-                      <td>
-                        {productMap.get(item.productId) || item.description}
-                      </td>
-                      <td className="text-right">{formatCurrency(rate)}</td>
+                      <td>{item.packingSize ? item.packingSize.replace(/GM/g, 'G') : "—"}</td>
+                      <td>{item.description}</td>
                       <td className="text-center">{qty || "—"}</td>
-                      <td className="text-center">{item.category || "—"}</td>
+                      <td className="text-right">{formatCurrency(rate)}</td>
                       <td className="text-right">
-                        {formatCurrency(netAmount)}
+                        {formatCurrency(lineTotal)}
                       </td>
                     </tr>
                   </React.Fragment>
@@ -484,9 +462,8 @@ function InvoiceView() {
                   <td>&nbsp;</td>
                   <td>&nbsp;</td>
                   <td>&nbsp;</td>
+                  <td className="text-center">&nbsp;</td>
                   <td>&nbsp;</td>
-                  <td className="text-center">&nbsp;</td>
-                  <td className="text-center">&nbsp;</td>
                   <td>&nbsp;</td>
                 </tr>
               ))}

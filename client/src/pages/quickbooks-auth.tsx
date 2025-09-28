@@ -27,8 +27,7 @@ export default function QuickBooksAuth() {
 
   const initializeAuthMutation = useMutation({
     mutationFn: async () => {
-      // Use new uncached endpoint to bypass infrastructure caching
-      const response = await fetch(`/api/oauth/quickbooks-connect?userId=${DEFAULT_USER_ID}`);
+      const response = await fetch(`/api/auth/quickbooks?userId=${DEFAULT_USER_ID}`);
       if (!response.ok) throw new Error("Failed to initialize auth");
       return response.json();
     },

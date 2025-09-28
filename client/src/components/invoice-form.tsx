@@ -30,8 +30,7 @@ const invoiceSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
   invoiceNumber: z.string().min(1, "Invoice number is required"),
   invoiceDate: z.string().min(1, "Invoice date is required"),
-  dueDate: z.string().min(1, "Due date is required"),
-  paymentTerms: z.string().min(1, "Payment terms are required"),
+  dueDate: z.string().optional(),
   invoiceType: z.enum(["receivable", "payable"], {
     required_error: "Please select invoice type",
   }),
@@ -63,7 +62,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       packingSize: "",
       grossWeightKgs: 0,
       netWeightKgs: 0,
-      category: "",
+      category: "", // added category field to initial state
     },
   ]);
   const [showSchemeItems, setShowSchemeItems] = useState<{
@@ -80,8 +79,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       customerId: "",
       invoiceNumber: `INV-${Date.now()}`,
       invoiceDate: new Date().toISOString().split("T")[0],
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 30 days from now
-      paymentTerms: "Net 30",
+      dueDate: "",
       invoiceType: "receivable",
     },
   });
@@ -121,7 +119,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
   const createInvoiceMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log("Submitting simplified invoice data:", data);
+      console.log("Submitting invoice data:", data);
       const response = await apiRequest("POST", "/api/invoices", data);
       if (!response.ok) {
         const errorData = await response.json();
@@ -144,6 +142,30 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       toast({
         title: "Error",
         description: "Failed to create invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncToQuickBooksMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/invoices/${invoiceId}/sync-quickbooks`,
+        {},
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Invoice synced to QuickBooks successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to sync invoice to QuickBooks",
         variant: "destructive",
       });
     },
@@ -215,7 +237,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         packingSize: "",
         grossWeightKgs: 0,
         netWeightKgs: 0,
-        category: "",
+        category: "", // keep category empty initially
       },
     ]);
   };
@@ -277,7 +299,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
           ? item.grossWeightKgs.toString()
           : null,
         netWeightKgs: item.netWeightKgs ? item.netWeightKgs.toString() : null,
-        category: item.category || null,
+        category: item.category || null, // 👈 new
         isFreeFromScheme: false,
         schemeId: null,
       });
@@ -299,6 +321,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         });
       }
     });
+
     const invoiceData = {
       invoice: {
         ...data,
@@ -307,8 +330,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         status: "draft",
         invoiceType: data.invoiceType,
         invoiceDate: data.invoiceDate,
-        dueDate: data.dueDate,
-        paymentTerms: data.paymentTerms,
+        dueDate: data.dueDate || null,
         userId: DEFAULT_USER_ID,
       },
       lineItems: allLineItems,
@@ -475,18 +497,19 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              {/* Payment Terms */}
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <FormField
                   control={form.control}
-                  name="paymentTerms"
+                  name="dueDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Payment Terms</FormLabel>
+                      <FormLabel>Due Date (Optional)</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-payment-terms" placeholder="Net 30" />
+                        <Input
+                          type="date"
+                          {...field}
+                          data-testid="input-due-date"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -523,7 +546,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                 ?.map((p: any) => p.category)
                                 .filter(Boolean),
                             ),
-                          ).map((category) => (
+                          ).map((category: string) => (
                             <SelectItem key={category} value={category}>
                               {category}
                             </SelectItem>
@@ -575,16 +598,16 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                   description: product.name,
                                   unitPrice: unitPrice,
                                   productCode: product.itemCode || "",
-                                  packingSize: product.packingSize || "",
+                                  packingSize: product.packingType || "",
                                   grossWeightKgs: parseFloat(
-                                    product.grossWeight || "0",
+                                    product.grossWeightKgs || "0",
                                   ),
                                   netWeightKgs: parseFloat(
-                                    product.netWeight || "0",
+                                    product.netWeightKgs || "0",
                                   ),
                                   category:
                                     product.category ||
-                                    updatedItems[index].category,
+                                    updatedItems[index].category, // 👈 add this
                                   lineTotal:
                                     updatedItems[index].quantity * unitPrice,
                                 };
@@ -610,6 +633,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                 </SelectItem>
                               ) : (
                                 (() => {
+                                  // normal filtered list based on global categoryFilter
                                   const filteredProducts =
                                     categoryFilter === "all"
                                       ? products
@@ -618,6 +642,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                             product.category === categoryFilter,
                                         );
 
+                                  // always include the currently selected product if not in filtered list
                                   const currentProduct =
                                     products?.find(
                                       (p: any) => p.id === item.productId,
@@ -642,7 +667,9 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                                         value={product.id}
                                         data-testid={`option-product-${product.id}`}
                                       >
-                                        {product.name} - {product.itemCode || "No Code"} ({product.category})
+                                        {product.name} -{" "}
+                                        {product.itemCode || "No Code"} (
+                                        {product.category})
                                       </SelectItem>
                                     ))
                                   ) : (
@@ -658,17 +685,34 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
                         <div className="col-span-2">
                           <label className="block text-xs text-muted-foreground mb-1">
+                            Description
+                          </label>
+                          <Input
+                            value={item.description}
+                            onChange={(e) =>
+                              updateLineItem(
+                                index,
+                                "description",
+                                e.target.value,
+                              )
+                            }
+                            className="h-8"
+                            data-testid={`input-description-${index}`}
+                          />
+                        </div>
+
+                        <div className="col-span-2">
+                          <label className="block text-xs text-muted-foreground mb-1">
                             Qty
                           </label>
                           <Input
                             type="number"
-                            min="1"
                             value={item.quantity}
                             onChange={(e) =>
                               updateLineItem(
                                 index,
                                 "quantity",
-                                parseInt(e.target.value) || 1,
+                                parseInt(e.target.value) || 0,
                               )
                             }
                             className="h-8"
@@ -678,12 +722,11 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
                         <div className="col-span-2">
                           <label className="block text-xs text-muted-foreground mb-1">
-                            Unit Price
+                            Rate
                           </label>
                           <Input
                             type="number"
                             step="0.01"
-                            min="0"
                             value={item.unitPrice}
                             onChange={(e) =>
                               updateLineItem(
@@ -699,14 +742,14 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
                         <div className="col-span-2">
                           <label className="block text-xs text-muted-foreground mb-1">
-                            Line Total
+                            Amount
                           </label>
-                          <div
-                            className="h-8 px-3 py-1 text-sm bg-gray-100 dark:bg-gray-800 rounded border flex items-center"
-                            data-testid={`text-line-total-${index}`}
-                          >
-                            ${item.lineTotal.toFixed(2)}
-                          </div>
+                          <Input
+                            value={item.lineTotal.toFixed(2)}
+                            readOnly
+                            className="h-8"
+                            data-testid={`input-line-total-${index}`}
+                          />
                         </div>
 
                         <div className="col-span-1">
@@ -716,99 +759,153 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
                             size="sm"
                             onClick={() => removeLineItem(index)}
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            data-testid={`button-remove-item-${index}`}
+                            data-testid={`button-remove-line-item-${index}`}
                           >
                             <Trash2 size={14} />
                           </Button>
                         </div>
                       </div>
 
-                      {/* Show scheme items if any */}
+                      {/* Scheme items */}
                       {showSchemeItems[index] && (
-                        <div className="ml-6 mt-2 space-y-2">
-                          {showSchemeItems[index].map((schemeItem, schemeIndex) => (
-                            <div
-                              key={schemeIndex}
-                              className="grid grid-cols-12 gap-3 items-end p-2 bg-green-50 dark:bg-green-900/20 rounded border-l-4 border-green-500"
-                              data-testid={`scheme-item-${index}-${schemeIndex}`}
-                            >
-                              <div className="col-span-3 flex items-center">
-                                <Gift className="mr-2 text-green-600" size={14} />
-                                <span className="text-xs text-green-700 dark:text-green-300 font-medium">
-                                  FREE ITEM
-                                </span>
-                              </div>
-                              <div className="col-span-2">
-                                <div className="text-xs text-muted-foreground mb-1">
-                                  Qty
+                        <div className="ml-4 mt-2 space-y-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Gift className="text-accent" size={16} />
+                            <span className="text-sm font-medium text-accent">
+                              Promotional Items Added
+                            </span>
+                          </div>
+                          {showSchemeItems[index].map(
+                            (schemeItem, schemeIndex) => (
+                              <div
+                                key={schemeIndex}
+                                className="grid grid-cols-12 gap-3 items-end p-3 bg-accent/10 rounded-lg border border-accent/20"
+                                data-testid={`scheme-item-${index}-${schemeIndex}`}
+                              >
+                                <div className="col-span-3">
+                                  <span className="text-xs text-accent font-semibold">
+                                    🎁 FREE ITEM
+                                  </span>
                                 </div>
-                                <div className="text-sm">{schemeItem.quantity}</div>
-                              </div>
-                              <div className="col-span-2">
-                                <div className="text-xs text-muted-foreground mb-1">
-                                  Unit Price
+                                <div className="col-span-2">
+                                  <Input
+                                    value={schemeItem.description}
+                                    readOnly
+                                    className="h-8 text-xs bg-accent/5 border-accent/30"
+                                    data-testid={`scheme-description-${index}-${schemeIndex}`}
+                                  />
                                 </div>
-                                <div className="text-sm">$0.00</div>
-                              </div>
-                              <div className="col-span-2">
-                                <div className="text-xs text-muted-foreground mb-1">
-                                  Line Total
+                                <div className="col-span-2">
+                                  <Input
+                                    value={schemeItem.quantity}
+                                    readOnly
+                                    className="h-8 bg-accent/5 border-accent/30"
+                                    data-testid={`scheme-quantity-${index}-${schemeIndex}`}
+                                  />
                                 </div>
-                                <div className="text-sm">$0.00</div>
-                              </div>
-                              <div className="col-span-3">
-                                <div className="text-xs text-green-600 dark:text-green-400">
-                                  {schemeItem.description}
+                                <div className="col-span-2">
+                                  <Input
+                                    value="FREE"
+                                    readOnly
+                                    className="h-8 bg-accent/5 border-accent/30 text-accent font-semibold"
+                                    data-testid={`scheme-price-${index}-${schemeIndex}`}
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <Input
+                                    value="FREE"
+                                    readOnly
+                                    className="h-8 bg-accent/5 border-accent/30 text-accent font-semibold"
+                                    data-testid={`scheme-total-${index}-${schemeIndex}`}
+                                  />
+                                </div>
+                                <div className="col-span-1">
+                                  <Gift
+                                    className="text-accent animate-pulse"
+                                    size={16}
+                                  />
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            ),
+                          )}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
 
-                {/* Invoice Total */}
-                <div className="mt-6 flex justify-end">
-                  <div className="w-64 space-y-2">
-                    <div className="flex justify-between py-2 border-t">
-                      <span className="font-medium">Subtotal:</span>
-                      <span data-testid="text-subtotal">
-                        ${calculateTotal().toFixed(2)}
-                      </span>
+                {/* Scheme Summary */}
+                {Object.keys(showSchemeItems).length > 0 && (
+                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Gift className="text-accent" size={20} />
+                      <h3 className="text-lg font-semibold text-accent">
+                        Promotional Schemes Applied
+                      </h3>
                     </div>
-                    <div className="flex justify-between py-2 border-t border-b-2 border-b-primary/20 font-semibold text-lg">
-                      <span>Total:</span>
-                      <span data-testid="text-total">
-                        ${calculateTotal().toFixed(2)}
-                      </span>
+                    <div className="space-y-2">
+                      {Object.entries(showSchemeItems).map(
+                        ([lineIndex, schemeItems]: [string, any[]]) => (
+                          <div key={lineIndex} className="text-sm">
+                            <span className="font-medium text-foreground">
+                              {lineItems[parseInt(lineIndex)]?.description}:
+                            </span>
+                            <span className="text-accent ml-2">
+                              +
+                              {schemeItems.reduce(
+                                (total, item) => total + item.quantity,
+                                0,
+                              )}{" "}
+                              free items
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      Free items are automatically added when you meet scheme
+                      requirements
                     </div>
                   </div>
-                </div>
-              </div>
+                )}
 
-              {/* Action Buttons */}
-              <div className="flex space-x-3 pt-6">
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={createInvoiceMutation.isPending}
-                  data-testid="button-save-draft"
-                >
-                  <Save className="mr-2" size={16} />
-                  {createInvoiceMutation.isPending
-                    ? "Saving..."
-                    : "Save Invoice"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClose}
-                  data-testid="button-cancel-invoice"
-                >
-                  Cancel
-                </Button>
+                {/* Invoice Total */}
+                <div className="border-t border-border pt-4 mt-6">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium text-foreground">
+                      Total Amount:
+                    </span>
+                    <span
+                      className="text-2xl font-bold text-primary"
+                      data-testid="invoice-total"
+                    >
+                      ${calculateTotal().toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3 pt-6">
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    disabled={createInvoiceMutation.isPending}
+                    data-testid="button-save-draft"
+                  >
+                    <Save className="mr-2" size={16} />
+                    {createInvoiceMutation.isPending
+                      ? "Saving..."
+                      : "Save Draft"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onClose}
+                    data-testid="button-cancel-invoice"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </form>
           </Form>
