@@ -4,9 +4,22 @@ import { z } from "zod";
 import { X, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -80,20 +93,31 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" data-testid="scheme-modal">
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      data-testid="scheme-modal"
+    >
       <Card className="w-full max-w-lg">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center" data-testid="scheme-modal-title">
+            <CardTitle
+              className="flex items-center"
+              data-testid="scheme-modal-title"
+            >
               <Gift className="mr-2 text-accent" size={20} />
               Create Product Scheme
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-scheme-modal">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              data-testid="button-close-scheme-modal"
+            >
               <X size={20} />
             </Button>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -104,7 +128,11 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                   <FormItem>
                     <FormLabel>Scheme Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Holiday Special" {...field} data-testid="input-scheme-name" />
+                      <Input
+                        placeholder="e.g., Holiday Special"
+                        {...field}
+                        data-testid="input-scheme-name"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -118,13 +146,17 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                   <FormItem>
                     <FormLabel>Description (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Brief description of the scheme" {...field} data-testid="input-scheme-description" />
+                      <Input
+                        placeholder="Brief description of the scheme"
+                        {...field}
+                        data-testid="input-scheme-description"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -133,11 +165,13 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                     <FormItem>
                       <FormLabel>Buy Quantity</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="15" 
+                        <Input
+                          type="number"
+                          placeholder="15"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          onChange={(e) =>
+                            field.onChange(parseInt(e.target.value) || 0)
+                          }
                           data-testid="input-buy-quantity"
                         />
                       </FormControl>
@@ -145,7 +179,7 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="freeQuantity"
@@ -153,11 +187,13 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                     <FormItem>
                       <FormLabel>Get Free</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="1" 
+                        <Input
+                          type="number"
+                          placeholder="1"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          onChange={(e) =>
+                            field.onChange(parseInt(e.target.value) || 0)
+                          }
                           data-testid="input-free-quantity"
                         />
                       </FormControl>
@@ -166,14 +202,17 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="productId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Apply to Product</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger data-testid="select-scheme-product">
                           <SelectValue placeholder="Select Product" />
@@ -181,7 +220,11 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                       </FormControl>
                       <SelectContent>
                         {products?.map((product: any) => (
-                          <SelectItem key={product.id} value={product.id} data-testid={`option-scheme-product-${product.id}`}>
+                          <SelectItem
+                            key={product.id}
+                            value={product.id}
+                            data-testid={`option-scheme-product-${product.id}`}
+                          >
                             {product.name}
                           </SelectItem>
                         ))}
@@ -191,18 +234,20 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                   </FormItem>
                 )}
               />
-              
+
               <div className="flex space-x-3 pt-4">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="flex-1"
                   disabled={createSchemeMutation.isPending}
                   data-testid="button-create-scheme"
                 >
-                  {createSchemeMutation.isPending ? "Creating..." : "Create Scheme"}
+                  {createSchemeMutation.isPending
+                    ? "Creating..."
+                    : "Create Scheme"}
                 </Button>
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   variant="secondary"
                   onClick={onClose}
                   data-testid="button-cancel-scheme"
