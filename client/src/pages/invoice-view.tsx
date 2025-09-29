@@ -415,9 +415,9 @@ function InvoiceView() {
                 <th style={{ width: "13%" }}>Item Code</th>
                 <th style={{ width: "12%" }}>Packing Size</th>
                 <th style={{ width: "40%" }}>Product Description</th>
-                <th style={{ width: "8%" }}>Qty (Cartons)</th>
-                <th style={{ width: "11%" }}>Rate Per Carton (USD)</th>
-                <th style={{ width: "11%" }}>Net Amount (USD)</th>
+                <th style={{ width: "8%" }}>Qty</th>
+                <th style={{ width: "11%" }}>Rate per Carton</th>
+                <th style={{ width: "11%" }}>Total Amount (USD)</th>
               </tr>
             </thead>
             <tbody>
@@ -447,7 +447,11 @@ function InvoiceView() {
                       <td>
                         {item.productCode || (item as any).itemCode || "—"}
                       </td>
-                      <td>{item.packingSize ? item.packingSize.replace(/GM/g, 'G') : "—"}</td>
+                      <td>
+                        {item.packingSize
+                          ? item.packingSize.replace(/GM/g, "G")
+                          : "—"}
+                      </td>
                       <td>{item.description}</td>
                       <td className="text-center">{qty || "—"}</td>
                       <td className="text-right">{formatCurrency(rate)}</td>
@@ -494,7 +498,7 @@ function InvoiceView() {
                         width: "50%",
                       }}
                     >
-                      <strong>Total Cartons :</strong> {totalCartons}
+                      <strong>Total Carton :</strong> {totalCartons}
                     </td>
                     <td
                       style={{
@@ -503,7 +507,7 @@ function InvoiceView() {
                         width: "50%",
                       }}
                     >
-                      <strong>Net Amount :</strong> {formatCurrency(netAmount)}
+                      <strong>Sub Total :</strong> {formatCurrency(netAmount)}
                     </td>
                   </tr>
                   <tr>
@@ -514,7 +518,7 @@ function InvoiceView() {
                       }}
                     >
                       <strong>Net Weight (LBS) :</strong>{" "}
-                      {netWeightKgs.toFixed(2)}
+                      {(netWeightKgs * 2.20462).toFixed(2)}
                     </td>
                     <td
                       style={{
@@ -532,8 +536,8 @@ function InvoiceView() {
                         padding: "4px 6px",
                       }}
                     >
-                      <strong>Gross Weight (KGS) :</strong>{" "}
-                      {grossWeightKgs.toFixed(2)}
+                      <strong>Gross Weight (LBS) :</strong>{" "}
+                      {(grossWeightKgs * 2.20462).toFixed(2)}
                     </td>
                     <td
                       style={{
@@ -541,7 +545,7 @@ function InvoiceView() {
                         padding: "4px 6px",
                       }}
                     >
-                      <strong>Total Invoice Amount :</strong>{" "}
+                      <strong>Total Amount :</strong>{" "}
                       {formatCurrency(totalInvoiceAmount)}
                     </td>
                   </tr>
@@ -550,10 +554,10 @@ function InvoiceView() {
                       style={{
                         border: "1px solid #d1d5db",
                         padding: "4px 6px",
-                        width: "50%",
                       }}
+                      colSpan={2}
                     >
-                      <strong>Amount In Words :</strong>{" "}
+                      <strong>Amount in words :</strong>{" "}
                       {`${numberToWords(Math.floor(totalInvoiceAmount)).toUpperCase()} DOLLARS${
                         totalInvoiceAmount % 1 > 0
                           ? ` AND ${Math.round((totalInvoiceAmount % 1) * 100)
@@ -562,18 +566,11 @@ function InvoiceView() {
                           : ""
                       }`}
                     </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                        width: "50%",
-                      }}
-                    >
-                    </td>
                   </tr>
                 </tbody>
               </table>
 
+              {/* Terms */}
               <div
                 style={{
                   fontSize: "11px",
@@ -589,8 +586,7 @@ function InvoiceView() {
                     federal courts located in Pennsylvania.
                   </li>
                   <li>
-                    Overdues balances subject to finance charges of 2% per
-                    month.
+                    Overdue balances subject to finance charges of 2% per month.
                   </li>
                   <li>
                     All Payments must be made to the company’s official bank
@@ -601,6 +597,7 @@ function InvoiceView() {
                 </ol>
               </div>
 
+              {/* Signature */}
               <table
                 style={{
                   width: "100%",
@@ -619,7 +616,7 @@ function InvoiceView() {
                         width: "33%",
                       }}
                     >
-                      Received By (Name): ___________________
+                      Received By: ___________________
                     </td>
                     <td
                       style={{
@@ -628,7 +625,7 @@ function InvoiceView() {
                         width: "33%",
                       }}
                     >
-                      Total Pallets: ___________________
+                      Total Pallet: ___________________
                     </td>
                     <td
                       style={{
