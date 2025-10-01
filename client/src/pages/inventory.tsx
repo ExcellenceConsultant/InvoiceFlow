@@ -64,7 +64,12 @@ export default function Inventory() {
     
     const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
     
-    return matchesSearch && matchesCategory;
+    const matchesStock = 
+      stockFilter === "all" ||
+      (stockFilter === "in" && product.qty > 0) ||
+      (stockFilter === "out" && product.qty === 0);
+    
+    return matchesSearch && matchesCategory && matchesStock;
   }) || [];
 
   // Calculate inventory stats
@@ -574,7 +579,6 @@ export default function Inventory() {
                 <SelectContent>
                   <SelectItem value="all">All Stock Levels</SelectItem>
                   <SelectItem value="in">In Stock</SelectItem>
-                  <SelectItem value="low">Low Stock</SelectItem>
                   <SelectItem value="out">Out of Stock</SelectItem>
                 </SelectContent>
               </Select>
