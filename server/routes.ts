@@ -419,13 +419,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/schemes/:id", async (req, res) => {
     try {
-      const updatedScheme = await storage.updateScheme(req.params.id, req.body);
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // Ensure isActive is a boolean if provided
+      if (updates.isActive !== undefined) {
+        updates.isActive = Boolean(updates.isActive);
+      }
+      
+      const updatedScheme = await storage.updateScheme(id, updates);
       if (!updatedScheme) {
         return res.status(404).json({ message: "Scheme not found" });
       }
-      res.json(updatedScheme);
+      
+      return res.status(200).json(updatedScheme);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update scheme" });
+      console.error('Error updating scheme:', error);
+      return res.status(500).json({ message: "Failed to update scheme" });
     }
   });
 
