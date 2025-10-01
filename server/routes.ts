@@ -620,6 +620,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/invoices/:id", async (req, res) => {
     try {
+      // Get invoice and line items before deletion for inventory adjustment
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      const lineItems = await storage.getInvoiceLineItems(req.params.id);
+      
+      // Revert inventory changes for AP invoices
+      if (invoice.invoiceType === 'payable') {
+        for (const item of lineItems) {
+          if (item.productId && item.productId.trim() !== '') {
+            try {
+              const currentProduct = await storage.getProduct(item.productId);
+              if (currentProduct) {
+                // Subtract the quantity that was added when invoice was created
+                const newQty = Math.max(0, currentProduct.qty - item.quantity);
+                console.log(`Reverting AP invoice deletion: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`);
+                await storage.updateProduct(item.productId, { qty: newQty });
+              }
+            } catch (inventoryError) {
+              console.error(`Failed to revert inventory for product ${item.productId}:`, inventoryError);
+            }
+          }
+        }
+      }
+      
       const success = await storage.deleteInvoice(req.params.id);
       if (!success) {
         return res.status(404).json({ message: "Invoice not found" });
@@ -664,6 +691,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invoice not found" });
       }
 
+      // Get existing line items for inventory adjustment
+      const existingLineItems = await storage.getInvoiceLineItems(invoiceId);
+      
+      // For AP invoices, revert old inventory changes before applying new ones
+      if (existingInvoice.invoiceType === 'payable') {
+        for (const oldItem of existingLineItems) {
+          if (oldItem.productId && oldItem.productId.trim() !== '') {
+            try {
+              const currentProduct = await storage.getProduct(oldItem.productId);
+              if (currentProduct) {
+                // Subtract the old quantity
+                const newQty = Math.max(0, currentProduct.qty - oldItem.quantity);
+                console.log(`Reverting old AP line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${oldItem.quantity})`);
+                await storage.updateProduct(oldItem.productId, { qty: newQty });
+              }
+            } catch (inventoryError) {
+              console.error(`Failed to revert inventory for product ${oldItem.productId}:`, inventoryError);
+            }
+          }
+        }
+      }
+
       // Update invoice
       const updatedInvoice = await storage.updateInvoice(invoiceId, {
         customerId: invoiceData.customerId,
@@ -697,6 +746,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdLineItems.push(lineItem);
         } else {
           console.error("Line item validation failed:", lineItemValidation.error.errors, "for item:", item);
+        }
+      }
+
+      // Apply new inventory changes for AP invoices
+      if (invoiceData.invoiceType === 'payable') {
+        for (const item of lineItems) {
+          if (item.productId && item.productId.trim() !== '') {
+            try {
+              const currentProduct = await storage.getProduct(item.productId);
+              if (currentProduct) {
+                // Add the new quantity
+                const newQty = currentProduct.qty + item.quantity;
+                console.log(`Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`);
+                await storage.updateProduct(item.productId, { qty: newQty });
+              }
+            } catch (inventoryError) {
+              console.error(`Failed to update inventory for product ${item.productId}:`, inventoryError);
+            }
+          }
         }
       }
 
