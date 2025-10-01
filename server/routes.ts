@@ -8,8 +8,29 @@ import { quickBooksService } from "./services/quickbooks";
 import { insertCustomerSchema, insertProductSchema, insertProductVariantSchema, 
          insertProductSchemeSchema, insertInvoiceSchema, insertInvoiceLineItemSchema } from "@shared/schema";
 
-// Configure multer for file uploads (memory storage)
-const upload = multer({ storage: multer.memoryStorage() });
+// Configure multer for file uploads (memory storage) with limits
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    // Only accept Excel and CSV files
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv', // .csv
+    ];
+    const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+    const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    
+    if (allowedMimes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only Excel (.xlsx, .xls) and CSV files are allowed.'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes

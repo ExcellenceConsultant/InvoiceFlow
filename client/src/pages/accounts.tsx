@@ -25,8 +25,10 @@ export default function Accounts() {
     refetchOnMount: "always",
   });
 
-  const customerList = customers?.filter((c: any) => c.type === "customer") || [];
-  const vendorList = customers?.filter((c: any) => c.type === "vendor") || [];
+  // Note: Since the database doesn't have a type field, show all accounts in both tabs
+  // This ensures imported accounts are visible
+  const customerList = customers || [];
+  const vendorList = customers || [];
 
   // Export handler
   const handleExport = async () => {
