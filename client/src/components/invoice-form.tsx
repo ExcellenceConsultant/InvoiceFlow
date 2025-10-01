@@ -219,6 +219,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      if (invoice?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoice.id}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoice.id}/line-items`] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
