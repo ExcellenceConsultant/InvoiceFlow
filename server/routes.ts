@@ -628,16 +628,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const lineItems = await storage.getInvoiceLineItems(req.params.id);
       
-      // Revert inventory changes for AP invoices
+      // Revert inventory changes for AP invoices (subtract added quantity)
       if (invoice.invoiceType === 'payable') {
         for (const item of lineItems) {
           if (item.productId && item.productId.trim() !== '') {
             try {
               const currentProduct = await storage.getProduct(item.productId);
               if (currentProduct) {
-                // Subtract the quantity that was added when invoice was created
                 const newQty = Math.max(0, currentProduct.qty - item.quantity);
                 console.log(`Reverting AP invoice deletion: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`);
+                await storage.updateProduct(item.productId, { qty: newQty });
+              }
+            } catch (inventoryError) {
+              console.error(`Failed to revert inventory for product ${item.productId}:`, inventoryError);
+            }
+          }
+        }
+      }
+      
+      // Revert inventory changes for AR invoices (add back sold quantity)
+      if (invoice.invoiceType === 'receivable') {
+        for (const item of lineItems) {
+          if (item.productId && item.productId.trim() !== '') {
+            try {
+              const currentProduct = await storage.getProduct(item.productId);
+              if (currentProduct) {
+                const newQty = currentProduct.qty + item.quantity;
+                console.log(`Reverting AR invoice deletion: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${item.quantity})`);
                 await storage.updateProduct(item.productId, { qty: newQty });
               }
             } catch (inventoryError) {
@@ -712,6 +729,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
+      
+      // For AR invoices, revert old inventory changes before applying new ones
+      if (existingInvoice.invoiceType === 'receivable') {
+        for (const oldItem of existingLineItems) {
+          if (oldItem.productId && oldItem.productId.trim() !== '') {
+            try {
+              const currentProduct = await storage.getProduct(oldItem.productId);
+              if (currentProduct) {
+                // Add back the old quantity
+                const newQty = currentProduct.qty + oldItem.quantity;
+                console.log(`Reverting old AR line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${oldItem.quantity})`);
+                await storage.updateProduct(oldItem.productId, { qty: newQty });
+              }
+            } catch (inventoryError) {
+              console.error(`Failed to revert inventory for product ${oldItem.productId}:`, inventoryError);
+            }
+          }
+        }
+      }
 
       // Update invoice
       const updatedInvoice = await storage.updateInvoice(invoiceId, {
@@ -759,6 +795,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Add the new quantity
                 const newQty = currentProduct.qty + item.quantity;
                 console.log(`Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`);
+                await storage.updateProduct(item.productId, { qty: newQty });
+              }
+            } catch (inventoryError) {
+              console.error(`Failed to update inventory for product ${item.productId}:`, inventoryError);
+            }
+          }
+        }
+      }
+      
+      // Apply new inventory changes for AR invoices
+      if (invoiceData.invoiceType === 'receivable') {
+        for (const item of lineItems) {
+          if (item.productId && item.productId.trim() !== '') {
+            try {
+              const currentProduct = await storage.getProduct(item.productId);
+              if (currentProduct) {
+                // Subtract the new quantity
+                const newQty = Math.max(0, currentProduct.qty - item.quantity);
+                console.log(`Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`);
                 await storage.updateProduct(item.productId, { qty: newQty });
               }
             } catch (inventoryError) {
