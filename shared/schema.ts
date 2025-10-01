@@ -80,6 +80,7 @@ export const invoices = pgTable("invoices", {
   invoiceNumber: text("invoice_number").notNull(),
   customerId: varchar("customer_id").references(() => customers.id),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  freight: decimal("freight", { precision: 10, scale: 2 }).default("0").notNull(),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue
   invoiceType: text("invoice_type").notNull().default("receivable"), // receivable (AR), payable (AP)

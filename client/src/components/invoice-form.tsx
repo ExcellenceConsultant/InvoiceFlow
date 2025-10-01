@@ -34,6 +34,7 @@ const invoiceSchema = z.object({
   invoiceType: z.enum(["receivable", "payable"], {
     required_error: "Please select invoice type",
   }),
+  freight: z.number().min(0, "Freight must be non-negative").default(0),
 });
 
 const lineItemSchema = z.object({
@@ -83,12 +84,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       paymentTerms: 30,
       invoiceType: invoice.invoiceType || "receivable",
+      freight: parseFloat(invoice.freight || 0),
     } : {
       customerId: "",
       invoiceNumber: `INV-${Date.now()}`,
       invoiceDate: new Date().toISOString().split("T")[0],
       paymentTerms: 30,
       invoiceType: "receivable",
+      freight: 0,
     },
   });
 
@@ -329,8 +332,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   };
 
   const onSubmit = (data: z.infer<typeof invoiceSchema>) => {
-    const total = calculateTotal();
-    const subtotal = total;
+    const subtotal = calculateTotal();
+    const freight = data.freight || 0;
+    const total = subtotal + freight;
 
     console.log("Current line items on submit:", lineItems);
 
@@ -404,6 +408,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       invoice: {
         ...data,
         subtotal: subtotal.toString(),
+        freight: freight.toString(),
         total: total.toString(),
         status: isEditMode ? invoice.status : "draft",
         invoiceType: data.invoiceType,
@@ -584,6 +589,30 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
                           data-testid="input-payment-terms"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="freight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Freight Amount ($)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          placeholder="0.00"
+                          data-testid="input-freight"
                         />
                       </FormControl>
                       <FormMessage />
