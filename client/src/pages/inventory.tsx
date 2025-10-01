@@ -75,7 +75,7 @@ export default function Inventory() {
   // Calculate inventory stats
   const totalProducts = products?.length || 0;
   const totalValue = products?.reduce((sum: number, product: any) => 
-    sum + parseFloat(product.basePrice || 0), 0) || 0;
+    sum + (parseFloat(product.basePrice || 0) * (product.qty || 0)), 0) || 0;
 
   // Excel import mutation
   const importExcelMutation = useMutation({
@@ -493,8 +493,7 @@ export default function Inventory() {
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-accent font-medium">+8.2%</span>
-              <span className="text-muted-foreground ml-1">from last month</span>
+              <span className="text-muted-foreground">Total inventory worth</span>
             </div>
           </CardContent>
         </Card>
