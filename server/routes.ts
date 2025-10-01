@@ -1,10 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import * as XLSX from "xlsx";
+import multer from "multer";
 import { storage } from "./storage";
 import { quickBooksService } from "./services/quickbooks";
 import { insertCustomerSchema, insertProductSchema, insertProductVariantSchema, 
          insertProductSchemeSchema, insertInvoiceSchema, insertInvoiceLineItemSchema } from "@shared/schema";
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -119,6 +124,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(customer);
     } catch (error) {
       res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+
+  // Export customers/vendors to Excel
+  app.get("/api/customers/export", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const customers = await storage.getCustomers(userId);
+
+      // Prepare data for Excel
+      const excelData = customers.map(customer => ({
+        Name: customer.name,
+        Email: customer.email || "",
+        Phone: customer.phone || "",
+        Address: customer.address ? JSON.stringify(customer.address) : "",
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Accounts");
+
+      // Generate buffer
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      // Set response headers
+      const filename = "accounts.xlsx";
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.send(buffer);
+    } catch (error) {
+      console.error("Export error:", error);
+      res.status(500).json({ message: "Failed to export data" });
+    }
+  });
+
+  // Import customers/vendors from Excel/CSV
+  app.post("/api/customers/import", upload.single("file"), async (req, res) => {
+    try {
+      const userId = req.body.userId;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "File is required" });
+      }
+
+      // Parse Excel/CSV file
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+
+      // Process each row
+      for (let i = 0; i < data.length; i++) {
+        const row: any = data[i];
+        
+        try {
+          // Parse address if it exists
+          let address = null;
+          
+          if (row.Address) {
+            try {
+              address = JSON.parse(row.Address);
+            } catch {
+              address = null;
+            }
+          }
+
+          // Validate and create customer
+          const customerData = {
+            userId,
+            name: row.Name,
+            email: row.Email || null,
+            phone: row.Phone || null,
+            address,
+          };
+
+          const validation = insertCustomerSchema.extend({
+            userId: z.string(),
+          }).safeParse(customerData);
+
+          if (!validation.success) {
+            results.failed++;
+            results.errors.push(`Row ${i + 2}: ${validation.error.errors.map(e => e.message).join(", ")}`);
+            continue;
+          }
+
+          await storage.createCustomer(validation.data);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push(`Row ${i + 2}: ${error.message}`);
+        }
+      }
+
+      res.json({
+        message: `Import completed: ${results.success} succeeded, ${results.failed} failed`,
+        ...results,
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      res.status(500).json({ message: "Failed to import data" });
     }
   });
 
