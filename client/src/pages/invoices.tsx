@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload, Check } from "lucide-react";
+import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -268,6 +269,60 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     }
   };
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (invoiceIds: string[]) => {
+      const promises = invoiceIds.map(id => 
+        apiRequest("DELETE", `/api/invoices/${id}`, {})
+      );
+      const results = await Promise.allSettled(promises);
+      const failed = results.filter(r => r.status === "rejected").length;
+      if (failed > 0) {
+        throw new Error(`Failed to delete ${failed} invoice(s)`);
+      }
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setSelectedInvoices([]);
+      toast({
+        title: "Success",
+        description: `${selectedInvoices.length} invoice(s) deleted successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete some invoices",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSelectInvoice = (invoiceId: string) => {
+    setSelectedInvoices(prev => 
+      prev.includes(invoiceId) 
+        ? prev.filter(id => id !== invoiceId)
+        : [...prev, invoiceId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedInvoices.length === filteredInvoices.length) {
+      setSelectedInvoices([]);
+    } else {
+      setSelectedInvoices(filteredInvoices.map((inv: any) => inv.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedInvoices.length === 0) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedInvoices.length} invoice(s)? This action cannot be undone.`;
+    if (confirm(confirmMessage)) {
+      bulkDeleteMutation.mutate(selectedInvoices);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -279,6 +334,33 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           </div>
           
           <div className="flex items-center space-x-3 mt-4 lg:mt-0">
+            {selectedInvoices.length > 0 && (
+              <div className="flex items-center space-x-2 mr-2 px-3 py-2 bg-muted rounded-lg">
+                <span className="text-sm text-muted-foreground">
+                  {selectedInvoices.length} selected
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setSelectedInvoices([])}
+                  data-testid="button-clear-selection"
+                  title="Clear selection"
+                >
+                  <X size={14} />
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleteMutation.isPending}
+                  data-testid="button-bulk-delete"
+                >
+                  <Trash2 className="mr-2" size={14} />
+                  Delete Selected
+                </Button>
+              </div>
+            )}
             <Button variant="secondary" data-testid="button-export-invoices">
               <Download className="mr-2" size={16} />
               Export
@@ -356,6 +438,15 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
               <table className="w-full" data-testid="invoices-table">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
+                      <input 
+                        type="checkbox"
+                        checked={filteredInvoices.length > 0 && selectedInvoices.length === filteredInvoices.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 cursor-pointer"
+                        data-testid="checkbox-select-all"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Invoice #</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Customer</th>
@@ -373,6 +464,16 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                       className="border-b border-border hover:bg-muted/20 transition-colors"
                       data-testid={`invoice-row-${invoice.id}`}
                     >
+                      <td className="py-3 px-4">
+                        <input 
+                          type="checkbox"
+                          checked={selectedInvoices.includes(invoice.id)}
+                          onChange={() => handleSelectInvoice(invoice.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 cursor-pointer"
+                          data-testid={`checkbox-invoice-${invoice.id}`}
+                        />
+                      </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`invoice-number-${invoice.id}`}>
                         {invoice.invoiceNumber}
                       </td>
