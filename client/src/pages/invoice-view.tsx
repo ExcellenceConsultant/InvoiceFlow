@@ -106,6 +106,7 @@ function InvoiceView() {
     netWeightKgs: toNumber((item as any).netWeightKgs),
     grossWeightKgs: toNumber((item as any).grossWeightKgs),
     category: (item as any).category || "",
+    isFreeFromScheme: (item as any).isFreeFromScheme || false,
   }));
 
   // fix Uncategorized by inheriting from matching product
@@ -141,94 +142,183 @@ function InvoiceView() {
     style.id = "invoice-print-styles";
     style.textContent = `
     @media print {
-  @page { size: A4; margin: 30mm 15mm 25mm 15mm; } /* header/footer blank */
-  .invoice-page { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; min-height: auto; background: white; }
+  @page { size: A4; margin: 0; }
+  body { margin: 0; padding: 0; }
+  .invoice-page { box-shadow: none; border: none; margin: 0; padding: 15mm 10mm; width: 100%; min-height: auto; background: white; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
-  table.invoice-table thead { display: table-header-group; }
-  table.invoice-table tbody tr { page-break-inside: avoid; }
 }
 
 .invoice-page {
-  
-  margin: 0;
-  padding: 30mm 15mm 25mm 15mm;
-  width: 100%;
-  min-height: auto;
   background: white;
-  box-sizing: border-box;
-  font-family: Calibri, sans-serif;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 210mm;
+  margin: 0 auto;
 }
 
-/* ============================
-   Invoice Line Item Table
-   ============================ */
-table.invoice-table {
+.invoice-header {
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.invoice-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+  font-size: 11px;
+}
+
+.info-section {
+  line-height: 1.6;
+}
+
+.info-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  font-size: 11px;
+  color: #333;
+}
+
+.info-company {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.info-detail {
+  color: #555;
+  margin: 1px 0;
+}
+
+.invoice-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
-  font-family: Calibri, sans-serif;
-  border: 1px solid #000; /* outer border */
+  margin-bottom: 15px;
+  font-size: 11px;
 }
 
-table.invoice-table th {
-  background: #000;       /* black background */
-  color: #fff;            /* white text */
+.invoice-table th {
+  background-color: #f5f5f5;
+  padding: 8px 6px;
+  text-align: left;
   font-weight: 600;
-  text-align: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid #000; /* header bottom border */
+  border: 1px solid #ddd;
+  font-size: 11px;
 }
 
-table.invoice-table td {
-  padding: 6px 8px;
+.invoice-table td {
+  padding: 6px;
+  border: 1px solid #ddd;
   vertical-align: top;
-  border-top: 1px solid #000;   /* add top border */
-  border-bottom: 1px solid #000; /* keep bottom border */
 }
 
-/* Category rows – full width with top+bottom border */
-table.invoice-table tr.category-row td {
+.category-header {
+  background-color: #f9f9f9;
   font-weight: 600;
   text-align: center;
-  background: #f3f4f6;
-  border-top: 1px solid #000;
-  border-bottom: 1px solid #000;
+  padding: 6px;
+  border: 1px solid #ddd;
 }
 
-/* Remove vertical inner borders */
-table.invoice-table th,
-table.invoice-table td {
-  border-left: none;
-  border-right: none;
+.scheme-info {
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+  font-style: italic;
 }
 
-/* ============================
-   Summary / Signature Tables
-   ============================ */
-.summary-table td {
-  border: 1px solid #000 !important;
-  padding: 4px 6px;
-  font-size: 13px;
-  font-family: Calibri, sans-serif;
+.summary-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 15px;
 }
 
-.small-label { font-size: 12px; color: #374151; }
-      table.invoice-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        font-family: Calibri, sans-serif;
-      }
-      
-      table.invoice-table thead th {
-        background: #f3f4f6;
-        font-weight: 600;
-      }
-      
-     
-      .totals { width: 320px; float: right; margin-top: 12px; }
-      .terms { font-size: 11px; color: #6b7280; margin-top: 12px; }
+.summary-left {
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.summary-right {
+  text-align: right;
+  font-size: 12px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.summary-total {
+  color: #0066cc;
+  font-weight: bold;
+  font-size: 16px;
+  margin-top: 8px;
+}
+
+.notes-section {
+  margin-bottom: 15px;
+}
+
+.notes-label {
+  font-weight: 600;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+
+.notes-box {
+  border: 1px solid #ddd;
+  padding: 10px;
+  min-height: 40px;
+  background-color: #fafafa;
+  font-size: 10px;
+  color: #666;
+}
+
+.footer-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+  font-size: 11px;
+}
+
+.footer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-company {
+  text-align: right;
+  font-weight: 600;
+}
+
+@media print {
+  .summary-total {
+    color: #0066cc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .category-header {
+    background-color: #f9f9f9 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .invoice-table th {
+    background-color: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
     `;
     document.head.appendChild(style);
     return () => {
@@ -237,39 +327,32 @@ table.invoice-table td {
     };
   }, []);
 
-  if (isLoading) {
+  if (isLoading || !invoice) {
     return (
-      <div className="container max-w-6xl mx-auto p-6">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setLocation("/invoices")}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Invoices
-        </Button>
-        <div className="text-center py-8">Loading invoice...</div>
-      </div>
-    );
-  }
-  if (!invoice) {
-    return (
-      <div className="container max-w-6xl mx-auto p-6">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setLocation("/invoices")}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Invoices
-        </Button>
-        <div className="text-center py-8">Invoice not found</div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div>Loading invoice...</div>
       </div>
     );
   }
 
-  const totalCartons = lineItems.reduce((s, it) => s + (it.quantity || 0), 0);
-  const netAmount = lineItems.reduce((s, it) => s + toNumber(it.lineTotal), 0);
+  // Group items by category
+  const categorizedItems: { [key: string]: any[] } = {};
+  lineItems.forEach((item) => {
+    const cat = item.category || "Uncategorized";
+    if (!categorizedItems[cat]) {
+      categorizedItems[cat] = [];
+    }
+    categorizedItems[cat].push(item);
+  });
+
+  const netAmount = lineItems.reduce(
+    (s, it) => s + (it.lineTotal || 0),
+    0,
+  );
+  const totalCartons = lineItems.reduce(
+    (s, it) => s + (it.quantity || 0),
+    0,
+  );
   const netWeightKgs = lineItems.reduce(
     (s, it) => s + (it.netWeightKgs || 0) * (it.quantity || 0),
     0,
@@ -282,37 +365,16 @@ table.invoice-table td {
     (invoice as any).freight || (invoice as any).freightAmount || 0,
   );
   const totalInvoiceAmount = netAmount + freight;
+  const netWeightLbs = netWeightKgs * 2.20462;
   const grossWeightLbs = grossWeightKgs * 2.20462;
-
-  // 14 rows first page, continuous SR numbers
-  const firstPageRows = 8;
-  const otherPageRows = 8;
-  let pages: { rows: any[]; blanks: any[]; startIndex: number }[] = [];
-  let start = 0;
-
-  // page 1
-  const sliceFirst = lineItems.slice(start, start + firstPageRows);
-  const blanksFirst = Array.from({
-    length: Math.max(0, firstPageRows - sliceFirst.length),
-  }).map(() => null);
-  pages.push({ rows: sliceFirst, blanks: blanksFirst, startIndex: start });
-  start += sliceFirst.length;
-
-  // pages 2+
-  while (start < lineItems.length) {
-    const slice = lineItems.slice(start, start + otherPageRows);
-    const blanks = Array.from({
-      length: Math.max(0, otherPageRows - slice.length),
-    }).map(() => null);
-    pages.push({ rows: slice, blanks, startIndex: start });
-    start += slice.length;
-  }
 
   const billAddress =
     (invoice as any).customer?.address || (invoice as any).billToAddress;
-  const shipAddress = (invoice as any).shipToAddress;
+  const shipAddress = (invoice as any).shipToAddress || billAddress;
 
   const handlePrint = () => window.print();
+
+  let srCounter = 0;
 
   return (
     <div className="container max-w-6xl mx-auto p-6">
@@ -342,344 +404,237 @@ table.invoice-table td {
         </div>
       </div>
 
-      {pages.map((page, pageIndex) => (
-        <div
-          key={pageIndex}
-          className={`invoice-page bg-white ${pageIndex < pages.length - 1 ? "page-break" : ""}`}
-        >
-          {/* Title & page number */}
-          <div className="mb-2 relative">
-            <div className="text-center font-bold text-lg">INVOICE</div>
-            <div className="absolute right-0 top-0 small-label">
-              Page : {pageIndex + 1} of {pages.length}
+      <div className="invoice-page">
+        {/* Header */}
+        <div className="invoice-header">INVOICE</div>
+
+        {/* Info Grid */}
+        <div className="invoice-info-grid">
+          {/* Billed To */}
+          <div className="info-section">
+            <div className="info-label">BILLED TO:</div>
+            <div className="info-company">
+              {(invoice as any).customer?.name ||
+                (invoice as any).billToName ||
+                "Client Company LLC"}
             </div>
+            {billAddress && (
+              <>
+                {billAddress.street && (
+                  <div className="info-detail">{billAddress.street}</div>
+                )}
+                {billAddress.city && (
+                  <div className="info-detail">
+                    {billAddress.city}
+                    {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
+                    {billAddress.zipCode || ""}
+                  </div>
+                )}
+                {billAddress.country && (
+                  <div className="info-detail">{billAddress.country}</div>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Bill To / Ship To / Invoice Details */}
-          <div className="grid grid-cols-12 gap-4 mb-4">
-            <div className="col-span-4">
-              <div className="font-semibold">Bill To</div>
-              <div className="mt-1">
-                <div>
-                  {(invoice as any).customer?.name ||
-                    (invoice as any).billToName ||
-                    "—"}
-                </div>
-                {billAddress && (
-                  <div className="small-label">
-                    {billAddress.street && <div>{billAddress.street}</div>}
-                    {billAddress.city && (
-                      <div>
-                        {billAddress.city}
-                        {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
-                        {billAddress.zipCode || ""}
+          {/* Ship To */}
+          <div className="info-section">
+            <div className="info-label">SHIP TO:</div>
+            <div className="info-company">
+              {(invoice as any).shipToName ||
+                (invoice as any).customer?.name ||
+                "Client Company LLC"}
+            </div>
+            {shipAddress && (
+              <>
+                {typeof shipAddress === "string" ? (
+                  <div className="info-detail">{shipAddress}</div>
+                ) : (
+                  <>
+                    {shipAddress.street && (
+                      <div className="info-detail">{shipAddress.street}</div>
+                    )}
+                    {shipAddress.city && (
+                      <div className="info-detail">
+                        {shipAddress.city}
+                        {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                        {shipAddress.zipCode || ""}
                       </div>
                     )}
-                    {billAddress.country && <div>{billAddress.country}</div>}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="col-span-4">
-              <div className="font-semibold">Ship To</div>
-              <div className="mt-1">
-                <div>
-                  {(invoice as any).shipToName ||
-                    (invoice as any).customer?.name ||
-                    "—"}
-                </div>
-                {shipAddress && (
-                  <div className="small-label">
-                    {typeof shipAddress === "string" ? (
-                      shipAddress
-                    ) : (
-                      <>
-                        {shipAddress.street && <div>{shipAddress.street}</div>}
-                        {shipAddress.city && (
-                          <div>
-                            {shipAddress.city}
-                            {shipAddress.state
-                              ? `, ${shipAddress.state}`
-                              : ""}{" "}
-                            {shipAddress.zipCode || ""}
-                          </div>
-                        )}
-                        {shipAddress.country && (
-                          <div>{shipAddress.country}</div>
-                        )}
-                      </>
+                    {shipAddress.country && (
+                      <div className="info-detail">{shipAddress.country}</div>
                     )}
-                  </div>
+                  </>
                 )}
-              </div>
-            </div>
-            <div className="col-span-4 small-label">
-              <div>
-                <strong>Invoice No. :</strong> {invoice.invoiceNumber}
-              </div>
-              <div>
-                <strong>Invoice Date :</strong>{" "}
-                {invoice.invoiceDate
-                  ? new Date(invoice.invoiceDate).toLocaleDateString()
-                  : "—"}
-              </div>
-              <div>
-                <strong>Payment Terms :</strong>{" "}
-                {(invoice as any).paymentTerms || "Net 30"}
-              </div>
-              <div>
-                <strong>Due Date :</strong>{" "}
-                {invoice.dueDate
-                  ? new Date(invoice.dueDate).toLocaleDateString()
-                  : "—"}
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Table */}
-          <table
-            className="invoice-table"
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              marginTop: "0",
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={{ width: "5%" }}>Sr. No</th>
-                <th style={{ width: "13%" }}>Item Code</th>
-                <th style={{ width: "12%" }}>Packing Size</th>
-                <th style={{ width: "40%" }}>Product Description</th>
-                <th style={{ width: "8%" }}>Qty</th>
-                <th style={{ width: "11%" }}>Rate per Carton</th>
-                <th style={{ width: "11%" }}>Total Amount (USD)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {page.rows.map((item, idx) => {
-                const sr = page.startIndex + idx + 1;
-                const qty = toNumber(item.quantity);
-                const rate = toNumber(item.unitPrice);
-                const lineTotal = toNumber(item.lineTotal);
-                const prevItem = idx > 0 ? page.rows[idx - 1] : null;
-                const isNewCategory =
-                  idx === 0 || item.category !== (prevItem?.category || "");
+          {/* Invoice Details */}
+          <div className="info-section">
+            <div className="info-detail">
+              <strong>Invoice No.</strong> : {invoice.invoiceNumber}
+            </div>
+            <div className="info-detail">
+              <strong>Invoice Date</strong> :{" "}
+              {invoice.invoiceDate
+                ? new Date(invoice.invoiceDate).toLocaleDateString()
+                : "—"}
+            </div>
+            <div className="info-detail">
+              <strong>Payment Term</strong> : Net{" "}
+              {(invoice as any).paymentTerms || 30}
+            </div>
+            <div className="info-detail">
+              <strong>Due Date</strong> :{" "}
+              {invoice.dueDate
+                ? new Date(invoice.dueDate).toLocaleDateString()
+                : "—"}
+            </div>
+          </div>
+        </div>
 
-                return (
-                  <React.Fragment key={item.id || sr}>
-                    {isNewCategory && (
-                      <tr className="category-row">
-                        <td
-                          colSpan={7}
-                          className="text-center font-semibold bg-gray-100"
-                        >
-                          {item.category || "Uncategorized"}
-                        </td>
-                      </tr>
-                    )}
-                    <tr>
-                      <td className="text-center">{sr}</td>
-                      <td>
-                        {item.productCode || (item as any).itemCode || "—"}
-                      </td>
+        {/* Table */}
+        <table className="invoice-table">
+          <thead>
+            <tr>
+              <th style={{ width: "5%", textAlign: "center" }}>Sr. No.</th>
+              <th style={{ width: "12%" }}>Product Code</th>
+              <th style={{ width: "12%" }}>Packing Size</th>
+              <th style={{ width: "35%" }}>Product Description</th>
+              <th style={{ width: "10%", textAlign: "center" }}>
+                Qty
+                <br />
+                (Carton)
+              </th>
+              <th style={{ width: "13%", textAlign: "right" }}>
+                Rate per Carton
+              </th>
+              <th style={{ width: "13%", textAlign: "right" }}>
+                Total
+                <br />
+                Amount
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(categorizedItems).map(([category, items]) => (
+              <React.Fragment key={category}>
+                {/* Category Header */}
+                <tr>
+                  <td colSpan={7} className="category-header">
+                    {category}
+                  </td>
+                </tr>
+
+                {/* Items in this category */}
+                {items.map((item) => {
+                  srCounter++;
+                  const qty = toNumber(item.quantity);
+                  const rate = toNumber(item.unitPrice);
+                  const lineTotal = toNumber(item.lineTotal);
+                  const isFree = item.isFreeFromScheme;
+
+                  return (
+                    <tr key={item.id || srCounter}>
+                      <td style={{ textAlign: "center" }}>{srCounter}</td>
+                      <td>{item.productCode || "—"}</td>
                       <td>
                         {item.packingSize
                           ? item.packingSize.replace(/GM/g, "G")
                           : "—"}
                       </td>
-                      <td>{item.description}</td>
-                      <td className="text-center">{qty || "—"}</td>
-                      <td className="text-right">{formatCurrency(rate)}</td>
-                      <td className="text-right">
+                      <td>
+                        {item.description}
+                        {isFree && rate === 0 && (
+                          <div className="scheme-info">
+                            Free item from promotional scheme
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: "center" }}>{qty || "—"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {formatCurrency(rate)}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
                         {formatCurrency(lineTotal)}
                       </td>
                     </tr>
-                  </React.Fragment>
-                );
-              })}
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
 
-              {page.blanks.map((_, i) => (
-                <tr key={`blank-${pageIndex}-${i}`}>
-                  <td className="text-center">&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td className="text-center">&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Summary Section */}
+        <div className="summary-section">
+          {/* Left side - Weights and Amount in words */}
+          <div className="summary-left">
+            <div>
+              <strong>Total Carton:</strong> {totalCartons}
+            </div>
+            <div>
+              <strong>Net Weight LBS:</strong> {netWeightLbs.toFixed(0)} LBS
+            </div>
+            <div>
+              <strong>Gross Weight LBS:</strong> {grossWeightLbs.toFixed(0)}{" "}
+              LBS
+            </div>
+            <div style={{ marginTop: "10px" }}>
+              <strong>Amount in words:</strong>
+            </div>
+            <div>
+              {numberToWords(Math.floor(totalInvoiceAmount))
+                .split(" ")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")}{" "}
+              Dollars
+              {totalInvoiceAmount % 1 > 0
+                ? ` and ${numberToWords(Math.round((totalInvoiceAmount % 1) * 100))
+                    .split(" ")
+                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(" ")} Cents`
+                : ""}
+            </div>
+          </div>
 
-          {/* Summary only on last page */}
-          {pageIndex === pages.length - 1 && (
-            <>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontFamily: "Calibri, sans-serif",
-                  fontSize: "13px",
-                  marginTop: "0",
-                }}
-              >
-                <tbody>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                        width: "50%",
-                      }}
-                    >
-                      <strong>Total Carton :</strong> {totalCartons}
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                        width: "50%",
-                      }}
-                    >
-                      <strong>Sub Total :</strong> {formatCurrency(netAmount)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                      }}
-                    >
-                      <strong>Net Weight (LBS) :</strong>{" "}
-                      {(netWeightKgs * 2.20462).toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                      }}
-                    >
-                      <strong>Freight :</strong> {formatCurrency(freight)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                      }}
-                    >
-                      <strong>Gross Weight (LBS) :</strong>{" "}
-                      {(grossWeightKgs * 2.20462).toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                      }}
-                    >
-                      <strong>Total Amount :</strong>{" "}
-                      {formatCurrency(totalInvoiceAmount)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                      }}
-                      colSpan={2}
-                    >
-                      <strong>Amount in words :</strong>{" "}
-                      {`${numberToWords(Math.floor(totalInvoiceAmount)).toUpperCase()} DOLLARS${
-                        totalInvoiceAmount % 1 > 0
-                          ? ` AND ${Math.round((totalInvoiceAmount % 1) * 100)
-                              .toString()
-                              .padStart(2, "0")}/100`
-                          : ""
-                      }`}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Terms */}
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontFamily: "Calibri, sans-serif",
-                  marginTop: "2px",
-                }}
-              >
-                <ol style={{ paddingLeft: "18px", margin: "4px 0" }}>
-                  <li>
-                    All Matters related to this invoice or the goods shall be
-                    governed by the laws of Pennsylvania, and all disputes
-                    related hereto shall be adjusted exclusively in the state or
-                    federal courts located in Pennsylvania.
-                  </li>
-                  <li>
-                    Overdue balances subject to finance charges of 2% per month.
-                  </li>
-                  <li>
-                    All Payments must be made to the company’s official bank
-                    account only. The company will not be liable for cash
-                    payments or for overpayments exceeding the invoiced amount.
-                  </li>
-                  <li>Final Sale</li>
-                </ol>
-              </div>
-
-              {/* Signature */}
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontFamily: "Calibri, sans-serif",
-                  fontSize: "13px",
-                  marginTop: "2px",
-                }}
-              >
-                <tbody>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                        width: "33%",
-                      }}
-                    >
-                      Received By: ___________________
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                        width: "33%",
-                      }}
-                    >
-                      Total Pallet: ___________________
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "4px 6px",
-                        width: "34%",
-                        textAlign: "center",
-                      }}
-                    >
-                      Kitchen Xpress Overseas Inc.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </>
-          )}
+          {/* Right side - Financial summary */}
+          <div className="summary-right">
+            <div className="summary-row">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(netAmount)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Freight:</span>
+              <span>{formatCurrency(freight)}</span>
+            </div>
+            <div className="summary-row summary-total">
+              <span>Total Amount:</span>
+              <span>{formatCurrency(totalInvoiceAmount)}</span>
+            </div>
+          </div>
         </div>
-      ))}
+
+        {/* Notes Section */}
+        <div className="notes-section">
+          <div className="notes-label">Notes:</div>
+          <div className="notes-box">Enter notes here...</div>
+        </div>
+
+        {/* Footer */}
+        <div className="footer-section">
+          <div className="footer-item">
+            <span>Received By:</span>
+            <span>___________________</span>
+          </div>
+          <div className="footer-item">
+            <span>Total Pallet:</span>
+            <span>8</span>
+          </div>
+          <div className="footer-company">Kitchen Express Overseas Inc</div>
+        </div>
+      </div>
     </div>
   );
 }
