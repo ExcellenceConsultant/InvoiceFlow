@@ -145,6 +145,8 @@ function InvoiceView() {
   @page { size: A4; margin: 50mm 10mm 40mm 10mm; }
   body { margin: 0; padding: 0; background: transparent; }
   html { background: transparent; }
+  * { box-shadow: none !important; }
+  .container { background: transparent !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
   .invoice-page { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; min-height: auto; background: transparent; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
