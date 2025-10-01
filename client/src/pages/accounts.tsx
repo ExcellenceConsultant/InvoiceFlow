@@ -37,6 +37,25 @@ export default function Accounts() {
     },
   });
 
+  // Fetch all line items for calculating quantities
+  const { data: allLineItems } = useQuery({
+    queryKey: ["/api/invoices/line-items"],
+    queryFn: async () => {
+      const invoiceList = invoices || [];
+      if (invoiceList.length === 0) return [];
+      
+      const lineItemsPromises = invoiceList.map((inv: any) =>
+        fetch(`/api/invoices/${inv.id}/line-items`)
+          .then(res => res.ok ? res.json() : [])
+          .catch(() => [])
+      );
+      
+      const lineItemsArrays = await Promise.all(lineItemsPromises);
+      return lineItemsArrays.flat();
+    },
+    enabled: !!invoices && invoices.length > 0,
+  });
+
   // Filter customers and vendors by type
   const customerList = (customers || []).filter((c: any) => c.type === "customer");
   const vendorList = (customers || []).filter((c: any) => c.type === "vendor");
@@ -47,11 +66,21 @@ export default function Accounts() {
   const customerInvoiceValue = customerInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
   const activeCustomers = customerList.filter((c: any) => c.isActive !== false).length;
 
+  // Calculate total quantity sold (from customer/AR invoices)
+  const customerInvoiceIds = customerInvoices.map((inv: any) => inv.id);
+  const customerLineItems = (allLineItems || []).filter((item: any) => customerInvoiceIds.includes(item.invoiceId));
+  const totalQtySold = customerLineItems.reduce((sum: number, item: any) => sum + parseInt(item.quantity || 0), 0);
+
   // Calculate vendor stats
   const vendorInvoices = (invoices || []).filter((inv: any) => inv.invoiceType === "payable");
   const vendorInvoiceCount = vendorInvoices.length;
   const vendorInvoiceValue = vendorInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
   const activeVendors = vendorList.filter((v: any) => v.isActive !== false).length;
+
+  // Calculate total quantity purchased (from vendor/AP invoices)
+  const vendorInvoiceIds = vendorInvoices.map((inv: any) => inv.id);
+  const vendorLineItems = (allLineItems || []).filter((item: any) => vendorInvoiceIds.includes(item.invoiceId));
+  const totalQtyPurchased = vendorLineItems.reduce((sum: number, item: any) => sum + parseInt(item.quantity || 0), 0);
 
   // Export handler
   const handleExport = async () => {
@@ -570,7 +599,7 @@ export default function Accounts() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Products Sold</p>
-                    <p className="text-xl font-bold" data-testid="customer-products-sold">{customerInvoiceCount > 0 ? 'View Invoices' : '0'}</p>
+                    <p className="text-xl font-bold" data-testid="customer-products-sold">{totalQtySold}</p>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Revenue Generated</p>
@@ -797,7 +826,7 @@ export default function Accounts() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Products Purchased</p>
-                    <p className="text-xl font-bold" data-testid="vendor-products-purchased">{vendorInvoiceCount > 0 ? 'View Invoices' : '0'}</p>
+                    <p className="text-xl font-bold" data-testid="vendor-products-purchased">{totalQtyPurchased}</p>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Spent</p>
