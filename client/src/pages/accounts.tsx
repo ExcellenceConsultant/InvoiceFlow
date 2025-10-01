@@ -82,14 +82,15 @@ export default function Accounts() {
   const vendorLineItems = (allLineItems || []).filter((item: any) => vendorInvoiceIds.includes(item.invoiceId));
   const totalQtyPurchased = vendorLineItems.reduce((sum: number, item: any) => sum + parseInt(item.quantity || 0), 0);
 
-  // Helper function to get open balance count for a customer/vendor
-  const getOpenBalanceCount = (customerId: string, type: "customer" | "vendor") => {
+  // Helper function to get open balance total value for a customer/vendor
+  const getOpenBalanceValue = (customerId: string, type: "customer" | "vendor") => {
     const relevantInvoices = (invoices || []).filter((inv: any) => 
       inv.customerId === customerId && 
       inv.invoiceType === (type === "customer" ? "receivable" : "payable") &&
       inv.status !== "paid"
     );
-    return relevantInvoices.length;
+    const totalValue = relevantInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
+    return totalValue;
   };
 
   // Export handler
@@ -497,7 +498,7 @@ export default function Accounts() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-customer-${customer.id}`}>
-                            {getOpenBalanceCount(customer.id, "customer")}
+                            ${getOpenBalanceValue(customer.id, "customer").toFixed(2)}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
@@ -728,7 +729,7 @@ export default function Accounts() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-vendor-${vendor.id}`}>
-                            {getOpenBalanceCount(vendor.id, "vendor")}
+                            ${getOpenBalanceValue(vendor.id, "vendor").toFixed(2)}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
