@@ -30,6 +30,8 @@ export default function Invoices() {
       if (!response.ok) throw new Error("Failed to fetch invoices");
       return response.json();
     },
+    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   const { data: customers } = useQuery({

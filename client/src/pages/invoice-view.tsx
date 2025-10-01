@@ -140,63 +140,93 @@ function InvoiceView() {
     const style = document.createElement("style");
     style.id = "invoice-print-styles";
     style.textContent = `
-     @media print {
-        /* more top & bottom margin to fit letterhead header/footer */
-        @page { size: A4; margin: 35mm 15mm 30mm 15mm; }
-        .invoice-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
-        .page-break { page-break-after: always; }
-        .print-hide { display: none !important; }
-        
-        /* Only remove table borders while preserving other formatting */
-        table.invoice-table, table.invoice-table th, table.invoice-table td { 
-          border: 0 !important; 
-        }
-        table.invoice-table { 
-          border-collapse: separate !important; 
-          border-spacing: 0 !important; 
-        }
-        table.invoice-table thead th {
-          page-break-after: avoid;
-        }
-        table.invoice-table tbody tr { 
-          page-break-inside: avoid; 
-        }
-      }
-      .invoice-page {
-        width: 210mm;
-        min-height: 297mm;
-        margin: 10px auto;
-        /* padding adjusted to match header/footer blank area */
-        padding: 35mm 16mm 30mm 16mm;
-        background: white;
-        box-sizing: border-box;
-        font-family: Calibri, sans-serif;
-        box-shadow: none; /* removes the outer border/shadow */
-        border: none;     /* removes any border */
-      }
-      .small-label { font-size: 12px; color: #374151; }
+    @media print {
+  @page { size: A4; margin: 30mm 15mm 25mm 15mm; } /* header/footer blank */
+  .invoice-page { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; min-height: auto; background: white; }
+  .page-break { page-break-after: always; }
+  .print-hide { display: none !important; }
+  table.invoice-table thead { display: table-header-group; }
+  table.invoice-table tbody tr { page-break-inside: avoid; }
+}
+
+.invoice-page {
+  
+  margin: 0;
+  padding: 30mm 15mm 25mm 15mm;
+  width: 100%;
+  min-height: auto;
+  background: white;
+  box-sizing: border-box;
+  font-family: Calibri, sans-serif;
+}
+
+/* ============================
+   Invoice Line Item Table
+   ============================ */
+table.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: Calibri, sans-serif;
+  border: 1px solid #000; /* outer border */
+}
+
+table.invoice-table th {
+  background: #000;       /* black background */
+  color: #fff;            /* white text */
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid #000; /* header bottom border */
+}
+
+table.invoice-table td {
+  padding: 6px 8px;
+  vertical-align: top;
+  border-top: 1px solid #000;   /* add top border */
+  border-bottom: 1px solid #000; /* keep bottom border */
+}
+
+/* Category rows – full width with top+bottom border */
+table.invoice-table tr.category-row td {
+  font-weight: 600;
+  text-align: center;
+  background: #f3f4f6;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+}
+
+/* Remove vertical inner borders */
+table.invoice-table th,
+table.invoice-table td {
+  border-left: none;
+  border-right: none;
+}
+
+/* ============================
+   Summary / Signature Tables
+   ============================ */
+.summary-table td {
+  border: 1px solid #000 !important;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-family: Calibri, sans-serif;
+}
+
+.small-label { font-size: 12px; color: #374151; }
       table.invoice-table {
         width: 100%;
         border-collapse: collapse;
         font-size: 13px;
         font-family: Calibri, sans-serif;
       }
-      table.invoice-table th, table.invoice-table td {
-        padding: 6px 8px;
-        vertical-align: top;
-        border: 0;
-      }
+      
       table.invoice-table thead th {
         background: #f3f4f6;
         font-weight: 600;
       }
       
-      /* Add borders only for screen view */
-      @media screen {
-        table.invoice-table th, table.invoice-table td {
-          border: 1px solid #d1d5db;
-        }
-      }
+     
       .totals { width: 320px; float: right; margin-top: 12px; }
       .terms { font-size: 11px; color: #6b7280; margin-top: 12px; }
     `;
@@ -255,9 +285,8 @@ function InvoiceView() {
   const grossWeightLbs = grossWeightKgs * 2.20462;
 
   // 14 rows first page, continuous SR numbers
-  const firstPageRows = 14;
-  const otherPageRows = 15;
-
+  const firstPageRows = 8;
+  const otherPageRows = 8;
   let pages: { rows: any[]; blanks: any[]; startIndex: number }[] = [];
   let start = 0;
 
@@ -408,7 +437,14 @@ function InvoiceView() {
           </div>
 
           {/* Table */}
-          <table className="invoice-table">
+          <table
+            className="invoice-table"
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              marginTop: "0",
+            }}
+          >
             <thead>
               <tr>
                 <th style={{ width: "5%" }}>Sr. No</th>
