@@ -16,6 +16,7 @@ export default function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -216,6 +217,20 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       event.stopPropagation();
     }
     markAsPaidMutation.mutate(invoiceId);
+  };
+
+  const handleEditInvoice = (invoice: any, event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    setEditingInvoice(invoice);
+    setShowInvoiceForm(true);
+  };
+
+  const handleCloseInvoiceForm = () => {
+    setShowInvoiceForm(false);
+    setEditingInvoice(null);
   };
 
   const handleSyncToQuickBooks = (invoiceId: string, event?: React.MouseEvent) => {
@@ -421,6 +436,15 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleEditInvoice(invoice, e);
+                            }}
                             data-testid={`button-edit-invoice-${invoice.id}`}
                           >
                             <Edit size={14} />
@@ -514,8 +538,9 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       {/* Invoice Form Modal */}
       {showInvoiceForm && (
         <InvoiceForm 
-          onClose={() => setShowInvoiceForm(false)} 
-          onSuccess={() => setShowInvoiceForm(false)}
+          invoice={editingInvoice}
+          onClose={handleCloseInvoiceForm} 
+          onSuccess={handleCloseInvoiceForm}
         />
       )}
     </div>

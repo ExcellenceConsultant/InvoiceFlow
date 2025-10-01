@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -45,11 +45,13 @@ const lineItemSchema = z.object({
 });
 
 interface Props {
+  invoice?: any;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function InvoiceForm({ onClose, onSuccess }: Props) {
+export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
+  const isEditMode = !!invoice;
   const [lineItems, setLineItems] = useState([
     {
       productId: "",
@@ -75,7 +77,13 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
 
   const form = useForm<z.infer<typeof invoiceSchema>>({
     resolver: zodResolver(invoiceSchema),
-    defaultValues: {
+    defaultValues: isEditMode ? {
+      customerId: invoice.customerId || "",
+      invoiceNumber: invoice.invoiceNumber || "",
+      invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      paymentTerms: 30,
+      invoiceType: invoice.invoiceType || "receivable",
+    } : {
       customerId: "",
       invoiceNumber: `INV-${Date.now()}`,
       invoiceDate: new Date().toISOString().split("T")[0],
@@ -117,6 +125,40 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
     },
   });
 
+  const { data: existingLineItems } = useQuery({
+    queryKey: ["/api/invoices", invoice?.id, "line-items"],
+    queryFn: async () => {
+      if (!invoice?.id) return [];
+      const response = await fetch(`/api/invoices/${invoice.id}/line-items`);
+      if (!response.ok) throw new Error("Failed to fetch line items");
+      return response.json();
+    },
+    enabled: isEditMode && !!invoice?.id,
+  });
+
+  // Load existing line items when editing
+  useEffect(() => {
+    if (isEditMode && existingLineItems && existingLineItems.length > 0) {
+      const formattedItems = existingLineItems.map((item: any) => ({
+        id: item.id,
+        productId: item.productId || "",
+        variantId: item.variantId || "",
+        description: item.description || "",
+        quantity: item.quantity || 1,
+        unitPrice: parseFloat(item.unitPrice) || 0,
+        lineTotal: parseFloat(item.lineTotal) || 0,
+        productCode: item.productCode || "",
+        packingSize: item.packingSize || "",
+        grossWeightKgs: parseFloat(item.grossWeightKgs) || 0,
+        netWeightKgs: parseFloat(item.netWeightKgs) || 0,
+        category: item.category || "",
+        isFreeFromScheme: item.isFreeFromScheme || false,
+        schemeId: item.schemeId || "",
+      }));
+      setLineItems(formattedItems);
+    }
+  }, [isEditMode, existingLineItems]);
+
   const createInvoiceMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Submitting invoice data:", data);
@@ -142,6 +184,36 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       toast({
         title: "Error",
         description: "Failed to create invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateInvoiceMutation = useMutation({
+    mutationFn: async (data: any) => {
+      console.log("Updating invoice data:", data);
+      const response = await apiRequest("PUT", `/api/invoices/${invoice.id}`, data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Invoice update failed:", errorData);
+        throw new Error(errorData.message || "Failed to update invoice");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Success",
+        description: "Invoice updated successfully",
+      });
+      onSuccess();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update invoice",
         variant: "destructive",
       });
     },
@@ -333,7 +405,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
         ...data,
         subtotal: subtotal.toString(),
         total: total.toString(),
-        status: "draft",
+        status: isEditMode ? invoice.status : "draft",
         invoiceType: data.invoiceType,
         invoiceDate: data.invoiceDate,
         dueDate: dueDateString,
@@ -342,7 +414,11 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
       lineItems: allLineItems,
     };
 
-    createInvoiceMutation.mutate(invoiceData);
+    if (isEditMode) {
+      updateInvoiceMutation.mutate(invoiceData);
+    } else {
+      createInvoiceMutation.mutate(invoiceData);
+    }
   };
 
   return (
@@ -358,7 +434,7 @@ export default function InvoiceForm({ onClose, onSuccess }: Props) {
               data-testid="invoice-form-title"
             >
               <NotebookPen className="mr-2 text-primary" size={20} />
-              Create New{" "}
+              {isEditMode ? "Edit" : "Create New"}{" "}
               {form.watch("invoiceType") === "payable"
                 ? "AP Bill"
                 : "AR Invoice"}

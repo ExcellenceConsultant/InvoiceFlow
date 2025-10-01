@@ -597,6 +597,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/invoices/:id", async (req, res) => {
+    try {
+      console.log("Updating invoice with data:", JSON.stringify(req.body, null, 2));
+      const { invoice: invoiceData, lineItems } = req.body;
+      const invoiceId = req.params.id;
+      
+      if (!invoiceData || !lineItems) {
+        console.error("Missing invoice or lineItems in request body");
+        return res.status(400).json({ message: "Invoice and line items are required" });
+      }
+
+      // Get existing invoice to check if it exists
+      const existingInvoice = await storage.getInvoice(invoiceId);
+      if (!existingInvoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Update invoice
+      const updatedInvoice = await storage.updateInvoice(invoiceId, {
+        customerId: invoiceData.customerId,
+        invoiceNumber: invoiceData.invoiceNumber,
+        invoiceDate: new Date(invoiceData.invoiceDate),
+        dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
+        subtotal: invoiceData.subtotal,
+        total: invoiceData.total,
+        status: invoiceData.status,
+        invoiceType: invoiceData.invoiceType,
+        updatedAt: new Date(),
+      });
+
+      // Delete existing line items and create new ones
+      await storage.deleteInvoiceLineItemsByInvoiceId(invoiceId);
+      
+      const createdLineItems = [];
+      for (const item of lineItems) {
+        if (!item.productId || item.productId.trim() === '') {
+          console.log('Skipping line item with empty productId:', item);
+          continue;
+        }
+
+        const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
+          ...item,
+          invoiceId: invoiceId,
+        });
+        
+        if (lineItemValidation.success) {
+          const lineItem = await storage.createLineItem(lineItemValidation.data);
+          createdLineItems.push(lineItem);
+        } else {
+          console.error("Line item validation failed:", lineItemValidation.error.errors, "for item:", item);
+        }
+      }
+
+      res.json({ invoice: updatedInvoice, lineItems: createdLineItems });
+    } catch (error) {
+      console.error("Invoice update error:", error);
+      const err = error as any;
+      res.status(500).json({ message: "Failed to update invoice", error: err.message });
+    }
+  });
+
   app.post("/api/customers/:id/sync-quickbooks", async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
