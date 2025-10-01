@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload } from "lucide-react";
+import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, X } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ export default function Inventory() {
   const [stockFilter, setStockFilter] = useState("all");
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -355,6 +356,61 @@ export default function Inventory() {
     }
   };
 
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const promises = ids.map(id => 
+        apiRequest("DELETE", `/api/products/${id}`, {})
+      );
+      const results = await Promise.allSettled(promises);
+      const failed = results.filter(r => r.status === "rejected").length;
+      if (failed > 0) {
+        throw new Error(`Failed to delete ${failed} product(s)`);
+      }
+      return results;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      setSelectedProducts([]);
+      toast({
+        title: "Success",
+        description: `${ids.length} product(s) deleted successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete some products",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Selection handlers
+  const handleSelectProduct = (productId: string) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const handleSelectAllProducts = () => {
+    if (selectedProducts.length === filteredProducts.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(filteredProducts.map((p: any) => p.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedProducts.length === 0) return;
+    const confirmMessage = `Are you sure you want to delete ${selectedProducts.length} product(s)? This action cannot be undone.`;
+    if (confirm(confirmMessage)) {
+      bulkDeleteMutation.mutate(selectedProducts);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -530,10 +586,39 @@ export default function Inventory() {
       {/* Inventory Table */}
       <Card data-testid="inventory-table-card">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Package className="mr-2 text-chart-3" size={20} />
-            Inventory Items ({filteredProducts.length})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              <Package className="mr-2 text-chart-3" size={20} />
+              Inventory Items ({filteredProducts.length})
+            </CardTitle>
+            {selectedProducts.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                  {selectedProducts.length} selected
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setSelectedProducts([])}
+                  data-testid="button-clear-product-selection"
+                  title="Clear selection"
+                >
+                  <X size={14} />
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleteMutation.isPending}
+                  data-testid="button-bulk-delete-products"
+                >
+                  <Trash2 className="mr-2" size={14} />
+                  Delete Selected
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -547,6 +632,15 @@ export default function Inventory() {
               <table className="w-full" data-testid="inventory-table">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
+                      <input 
+                        type="checkbox"
+                        checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length}
+                        onChange={handleSelectAllProducts}
+                        className="w-4 h-4 cursor-pointer"
+                        data-testid="checkbox-select-all-products"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
@@ -567,6 +661,16 @@ export default function Inventory() {
                         className="border-b border-border hover:bg-muted/20 transition-colors"
                         data-testid={`inventory-row-${product.id}`}
                       >
+                        <td className="py-3 px-4">
+                          <input 
+                            type="checkbox"
+                            checked={selectedProducts.includes(product.id)}
+                            onChange={() => handleSelectProduct(product.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 cursor-pointer"
+                            data-testid={`checkbox-product-${product.id}`}
+                          />
+                        </td>
                         <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-name-${product.id}`}>
                           <div className="font-medium">{product.name}</div>
                           {product.description && (

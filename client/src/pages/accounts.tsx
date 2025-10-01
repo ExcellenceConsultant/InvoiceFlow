@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, User, Building, Users, FileText, Package, Download, Upload, Edit, Trash2, Power } from "lucide-react";
+import { Plus, User, Building, Users, FileText, Package, Download, Upload, Edit, Trash2, Power, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +12,8 @@ export default function Accounts() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -183,6 +185,87 @@ export default function Accounts() {
     setEditingCustomer(null);
   };
 
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const promises = ids.map(id => 
+        fetch(`/api/customers/${id}`, { method: "DELETE" })
+      );
+      const results = await Promise.allSettled(promises);
+      const failed = results.filter(r => r.status === "rejected").length;
+      if (failed > 0) {
+        throw new Error(`Failed to delete ${failed} account(s)`);
+      }
+      return results;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      setSelectedCustomers([]);
+      setSelectedVendors([]);
+      toast({
+        title: "Success",
+        description: `${ids.length} account(s) deleted successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete some accounts",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Customer selection handlers
+  const handleSelectCustomer = (customerId: string) => {
+    setSelectedCustomers(prev => 
+      prev.includes(customerId) 
+        ? prev.filter(id => id !== customerId)
+        : [...prev, customerId]
+    );
+  };
+
+  const handleSelectAllCustomers = () => {
+    if (selectedCustomers.length === customerList.length) {
+      setSelectedCustomers([]);
+    } else {
+      setSelectedCustomers(customerList.map((c: any) => c.id));
+    }
+  };
+
+  const handleBulkDeleteCustomers = () => {
+    if (selectedCustomers.length === 0) return;
+    const confirmMessage = `Are you sure you want to delete ${selectedCustomers.length} customer(s)? This action cannot be undone.`;
+    if (confirm(confirmMessage)) {
+      bulkDeleteMutation.mutate(selectedCustomers);
+    }
+  };
+
+  // Vendor selection handlers
+  const handleSelectVendor = (vendorId: string) => {
+    setSelectedVendors(prev => 
+      prev.includes(vendorId) 
+        ? prev.filter(id => id !== vendorId)
+        : [...prev, vendorId]
+    );
+  };
+
+  const handleSelectAllVendors = () => {
+    if (selectedVendors.length === vendorList.length) {
+      setSelectedVendors([]);
+    } else {
+      setSelectedVendors(vendorList.map((v: any) => v.id));
+    }
+  };
+
+  const handleBulkDeleteVendors = () => {
+    if (selectedVendors.length === 0) return;
+    const confirmMessage = `Are you sure you want to delete ${selectedVendors.length} vendor(s)? This action cannot be undone.`;
+    if (confirm(confirmMessage)) {
+      bulkDeleteMutation.mutate(selectedVendors);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -255,10 +338,39 @@ export default function Accounts() {
         <TabsContent value="customers" className="space-y-6">
           <Card data-testid="customers-card">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="mr-2 text-primary" size={20} />
-                Customers ({customerList.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center">
+                  <Users className="mr-2 text-primary" size={20} />
+                  Customers ({customerList.length})
+                </CardTitle>
+                {selectedCustomers.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                      {selectedCustomers.length} selected
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setSelectedCustomers([])}
+                      data-testid="button-clear-customer-selection"
+                      title="Clear selection"
+                    >
+                      <X size={14} />
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleBulkDeleteCustomers}
+                      disabled={bulkDeleteMutation.isPending}
+                      data-testid="button-bulk-delete-customers"
+                    >
+                      <Trash2 className="mr-2" size={14} />
+                      Delete Selected
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {customersLoading ? (
@@ -272,6 +384,15 @@ export default function Accounts() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
+                          <input 
+                            type="checkbox"
+                            checked={customerList.length > 0 && selectedCustomers.length === customerList.length}
+                            onChange={handleSelectAllCustomers}
+                            className="w-4 h-4 cursor-pointer"
+                            data-testid="checkbox-select-all-customers"
+                          />
+                        </th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
@@ -286,6 +407,16 @@ export default function Accounts() {
                           className="border-b border-border hover:bg-muted/20 transition-colors"
                           data-testid={`customer-row-${customer.id}`}
                         >
+                          <td className="py-3 px-4">
+                            <input 
+                              type="checkbox"
+                              checked={selectedCustomers.includes(customer.id)}
+                              onChange={() => handleSelectCustomer(customer.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 cursor-pointer"
+                              data-testid={`checkbox-customer-${customer.id}`}
+                            />
+                          </td>
                           <td className="py-3 px-4 text-sm font-medium text-foreground">
                             {customer.name}
                           </td>
@@ -413,10 +544,39 @@ export default function Accounts() {
         <TabsContent value="vendors" className="space-y-6">
           <Card data-testid="vendors-card">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Building className="mr-2 text-primary" size={20} />
-                Vendors ({vendorList.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center">
+                  <Building className="mr-2 text-primary" size={20} />
+                  Vendors ({vendorList.length})
+                </CardTitle>
+                {selectedVendors.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                      {selectedVendors.length} selected
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setSelectedVendors([])}
+                      data-testid="button-clear-vendor-selection"
+                      title="Clear selection"
+                    >
+                      <X size={14} />
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleBulkDeleteVendors}
+                      disabled={bulkDeleteMutation.isPending}
+                      data-testid="button-bulk-delete-vendors"
+                    >
+                      <Trash2 className="mr-2" size={14} />
+                      Delete Selected
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {customersLoading ? (
@@ -430,6 +590,15 @@ export default function Accounts() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
+                          <input 
+                            type="checkbox"
+                            checked={vendorList.length > 0 && selectedVendors.length === vendorList.length}
+                            onChange={handleSelectAllVendors}
+                            className="w-4 h-4 cursor-pointer"
+                            data-testid="checkbox-select-all-vendors"
+                          />
+                        </th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
@@ -444,6 +613,16 @@ export default function Accounts() {
                           className="border-b border-border hover:bg-muted/20 transition-colors"
                           data-testid={`vendor-row-${vendor.id}`}
                         >
+                          <td className="py-3 px-4">
+                            <input 
+                              type="checkbox"
+                              checked={selectedVendors.includes(vendor.id)}
+                              onChange={() => handleSelectVendor(vendor.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 cursor-pointer"
+                              data-testid={`checkbox-vendor-${vendor.id}`}
+                            />
+                          </td>
                           <td className="py-3 px-4 text-sm font-medium text-foreground">
                             {vendor.name}
                           </td>
