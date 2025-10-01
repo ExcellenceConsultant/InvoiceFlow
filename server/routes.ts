@@ -463,6 +463,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid invoice data", errors: invoiceValidation.error.errors });
       }
 
+      // Check inventory for AR invoices before creating
+      if (invoice.invoiceType === 'receivable') {
+        const outOfStockProducts = [];
+        
+        for (const item of lineItems) {
+          if (item.productId && item.productId.trim() !== '') {
+            try {
+              const product = await storage.getProduct(item.productId);
+              if (product && product.qty === 0) {
+                outOfStockProducts.push(product.name);
+              }
+            } catch (error) {
+              console.error(`Failed to check inventory for product ${item.productId}:`, error);
+            }
+          }
+        }
+        
+        if (outOfStockProducts.length > 0) {
+          return res.status(400).json({ 
+            message: "Product are out of stock",
+            outOfStockProducts: outOfStockProducts
+          });
+        }
+      }
+
       // Create invoice
       const createdInvoice = await storage.createInvoice(invoiceValidation.data);
       
