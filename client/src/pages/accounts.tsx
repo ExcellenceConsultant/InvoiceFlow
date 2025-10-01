@@ -1,15 +1,19 @@
-import { useState } from "react";
-import { Plus, User, Building, Users, FileText, Package } from "lucide-react";
+import { useState, useRef } from "react";
+import { Plus, User, Building, Users, FileText, Package, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import CustomerVendorForm from "@/components/customer-vendor-form";
 
 export default function Accounts() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: customers, isLoading: customersLoading } = useQuery({
     queryKey: ["/api/customers"],
@@ -24,6 +28,85 @@ export default function Accounts() {
   const customerList = customers?.filter((c: any) => c.type === "customer") || [];
   const vendorList = customers?.filter((c: any) => c.type === "vendor") || [];
 
+  // Export handler
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`/api/customers/export?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error("Export failed");
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "accounts.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Success",
+        description: "Accounts exported successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to export accounts",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Import mutation
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", DEFAULT_USER_ID);
+      
+      const response = await fetch("/api/customers/import", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Import failed");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Import Complete",
+        description: data.message,
+      });
+      if (data.errors && data.errors.length > 0) {
+        console.log("Import errors:", data.errors);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import accounts",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Import handler
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      importMutation.mutate(file);
+    }
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -35,6 +118,31 @@ export default function Accounts() {
           </div>
           
           <div className="flex items-center space-x-3 mt-4 lg:mt-0">
+            <Button 
+              variant="secondary" 
+              onClick={handleExport}
+              data-testid="button-export-accounts"
+            >
+              <Download className="mr-2" size={16} />
+              Export
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importMutation.isPending}
+              data-testid="button-import-accounts"
+            >
+              <Upload className="mr-2" size={16} />
+              {importMutation.isPending ? "Importing..." : "Import"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleImport}
+              style={{ display: "none" }}
+              data-testid="input-import-file"
+            />
             <Button 
               variant="outline" 
               onClick={() => setShowCustomerForm(true)} 
