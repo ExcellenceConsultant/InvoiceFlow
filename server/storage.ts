@@ -16,6 +16,7 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer & { userId: string }): Promise<Customer>;
   updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined>;
+  deleteCustomer(id: string): Promise<boolean>;
 
   // Products
   getProducts(userId: string): Promise<Product[]>;
@@ -164,6 +165,10 @@ export class MemStorage implements IStorage {
     const updatedCustomer = { ...customer, ...updates };
     this.customers.set(id, updatedCustomer);
     return updatedCustomer;
+  }
+
+  async deleteCustomer(id: string): Promise<boolean> {
+    return this.customers.delete(id);
   }
 
   // Products

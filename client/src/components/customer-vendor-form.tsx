@@ -31,24 +31,26 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   type: "customer" | "vendor";
+  customer?: any;
 }
 
-export default function CustomerVendorForm({ onClose, onSuccess, type }: Props) {
+export default function CustomerVendorForm({ onClose, onSuccess, type, customer }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isEditing = !!customer;
 
   const form = useForm<z.infer<typeof customerVendorSchema>>({
     resolver: zodResolver(customerVendorSchema),
     defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
+      name: customer?.name || "",
+      email: customer?.email || "",
+      phone: customer?.phone || "",
       address: {
-        street: "",
-        city: "",
-        state: "",
-        zipCode: "",
-        country: "USA",
+        street: customer?.address?.street || "",
+        city: customer?.address?.city || "",
+        state: customer?.address?.state || "",
+        zipCode: customer?.address?.zipCode || "",
+        country: customer?.address?.country || "USA",
       },
     },
   });
@@ -78,6 +80,33 @@ export default function CustomerVendorForm({ onClose, onSuccess, type }: Props) 
     },
   });
 
+  const updateCustomerMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch(`/api/customers/${customer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Update failed");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Success",
+        description: `${type === "customer" ? "Customer" : "Vendor"} updated successfully`,
+      });
+      onSuccess();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: `Failed to update ${type}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: z.infer<typeof customerVendorSchema>) => {
     // Clean up empty address fields
     const cleanedData = {
@@ -89,7 +118,11 @@ export default function CustomerVendorForm({ onClose, onSuccess, type }: Props) 
         : undefined,
     };
 
-    createCustomerMutation.mutate(cleanedData);
+    if (isEditing) {
+      updateCustomerMutation.mutate(cleanedData);
+    } else {
+      createCustomerMutation.mutate(cleanedData);
+    }
   };
 
   return (
@@ -99,7 +132,7 @@ export default function CustomerVendorForm({ onClose, onSuccess, type }: Props) 
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center" data-testid={`${type}-form-title`}>
               {type === "customer" ? <User className="mr-2 text-primary" size={20} /> : <Building className="mr-2 text-primary" size={20} />}
-              Create New {type === "customer" ? "Customer" : "Vendor"}
+              {isEditing ? "Edit" : "Create New"} {type === "customer" ? "Customer" : "Vendor"}
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={onClose} data-testid={`button-close-${type}-form`}>
               <X size={20} />
@@ -251,11 +284,15 @@ export default function CustomerVendorForm({ onClose, onSuccess, type }: Props) 
                 <Button 
                   type="submit" 
                   className="flex-1"
-                  disabled={createCustomerMutation.isPending}
+                  disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
                   data-testid={`button-save-${type}`}
                 >
                   <Save className="mr-2" size={16} />
-                  {createCustomerMutation.isPending ? "Saving..." : `Create ${type === "customer" ? "Customer" : "Vendor"}`}
+                  {(createCustomerMutation.isPending || updateCustomerMutation.isPending) 
+                    ? "Saving..." 
+                    : isEditing 
+                      ? `Update ${type === "customer" ? "Customer" : "Vendor"}` 
+                      : `Create ${type === "customer" ? "Customer" : "Vendor"}`}
                 </Button>
                 <Button 
                   type="button" 

@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, User, Building, Users, FileText, Package, Download, Upload } from "lucide-react";
+import { Plus, User, Building, Users, FileText, Package, Download, Upload, Edit, Trash2, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,7 @@ import CustomerVendorForm from "@/components/customer-vendor-form";
 export default function Accounts() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -109,6 +110,80 @@ export default function Accounts() {
     }
   };
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/customers/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Delete failed");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Success",
+        description: "Account deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle active mutation
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const response = await fetch(`/api/customers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !isActive }),
+      });
+      if (!response.ok) throw new Error("Update failed");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Success",
+        description: "Account status updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update account status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handlers
+  const handleEdit = (customer: any) => {
+    setEditingCustomer(customer);
+    setShowCustomerForm(true);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleToggleActive = (id: string, isActive: boolean) => {
+    toggleActiveMutation.mutate({ id, isActive });
+  };
+
+  const handleCloseForm = () => {
+    setShowCustomerForm(false);
+    setShowVendorForm(false);
+    setEditingCustomer(null);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -202,6 +277,7 @@ export default function Accounts() {
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -221,9 +297,51 @@ export default function Accounts() {
                             {customer.phone || "N/A"}
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                              Active
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              customer.isActive !== false 
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" 
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
+                            }`}>
+                              {customer.isActive !== false ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleEdit(customer)}
+                                data-testid={`button-edit-customer-${customer.id}`}
+                                title="Edit"
+                              >
+                                <Edit size={14} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className={`h-8 w-8 p-0 ${
+                                  customer.isActive !== false ? "text-orange-600" : "text-green-600"
+                                }`}
+                                onClick={() => handleToggleActive(customer.id, customer.isActive !== false)}
+                                disabled={toggleActiveMutation.isPending}
+                                data-testid={`button-toggle-active-customer-${customer.id}`}
+                                title={customer.isActive !== false ? "Mark as Inactive" : "Mark as Active"}
+                              >
+                                <Power size={14} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(customer.id, customer.name)}
+                                disabled={deleteMutation.isPending}
+                                data-testid={`button-delete-customer-${customer.id}`}
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -317,6 +435,7 @@ export default function Accounts() {
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -336,9 +455,51 @@ export default function Accounts() {
                             {vendor.phone || "N/A"}
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
-                              Active
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              vendor.isActive !== false 
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" 
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
+                            }`}>
+                              {vendor.isActive !== false ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleEdit(vendor)}
+                                data-testid={`button-edit-vendor-${vendor.id}`}
+                                title="Edit"
+                              >
+                                <Edit size={14} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className={`h-8 w-8 p-0 ${
+                                  vendor.isActive !== false ? "text-orange-600" : "text-green-600"
+                                }`}
+                                onClick={() => handleToggleActive(vendor.id, vendor.isActive !== false)}
+                                disabled={toggleActiveMutation.isPending}
+                                data-testid={`button-toggle-active-vendor-${vendor.id}`}
+                                title={vendor.isActive !== false ? "Mark as Inactive" : "Mark as Active"}
+                              >
+                                <Power size={14} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(vendor.id, vendor.name)}
+                                disabled={deleteMutation.isPending}
+                                data-testid={`button-delete-vendor-${vendor.id}`}
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -412,8 +573,9 @@ export default function Accounts() {
       {showCustomerForm && (
         <CustomerVendorForm 
           type="customer"
-          onClose={() => setShowCustomerForm(false)} 
-          onSuccess={() => setShowCustomerForm(false)}
+          customer={editingCustomer}
+          onClose={handleCloseForm} 
+          onSuccess={handleCloseForm}
         />
       )}
 
@@ -421,8 +583,9 @@ export default function Accounts() {
       {showVendorForm && (
         <CustomerVendorForm 
           type="vendor"
-          onClose={() => setShowVendorForm(false)} 
-          onSuccess={() => setShowVendorForm(false)}
+          customer={editingCustomer}
+          onClose={handleCloseForm} 
+          onSuccess={handleCloseForm}
         />
       )}
     </div>
