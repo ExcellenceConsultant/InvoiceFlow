@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload } from "lucide-react";
+import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -145,9 +145,59 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     },
   });
 
+  const markAsPaidMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await apiRequest("PATCH", `/api/invoices/${invoiceId}/status`, { status: "paid" });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to mark invoice as paid");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Success",
+        description: "Invoice marked as paid",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark invoice as paid",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const getDisplayStatus = (invoice: any) => {
+    // If already paid, return paid
+    if (invoice.status === "paid") {
+      return "paid";
+    }
+    
+    // Calculate if invoice is overdue (30-day payment term)
+    const invoiceDate = new Date(invoice.invoiceDate);
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + 30); // Add 30 days for payment term
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    dueDate.setHours(0, 0, 0, 0);
+    
+    // If past due date, show overdue
+    if (today > dueDate) {
+      return "overdue";
+    }
+    
+    // Otherwise return the actual status
+    return invoice.status;
+  };
+
   const filteredInvoices = invoices?.filter((invoice: any) => {
     const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
+    const displayStatus = getDisplayStatus(invoice);
+    const matchesStatus = statusFilter === "all" || displayStatus === statusFilter;
     return matchesSearch && matchesStatus;
   }) || [];
 
@@ -158,6 +208,14 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const handleMarkAsPaid = (invoiceId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    markAsPaidMutation.mutate(invoiceId);
   };
 
   const handleSyncToQuickBooks = (invoiceId: string, event?: React.MouseEvent) => {
@@ -331,10 +389,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                       </td>
                       <td className="py-3 px-4">
                         <Badge 
-                          className={INVOICE_STATUS_COLORS[invoice.status as keyof typeof INVOICE_STATUS_COLORS]}
+                          className={INVOICE_STATUS_COLORS[getDisplayStatus(invoice) as keyof typeof INVOICE_STATUS_COLORS]}
                           data-testid={`invoice-status-${invoice.id}`}
                         >
-                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          {getDisplayStatus(invoice).charAt(0).toUpperCase() + getDisplayStatus(invoice).slice(1)}
                         </Badge>
                       </td>
                       <td className="py-3 px-4">
@@ -367,6 +425,27 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                           >
                             <Edit size={14} />
                           </Button>
+                          {invoice.status !== "paid" && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleMarkAsPaid(invoice.id, e);
+                              }}
+                              disabled={markAsPaidMutation.isPending}
+                              data-testid={`button-mark-paid-${invoice.id}`}
+                              title="Mark as Paid"
+                            >
+                              <Check size={14} />
+                            </Button>
+                          )}
                           {!invoice.quickbooksInvoiceId && (
                             <Button 
                               variant="ghost" 

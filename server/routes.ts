@@ -580,6 +580,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/invoices/:id/status", async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      const success = await storage.updateInvoiceStatus(req.params.id, status);
+      if (!success) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to update invoice status", error: error.message });
+    }
+  });
+
   app.post("/api/customers/:id/sync-quickbooks", async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
