@@ -28,9 +28,30 @@ export default function Accounts() {
     refetchOnMount: "always",
   });
 
+  const { data: invoices } = useQuery({
+    queryKey: ["/api/invoices"],
+    queryFn: async () => {
+      const response = await fetch(`/api/invoices?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error("Failed to fetch invoices");
+      return response.json();
+    },
+  });
+
   // Filter customers and vendors by type
   const customerList = (customers || []).filter((c: any) => c.type === "customer");
   const vendorList = (customers || []).filter((c: any) => c.type === "vendor");
+
+  // Calculate customer stats
+  const customerInvoices = (invoices || []).filter((inv: any) => inv.invoiceType === "receivable");
+  const customerInvoiceCount = customerInvoices.length;
+  const customerInvoiceValue = customerInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
+  const activeCustomers = customerList.filter((c: any) => c.isActive !== false).length;
+
+  // Calculate vendor stats
+  const vendorInvoices = (invoices || []).filter((inv: any) => inv.invoiceType === "payable");
+  const vendorInvoiceCount = vendorInvoices.length;
+  const vendorInvoiceValue = vendorInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
+  const activeVendors = vendorList.filter((v: any) => v.isActive !== false).length;
 
   // Export handler
   const handleExport = async () => {
@@ -494,9 +515,9 @@ export default function Accounts() {
             </CardContent>
           </Card>
 
-          {/* Placeholder Sections for Customers */}
+          {/* Live Data Sections for Customers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card data-testid="customer-dashboard-placeholder">
+            <Card data-testid="customer-dashboard-card">
               <CardHeader>
                 <CardTitle className="flex items-center text-base">
                   <Users className="mr-2 text-primary" size={18} />
@@ -504,13 +525,20 @@ export default function Accounts() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Customer analytics and insights will appear here.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total Customers</p>
+                    <p className="text-xl font-bold" data-testid="total-customers">{customerList.length}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Active Customers</p>
+                    <p className="text-lg font-semibold text-accent" data-testid="active-customers">{activeCustomers}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="customer-invoices-placeholder">
+            <Card data-testid="customer-invoices-card">
               <CardHeader>
                 <CardTitle className="flex items-center text-base">
                   <FileText className="mr-2 text-primary" size={18} />
@@ -518,13 +546,20 @@ export default function Accounts() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Customer invoice history will appear here.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total AR Invoices</p>
+                    <p className="text-xl font-bold" data-testid="customer-invoice-count">{customerInvoiceCount}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total Value</p>
+                    <p className="text-lg font-semibold text-chart-1" data-testid="customer-invoice-value">${customerInvoiceValue.toFixed(2)}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="customer-inventory-placeholder">
+            <Card data-testid="customer-inventory-card">
               <CardHeader>
                 <CardTitle className="flex items-center text-base">
                   <Package className="mr-2 text-primary" size={18} />
@@ -532,9 +567,16 @@ export default function Accounts() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Customer-specific inventory data will appear here.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Products Sold</p>
+                    <p className="text-xl font-bold" data-testid="customer-products-sold">{customerInvoiceCount > 0 ? 'View Invoices' : '0'}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Revenue Generated</p>
+                    <p className="text-lg font-semibold text-chart-3" data-testid="customer-revenue">${customerInvoiceValue.toFixed(2)}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -700,9 +742,9 @@ export default function Accounts() {
             </CardContent>
           </Card>
 
-          {/* Placeholder Sections for Vendors */}
+          {/* Live Data Sections for Vendors */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card data-testid="vendor-dashboard-placeholder">
+            <Card data-testid="vendor-dashboard-card">
               <CardHeader>
                 <CardTitle className="flex items-center text-base">
                   <Building className="mr-2 text-primary" size={18} />
@@ -710,13 +752,20 @@ export default function Accounts() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Vendor analytics and insights will appear here.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total Vendors</p>
+                    <p className="text-xl font-bold" data-testid="total-vendors">{vendorList.length}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Active Vendors</p>
+                    <p className="text-lg font-semibold text-accent" data-testid="active-vendors">{activeVendors}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="vendor-invoices-placeholder">
+            <Card data-testid="vendor-invoices-card">
               <CardHeader>
                 <CardTitle className="flex items-center text-base">
                   <FileText className="mr-2 text-primary" size={18} />
@@ -724,13 +773,20 @@ export default function Accounts() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Vendor invoice history will appear here.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total AP Invoices</p>
+                    <p className="text-xl font-bold" data-testid="vendor-invoice-count">{vendorInvoiceCount}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total Value</p>
+                    <p className="text-lg font-semibold text-chart-1" data-testid="vendor-invoice-value">${vendorInvoiceValue.toFixed(2)}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <Card data-testid="vendor-inventory-placeholder">
+            <Card data-testid="vendor-inventory-card">
               <CardHeader>
                 <CardTitle className="flex items-center text-base">
                   <Package className="mr-2 text-primary" size={18} />
@@ -738,9 +794,16 @@ export default function Accounts() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Vendor-specific inventory data will appear here.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Products Purchased</p>
+                    <p className="text-xl font-bold" data-testid="vendor-products-purchased">{vendorInvoiceCount > 0 ? 'View Invoices' : '0'}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Total Spent</p>
+                    <p className="text-lg font-semibold text-chart-3" data-testid="vendor-spent">${vendorInvoiceValue.toFixed(2)}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
