@@ -142,9 +142,9 @@ function InvoiceView() {
     style.id = "invoice-print-styles";
     style.textContent = `
     @media print {
-  @page { size: A4; margin: 0; }
+  @page { size: A4; margin: 50mm 10mm 40mm 10mm; }
   body { margin: 0; padding: 0; }
-  .invoice-page { box-shadow: none; border: none; margin: 0; padding: 15mm 10mm; width: 100%; min-height: auto; background: white; }
+  .invoice-page { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; min-height: auto; background: white; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
 }
@@ -157,6 +157,7 @@ function InvoiceView() {
   line-height: 1.4;
   max-width: 210mm;
   margin: 0 auto;
+  position: relative;
 }
 
 .invoice-header {
@@ -335,24 +336,9 @@ function InvoiceView() {
     );
   }
 
-  // Group items by category
-  const categorizedItems: { [key: string]: any[] } = {};
-  lineItems.forEach((item) => {
-    const cat = item.category || "Uncategorized";
-    if (!categorizedItems[cat]) {
-      categorizedItems[cat] = [];
-    }
-    categorizedItems[cat].push(item);
-  });
-
-  const netAmount = lineItems.reduce(
-    (s, it) => s + (it.lineTotal || 0),
-    0,
-  );
-  const totalCartons = lineItems.reduce(
-    (s, it) => s + (it.quantity || 0),
-    0,
-  );
+  // Calculate totals
+  const netAmount = lineItems.reduce((s, it) => s + (it.lineTotal || 0), 0);
+  const totalCartons = lineItems.reduce((s, it) => s + (it.quantity || 0), 0);
   const netWeightKgs = lineItems.reduce(
     (s, it) => s + (it.netWeightKgs || 0) * (it.quantity || 0),
     0,
@@ -374,7 +360,44 @@ function InvoiceView() {
 
   const handlePrint = () => window.print();
 
+  // Build flat list of rows (category headers + items)
+  const categorizedItems: { [key: string]: any[] } = {};
+  lineItems.forEach((item) => {
+    const cat = item.category || "Uncategorized";
+    if (!categorizedItems[cat]) {
+      categorizedItems[cat] = [];
+    }
+    categorizedItems[cat].push(item);
+  });
+
+  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number };
+  const allRows: TableRow[] = [];
   let srCounter = 0;
+
+  Object.entries(categorizedItems).forEach(([category, items]) => {
+    allRows.push({ type: 'category', category });
+    items.forEach((item) => {
+      srCounter++;
+      allRows.push({ type: 'item', item, srNo: srCounter });
+    });
+  });
+
+  // Pagination: 9 rows per page
+  const ROWS_PER_PAGE = 9;
+  const pages: { rows: TableRow[]; emptyCount: number }[] = [];
+  
+  for (let i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
+    const pageRows = allRows.slice(i, i + ROWS_PER_PAGE);
+    const emptyCount = ROWS_PER_PAGE - pageRows.length;
+    pages.push({ rows: pageRows, emptyCount });
+  }
+
+  // If no items, still create one page with 9 empty rows
+  if (pages.length === 0) {
+    pages.push({ rows: [], emptyCount: ROWS_PER_PAGE });
+  }
+
+  const totalPages = pages.length;
 
   return (
     <div className="container max-w-6xl mx-auto p-6">
@@ -404,140 +427,143 @@ function InvoiceView() {
         </div>
       </div>
 
-      <div className="invoice-page">
-        {/* Header */}
-        <div className="invoice-header">INVOICE</div>
+      {pages.map((page, pageIndex) => (
+        <div
+          key={pageIndex}
+          className={`invoice-page ${pageIndex < pages.length - 1 ? "page-break" : ""}`}
+        >
+          {/* Header */}
+          <div className="invoice-header">INVOICE</div>
 
-        {/* Info Grid */}
-        <div className="invoice-info-grid">
-          {/* Billed To */}
-          <div className="info-section">
-            <div className="info-label">BILLED TO:</div>
-            <div className="info-company">
-              {(invoice as any).customer?.name ||
-                (invoice as any).billToName ||
-                "Client Company LLC"}
+          {/* Info Grid */}
+          <div className="invoice-info-grid">
+            {/* Billed To */}
+            <div className="info-section">
+              <div className="info-label">BILLED TO:</div>
+              <div className="info-company">
+                {(invoice as any).customer?.name ||
+                  (invoice as any).billToName ||
+                  "Client Company LLC"}
+              </div>
+              {billAddress && (
+                <>
+                  {billAddress.street && (
+                    <div className="info-detail">{billAddress.street}</div>
+                  )}
+                  {billAddress.city && (
+                    <div className="info-detail">
+                      {billAddress.city}
+                      {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
+                      {billAddress.zipCode || ""}
+                    </div>
+                  )}
+                  {billAddress.country && (
+                    <div className="info-detail">{billAddress.country}</div>
+                  )}
+                </>
+              )}
             </div>
-            {billAddress && (
-              <>
-                {billAddress.street && (
-                  <div className="info-detail">{billAddress.street}</div>
-                )}
-                {billAddress.city && (
-                  <div className="info-detail">
-                    {billAddress.city}
-                    {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
-                    {billAddress.zipCode || ""}
-                  </div>
-                )}
-                {billAddress.country && (
-                  <div className="info-detail">{billAddress.country}</div>
-                )}
-              </>
-            )}
+
+            {/* Ship To */}
+            <div className="info-section">
+              <div className="info-label">SHIP TO:</div>
+              <div className="info-company">
+                {(invoice as any).shipToName ||
+                  (invoice as any).customer?.name ||
+                  "Client Company LLC"}
+              </div>
+              {shipAddress && (
+                <>
+                  {typeof shipAddress === "string" ? (
+                    <div className="info-detail">{shipAddress}</div>
+                  ) : (
+                    <>
+                      {shipAddress.street && (
+                        <div className="info-detail">{shipAddress.street}</div>
+                      )}
+                      {shipAddress.city && (
+                        <div className="info-detail">
+                          {shipAddress.city}
+                          {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                          {shipAddress.zipCode || ""}
+                        </div>
+                      )}
+                      {shipAddress.country && (
+                        <div className="info-detail">{shipAddress.country}</div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Invoice Details */}
+            <div className="info-section">
+              <div className="info-detail">
+                <strong>Invoice No.</strong> : {invoice.invoiceNumber}
+              </div>
+              <div className="info-detail">
+                <strong>Invoice Date</strong> :{" "}
+                {invoice.invoiceDate
+                  ? new Date(invoice.invoiceDate).toLocaleDateString()
+                  : "—"}
+              </div>
+              <div className="info-detail">
+                <strong>Payment Term</strong> : Net{" "}
+                {(invoice as any).paymentTerms || 30}
+              </div>
+              <div className="info-detail">
+                <strong>Due Date</strong> :{" "}
+                {invoice.dueDate
+                  ? new Date(invoice.dueDate).toLocaleDateString()
+                  : "—"}
+              </div>
+            </div>
           </div>
 
-          {/* Ship To */}
-          <div className="info-section">
-            <div className="info-label">SHIP TO:</div>
-            <div className="info-company">
-              {(invoice as any).shipToName ||
-                (invoice as any).customer?.name ||
-                "Client Company LLC"}
-            </div>
-            {shipAddress && (
-              <>
-                {typeof shipAddress === "string" ? (
-                  <div className="info-detail">{shipAddress}</div>
-                ) : (
-                  <>
-                    {shipAddress.street && (
-                      <div className="info-detail">{shipAddress.street}</div>
-                    )}
-                    {shipAddress.city && (
-                      <div className="info-detail">
-                        {shipAddress.city}
-                        {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
-                        {shipAddress.zipCode || ""}
-                      </div>
-                    )}
-                    {shipAddress.country && (
-                      <div className="info-detail">{shipAddress.country}</div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Invoice Details */}
-          <div className="info-section">
-            <div className="info-detail">
-              <strong>Invoice No.</strong> : {invoice.invoiceNumber}
-            </div>
-            <div className="info-detail">
-              <strong>Invoice Date</strong> :{" "}
-              {invoice.invoiceDate
-                ? new Date(invoice.invoiceDate).toLocaleDateString()
-                : "—"}
-            </div>
-            <div className="info-detail">
-              <strong>Payment Term</strong> : Net{" "}
-              {(invoice as any).paymentTerms || 30}
-            </div>
-            <div className="info-detail">
-              <strong>Due Date</strong> :{" "}
-              {invoice.dueDate
-                ? new Date(invoice.dueDate).toLocaleDateString()
-                : "—"}
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <table className="invoice-table">
-          <thead>
-            <tr>
-              <th style={{ width: "5%", textAlign: "center" }}>Sr. No.</th>
-              <th style={{ width: "12%" }}>Product Code</th>
-              <th style={{ width: "12%" }}>Packing Size</th>
-              <th style={{ width: "35%" }}>Product Description</th>
-              <th style={{ width: "10%", textAlign: "center" }}>
-                Qty
-                <br />
-                (Carton)
-              </th>
-              <th style={{ width: "13%", textAlign: "right" }}>
-                Rate per Carton
-              </th>
-              <th style={{ width: "13%", textAlign: "right" }}>
-                Total
-                <br />
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(categorizedItems).map(([category, items]) => (
-              <React.Fragment key={category}>
-                {/* Category Header */}
-                <tr>
-                  <td colSpan={7} className="category-header">
-                    {category}
-                  </td>
-                </tr>
-
-                {/* Items in this category */}
-                {items.map((item) => {
-                  srCounter++;
+          {/* Table */}
+          <table className="invoice-table">
+            <thead>
+              <tr>
+                <th style={{ width: "5%", textAlign: "center" }}>Sr. No.</th>
+                <th style={{ width: "12%" }}>Product Code</th>
+                <th style={{ width: "12%" }}>Packing Size</th>
+                <th style={{ width: "35%" }}>Product Description</th>
+                <th style={{ width: "10%", textAlign: "center" }}>
+                  Qty
+                  <br />
+                  (Carton)
+                </th>
+                <th style={{ width: "13%", textAlign: "right" }}>
+                  Rate per Carton
+                </th>
+                <th style={{ width: "13%", textAlign: "right" }}>
+                  Total
+                  <br />
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {page.rows.map((row, idx) => {
+                if (row.type === 'category') {
+                  return (
+                    <tr key={`cat-${pageIndex}-${idx}`}>
+                      <td colSpan={7} className="category-header">
+                        {row.category}
+                      </td>
+                    </tr>
+                  );
+                } else {
+                  const item = row.item;
                   const qty = toNumber(item.quantity);
                   const rate = toNumber(item.unitPrice);
                   const lineTotal = toNumber(item.lineTotal);
                   const isFree = item.isFreeFromScheme;
 
                   return (
-                    <tr key={item.id || srCounter}>
-                      <td style={{ textAlign: "center" }}>{srCounter}</td>
+                    <tr key={`item-${pageIndex}-${idx}`}>
+                      <td style={{ textAlign: "center" }}>{row.srNo}</td>
                       <td>{item.productCode || "—"}</td>
                       <td>
                         {item.packingSize
@@ -561,80 +587,109 @@ function InvoiceView() {
                       </td>
                     </tr>
                   );
-                })}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
+                }
+              })}
 
-        {/* Summary Section */}
-        <div className="summary-section">
-          {/* Left side - Weights and Amount in words */}
-          <div className="summary-left">
-            <div>
-              <strong>Total Carton:</strong> {totalCartons}
-            </div>
-            <div>
-              <strong>Net Weight LBS:</strong> {netWeightLbs.toFixed(0)} LBS
-            </div>
-            <div>
-              <strong>Gross Weight LBS:</strong> {grossWeightLbs.toFixed(0)}{" "}
-              LBS
-            </div>
-            <div style={{ marginTop: "10px" }}>
-              <strong>Amount in words:</strong>
-            </div>
-            <div>
-              {numberToWords(Math.floor(totalInvoiceAmount))
-                .split(" ")
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(" ")}{" "}
-              Dollars
-              {totalInvoiceAmount % 1 > 0
-                ? ` and ${numberToWords(Math.round((totalInvoiceAmount % 1) * 100))
-                    .split(" ")
-                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(" ")} Cents`
-                : ""}
-            </div>
-          </div>
+              {/* Empty rows to fill page */}
+              {Array.from({ length: page.emptyCount }).map((_, idx) => (
+                <tr key={`empty-${pageIndex}-${idx}`}>
+                  <td style={{ textAlign: "center" }}>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td style={{ textAlign: "center" }}>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-          {/* Right side - Financial summary */}
-          <div className="summary-right">
-            <div className="summary-row">
-              <span>Subtotal:</span>
-              <span>{formatCurrency(netAmount)}</span>
-            </div>
-            <div className="summary-row">
-              <span>Freight:</span>
-              <span>{formatCurrency(freight)}</span>
-            </div>
-            <div className="summary-row summary-total">
-              <span>Total Amount:</span>
-              <span>{formatCurrency(totalInvoiceAmount)}</span>
-            </div>
+          {/* Summary, Notes, Footer only on last page */}
+          {pageIndex === pages.length - 1 && (
+            <>
+              {/* Summary Section */}
+              <div className="summary-section">
+                {/* Left side - Weights and Amount in words */}
+                <div className="summary-left">
+                  <div>
+                    <strong>Total Carton:</strong> {totalCartons}
+                  </div>
+                  <div>
+                    <strong>Net Weight LBS:</strong> {netWeightLbs.toFixed(0)} LBS
+                  </div>
+                  <div>
+                    <strong>Gross Weight LBS:</strong> {grossWeightLbs.toFixed(0)}{" "}
+                    LBS
+                  </div>
+                  <div style={{ marginTop: "10px" }}>
+                    <strong>Amount in words:</strong>
+                  </div>
+                  <div>
+                    {numberToWords(Math.floor(totalInvoiceAmount))
+                      .split(" ")
+                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                      .join(" ")}{" "}
+                    Dollars
+                    {totalInvoiceAmount % 1 > 0
+                      ? ` and ${numberToWords(Math.round((totalInvoiceAmount % 1) * 100))
+                          .split(" ")
+                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(" ")} Cents`
+                      : ""}
+                  </div>
+                </div>
+
+                {/* Right side - Financial summary */}
+                <div className="summary-right">
+                  <div className="summary-row">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(netAmount)}</span>
+                  </div>
+                  <div className="summary-row">
+                    <span>Freight:</span>
+                    <span>{formatCurrency(freight)}</span>
+                  </div>
+                  <div className="summary-row summary-total">
+                    <span>Total Amount:</span>
+                    <span>{formatCurrency(totalInvoiceAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              <div className="notes-section">
+                <div className="notes-label">Notes:</div>
+                <div className="notes-box">Enter notes here...</div>
+              </div>
+
+              {/* Footer */}
+              <div className="footer-section">
+                <div className="footer-item">
+                  <span>Received By:</span>
+                  <span>___________________</span>
+                </div>
+                <div className="footer-item">
+                  <span>Total Pallet:</span>
+                  <span>8</span>
+                </div>
+                <div className="footer-company">Kitchen Express Overseas Inc</div>
+              </div>
+            </>
+          )}
+
+          {/* Page Number */}
+          <div style={{ 
+            position: 'absolute', 
+            top: '5px', 
+            right: '20px', 
+            fontSize: '11px',
+            fontFamily: 'Arial, sans-serif'
+          }}>
+            Page {pageIndex + 1} of {totalPages}
           </div>
         </div>
-
-        {/* Notes Section */}
-        <div className="notes-section">
-          <div className="notes-label">Notes:</div>
-          <div className="notes-box">Enter notes here...</div>
-        </div>
-
-        {/* Footer */}
-        <div className="footer-section">
-          <div className="footer-item">
-            <span>Received By:</span>
-            <span>___________________</span>
-          </div>
-          <div className="footer-item">
-            <span>Total Pallet:</span>
-            <span>8</span>
-          </div>
-          <div className="footer-company">Kitchen Express Overseas Inc</div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
