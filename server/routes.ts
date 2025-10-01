@@ -627,6 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const lineItems = await storage.getInvoiceLineItems(req.params.id);
+      console.log(`Deleting invoice ${invoice.id}, type: ${invoice.invoiceType}, line items count: ${lineItems.length}`);
       
       // Revert inventory changes for AP invoices (subtract added quantity)
       if (invoice.invoiceType === 'payable') {
@@ -648,7 +649,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Revert inventory changes for AR invoices (add back sold quantity)
       if (invoice.invoiceType === 'receivable') {
+        console.log(`Processing AR invoice deletion - will add back ${lineItems.length} items to inventory`);
         for (const item of lineItems) {
+          console.log(`Checking line item: productId=${item.productId}, quantity=${item.quantity}`);
           if (item.productId && item.productId.trim() !== '') {
             try {
               const currentProduct = await storage.getProduct(item.productId);
@@ -656,12 +659,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const newQty = currentProduct.qty + item.quantity;
                 console.log(`Reverting AR invoice deletion: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${item.quantity})`);
                 await storage.updateProduct(item.productId, { qty: newQty });
+              } else {
+                console.log(`Product not found for ID: ${item.productId}`);
               }
             } catch (inventoryError) {
               console.error(`Failed to revert inventory for product ${item.productId}:`, inventoryError);
             }
+          } else {
+            console.log(`Skipping line item with empty productId`);
           }
         }
+      } else {
+        console.log(`Not an AR invoice, type is: ${invoice.invoiceType}`);
       }
       
       const success = await storage.deleteInvoice(req.params.id);
@@ -732,7 +741,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For AR invoices, revert old inventory changes before applying new ones
       if (existingInvoice.invoiceType === 'receivable') {
+        console.log(`Reverting AR invoice edit - adding back ${existingLineItems.length} old items to inventory`);
         for (const oldItem of existingLineItems) {
+          console.log(`Old AR item: productId=${oldItem.productId}, quantity=${oldItem.quantity}`);
           if (oldItem.productId && oldItem.productId.trim() !== '') {
             try {
               const currentProduct = await storage.getProduct(oldItem.productId);
@@ -747,6 +758,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
+      } else {
+        console.log(`Not reverting AR items, invoice type is: ${existingInvoice.invoiceType}`);
       }
 
       // Update invoice
@@ -806,7 +819,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Apply new inventory changes for AR invoices
       if (invoiceData.invoiceType === 'receivable') {
+        console.log(`Applying AR invoice edit - subtracting ${lineItems.length} new items from inventory`);
         for (const item of lineItems) {
+          console.log(`New AR item: productId=${item.productId}, quantity=${item.quantity}`);
           if (item.productId && item.productId.trim() !== '') {
             try {
               const currentProduct = await storage.getProduct(item.productId);
@@ -821,6 +836,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
+      } else {
+        console.log(`Not applying AR items, invoice type is: ${invoiceData.invoiceType}`);
       }
 
       res.json({ invoice: updatedInvoice, lineItems: createdLineItems });
