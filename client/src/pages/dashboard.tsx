@@ -104,22 +104,9 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Manage invoices, inventory, and product schemes</p>
-          </div>
-          
-          <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-            <Button variant="secondary" data-testid="button-export">
-              <Download className="mr-2" size={16} />
-              Export
-            </Button>
-            <Button onClick={() => setShowInvoiceForm(true)} data-testid="button-new-invoice">
-              <Plus className="mr-2" size={16} />
-              New Invoice
-            </Button>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Manage invoices, inventory, and product schemes</p>
         </div>
       </div>
 
@@ -405,15 +392,6 @@ export default function Dashboard() {
           onClose={() => setShowInventoryModal(false)}
         />
       )}
-
-      {/* Floating Action Button */}
-      <Button 
-        className="fixed bottom-20 right-6 lg:bottom-6 w-14 h-14 bg-gradient-to-r from-primary to-accent text-white rounded-full shadow-lg hover:scale-110 transition-transform duration-200"
-        onClick={() => setShowInvoiceForm(true)}
-        data-testid="button-floating-new-invoice"
-      >
-        <Plus size={24} />
-      </Button>
     </div>
   );
 }
