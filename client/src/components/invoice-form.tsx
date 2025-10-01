@@ -95,6 +95,20 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     },
   });
 
+  // Reset form when invoice data changes (for edit mode)
+  useEffect(() => {
+    if (isEditMode && invoice) {
+      form.reset({
+        customerId: invoice.customerId || "",
+        invoiceNumber: invoice.invoiceNumber || "",
+        invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+        paymentTerms: invoice.paymentTerms || 30,
+        invoiceType: invoice.invoiceType || "receivable",
+        freight: parseFloat(invoice.freight || 0),
+      });
+    }
+  }, [isEditMode, invoice, form]);
+
   const { data: customers } = useQuery({
     queryKey: ["/api/customers"],
     queryFn: async () => {
@@ -975,16 +989,30 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
                 {/* Invoice Total */}
                 <div className="border-t border-border pt-4 mt-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium text-foreground">
-                      Total Amount:
-                    </span>
-                    <span
-                      className="text-2xl font-bold text-primary"
-                      data-testid="invoice-total"
-                    >
-                      ${calculateTotal().toFixed(2)}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span className="font-medium" data-testid="invoice-subtotal">
+                        ${calculateTotal().toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Freight:</span>
+                      <span className="font-medium" data-testid="invoice-freight-display">
+                        ${(form.watch("freight") || 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-lg font-semibold text-foreground">
+                        Total Amount:
+                      </span>
+                      <span
+                        className="text-2xl font-bold text-primary"
+                        data-testid="invoice-total"
+                      >
+                        ${(calculateTotal() + (form.watch("freight") || 0)).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
