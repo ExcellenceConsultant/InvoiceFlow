@@ -82,6 +82,16 @@ export default function Accounts() {
   const vendorLineItems = (allLineItems || []).filter((item: any) => vendorInvoiceIds.includes(item.invoiceId));
   const totalQtyPurchased = vendorLineItems.reduce((sum: number, item: any) => sum + parseInt(item.quantity || 0), 0);
 
+  // Helper function to get open balance count for a customer/vendor
+  const getOpenBalanceCount = (customerId: string, type: "customer" | "vendor") => {
+    const relevantInvoices = (invoices || []).filter((inv: any) => 
+      inv.customerId === customerId && 
+      inv.invoiceType === (type === "customer" ? "receivable" : "payable") &&
+      inv.status !== "paid"
+    );
+    return relevantInvoices.length;
+  };
+
   // Export handler
   const handleExport = async () => {
     try {
@@ -447,6 +457,7 @@ export default function Accounts() {
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Open Balance</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
@@ -484,6 +495,9 @@ export default function Accounts() {
                             }`}>
                               {customer.isActive !== false ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-customer-${customer.id}`}>
+                            {getOpenBalanceCount(customer.id, "customer")}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
@@ -674,6 +688,7 @@ export default function Accounts() {
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Open Balance</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
@@ -711,6 +726,9 @@ export default function Accounts() {
                             }`}>
                               {vendor.isActive !== false ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-vendor-${vendor.id}`}>
+                            {getOpenBalanceCount(vendor.id, "vendor")}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
