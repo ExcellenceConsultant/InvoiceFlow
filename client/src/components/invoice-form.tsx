@@ -434,10 +434,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
               data-testid="invoice-form-title"
             >
               <NotebookPen className="mr-2 text-primary" size={20} />
-              {isEditMode ? "Edit" : "Create New"}{" "}
-              {form.watch("invoiceType") === "payable"
-                ? "AP Bill"
-                : "AR Invoice"}
+              {isEditMode ? "Edit" : "Create New"} Invoice
             </CardTitle>
             <Button
               variant="ghost"
@@ -510,9 +507,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {form.watch("invoiceType") === "payable"
-                          ? "Vendor"
-                          : "Customer"}
+                        Customer/Vendor
                       </FormLabel>
                       <Select
                         onValueChange={field.onChange}
@@ -521,11 +516,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         <FormControl>
                           <SelectTrigger data-testid="select-customer">
                             <SelectValue
-                              placeholder={
-                                form.watch("invoiceType") === "payable"
-                                  ? "Select Vendor"
-                                  : "Select Customer"
-                              }
+                              placeholder="Select Customer/Vendor"
                             />
                           </SelectTrigger>
                         </FormControl>
