@@ -324,8 +324,11 @@ function InvoiceView() {
   }
   
   .notes-box {
-    background-color: transparent !important;
+    background-color: white !important;
+    background: white !important;
     border: none !important;
+    padding: 0 !important;
+    min-height: 0 !important;
   }
 }
     `;
