@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload, User, Building } from "lucide-react";
+import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,11 @@ import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
 import InvoiceForm from "@/components/invoice-form";
-import CustomerVendorForm from "@/components/customer-vendor-form";
 
 export default function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
-  const [showCustomerForm, setShowCustomerForm] = useState(false);
-  const [showVendorForm, setShowVendorForm] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -94,54 +91,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
             </button>
           </div>
         ),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const syncCustomerMutation = useMutation({
-    mutationFn: async (customerId: string) => {
-      const response = await apiRequest("POST", `/api/customers/${customerId}/sync-quickbooks`, {});
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to sync customer");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Customer synced to QuickBooks successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sync customer to QuickBooks",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const syncProductMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      const response = await apiRequest("POST", `/api/products/${productId}/sync-quickbooks`, {});
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to sync product");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success", 
-        description: "Product synced to QuickBooks successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sync product to QuickBooks",
         variant: "destructive",
       });
     },
@@ -270,22 +219,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
             >
               <Upload className="mr-2" size={16} />
               {bulkSyncMutation.isPending ? "Creating Journal Entries..." : "Post Journal Entries to QB"}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowCustomerForm(true)} 
-              data-testid="button-create-customer"
-            >
-              <User className="mr-2" size={16} />
-              Add Customer
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowVendorForm(true)} 
-              data-testid="button-create-vendor"
-            >
-              <Building className="mr-2" size={16} />
-              Add Vendor
             </Button>
             <Button onClick={() => setShowInvoiceForm(true)} data-testid="button-create-invoice">
               <Plus className="mr-2" size={16} />
@@ -504,24 +437,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         <InvoiceForm 
           onClose={() => setShowInvoiceForm(false)} 
           onSuccess={() => setShowInvoiceForm(false)}
-        />
-      )}
-
-      {/* Customer Form Modal */}
-      {showCustomerForm && (
-        <CustomerVendorForm 
-          type="customer"
-          onClose={() => setShowCustomerForm(false)} 
-          onSuccess={() => setShowCustomerForm(false)}
-        />
-      )}
-
-      {/* Vendor Form Modal */}
-      {showVendorForm && (
-        <CustomerVendorForm 
-          type="vendor"
-          onClose={() => setShowVendorForm(false)} 
-          onSuccess={() => setShowVendorForm(false)}
         />
       )}
     </div>

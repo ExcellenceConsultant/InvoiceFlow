@@ -50,6 +50,15 @@ export default function Navbar() {
                   Invoices
                 </Button>
               </Link>
+              <Link href="/accounts">
+                <Button 
+                  variant={location === "/accounts" ? "default" : "ghost"} 
+                  size="sm"
+                  data-testid="link-accounts"
+                >
+                  Accounts
+                </Button>
+              </Link>
               <Link href="/inventory">
                 <Button 
                   variant={location === "/inventory" ? "default" : "ghost"} 
