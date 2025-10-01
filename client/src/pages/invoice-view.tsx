@@ -397,17 +397,19 @@ function InvoiceView() {
     });
   });
 
-  // Pagination: 9 rows per page
-  const ROWS_PER_PAGE = 9;
+  // Pagination: 13 rows per page
+  const ROWS_PER_PAGE = 13;
   const pages: { rows: TableRow[]; emptyCount: number }[] = [];
   
   for (let i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
     const pageRows = allRows.slice(i, i + ROWS_PER_PAGE);
-    const emptyCount = ROWS_PER_PAGE - pageRows.length;
+    const pageIndex = pages.length;
+    // Only fill empty rows on the first page
+    const emptyCount = pageIndex === 0 ? ROWS_PER_PAGE - pageRows.length : 0;
     pages.push({ rows: pageRows, emptyCount });
   }
 
-  // If no items, still create one page with 9 empty rows
+  // If no items, still create one page with 13 empty rows
   if (pages.length === 0) {
     pages.push({ rows: [], emptyCount: ROWS_PER_PAGE });
   }
