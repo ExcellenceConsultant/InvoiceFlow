@@ -322,6 +322,10 @@ function InvoiceView() {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  
+  .notes-box {
+    background-color: transparent !important;
+  }
 }
     `;
     document.head.appendChild(style);
