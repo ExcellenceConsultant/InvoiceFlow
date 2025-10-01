@@ -59,6 +59,7 @@ export default function CustomerVendorForm({ onClose, onSuccess, type, customer 
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/customers", {
         ...data,
+        type: type,
         userId: DEFAULT_USER_ID,
       });
       return response.json();

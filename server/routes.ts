@@ -135,6 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validation = insertCustomerSchema.extend({
         userId: z.string(),
+        type: z.enum(["customer", "vendor"]).optional(),
       }).safeParse(req.body);
       
       if (!validation.success) {

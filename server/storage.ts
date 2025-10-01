@@ -150,6 +150,8 @@ export class MemStorage implements IStorage {
         zipCode: customerData.address.zipCode || undefined,
         country: customerData.address.country || undefined,
       } : null,
+      type: (customerData as any).type || "customer",
+      isActive: customerData.isActive !== undefined ? customerData.isActive : true,
       userId: customerData.userId,
       id,
       quickbooksCustomerId: null,

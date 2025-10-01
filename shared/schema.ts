@@ -27,6 +27,7 @@ export const customers = pgTable("customers", {
     zipCode?: string;
     country?: string;
   }>(),
+  type: text("type").notNull().default("customer"), // "customer" or "vendor"
   isActive: boolean("is_active").default(true),
   quickbooksCustomerId: text("quickbooks_customer_id"),
   userId: varchar("user_id").references(() => users.id),
