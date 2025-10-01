@@ -325,6 +325,7 @@ function InvoiceView() {
   
   .notes-box {
     background-color: transparent !important;
+    border: none !important;
   }
 }
     `;
