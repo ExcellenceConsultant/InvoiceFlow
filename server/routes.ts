@@ -417,6 +417,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/schemes/:id", async (req, res) => {
+    try {
+      const updatedScheme = await storage.updateScheme(req.params.id, req.body);
+      if (!updatedScheme) {
+        return res.status(404).json({ message: "Scheme not found" });
+      }
+      res.json(updatedScheme);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update scheme" });
+    }
+  });
+
   app.delete("/api/schemes/:id", async (req, res) => {
     try {
       const success = await storage.deleteScheme(req.params.id);
