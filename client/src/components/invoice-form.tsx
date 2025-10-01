@@ -180,10 +180,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       });
       onSuccess();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to create invoice",
+        description: error.message || "Failed to create invoice",
         variant: "destructive",
       });
     },

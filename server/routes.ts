@@ -482,7 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (outOfStockProducts.length > 0) {
           return res.status(400).json({ 
-            message: "Product are out of stock",
+            message: "Product is out of stock",
             outOfStockProducts: outOfStockProducts
           });
         }
