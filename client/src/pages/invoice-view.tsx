@@ -387,42 +387,58 @@ function InvoiceView() {
 
   type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number };
   
-  // Pagination: 13 PRODUCT ITEMS per page (category headers don't count)
-  const ITEMS_PER_PAGE = 13;
-  const pages: { rows: TableRow[]; emptyCount: number; category?: string }[] = [];
-  
+  // Build all rows first (category headers + items in order)
+  const allRows: TableRow[] = [];
   let srCounter = 0;
-  let currentPageItems: TableRow[] = [];
-  let currentPageCategory: string | undefined = undefined;
-  let itemCountOnCurrentPage = 0;
 
   Object.entries(categorizedItems).forEach(([category, items]) => {
-    items.forEach((item, idx) => {
-      // Add category header before first item of this category on current page
-      if (idx === 0) {
-        currentPageItems.push({ type: 'category', category });
-        currentPageCategory = category;
+    allRows.push({ type: 'category', category });
+    items.forEach((item) => {
+      srCounter++;
+      allRows.push({ type: 'item', item, srNo: srCounter });
+    });
+  });
+
+  // Pagination: 13 PRODUCT ITEMS per page (category headers don't count)
+  const ITEMS_PER_PAGE = 13;
+  const pages: { rows: TableRow[]; emptyCount: number }[] = [];
+  
+  let currentPageRows: TableRow[] = [];
+  let itemCountOnCurrentPage = 0;
+  let pendingCategoryHeader: TableRow | null = null;
+
+  allRows.forEach((row) => {
+    if (row.type === 'category') {
+      // Store category header to add before next item
+      pendingCategoryHeader = row;
+    } else {
+      // This is an item
+      // Add pending category header if exists
+      if (pendingCategoryHeader) {
+        currentPageRows.push(pendingCategoryHeader);
+        pendingCategoryHeader = null;
       }
       
-      srCounter++;
-      currentPageItems.push({ type: 'item', item, srNo: srCounter });
+      currentPageRows.push(row);
       itemCountOnCurrentPage++;
 
       // If we've reached 13 items, create a page
       if (itemCountOnCurrentPage === ITEMS_PER_PAGE) {
         const emptyCount = pages.length === 0 ? ITEMS_PER_PAGE - itemCountOnCurrentPage : 0;
-        pages.push({ rows: currentPageItems, emptyCount, category: currentPageCategory });
-        currentPageItems = [];
-        currentPageCategory = undefined;
+        pages.push({ rows: currentPageRows, emptyCount });
+        currentPageRows = [];
         itemCountOnCurrentPage = 0;
       }
-    });
+    }
   });
 
   // Add remaining items as last page
-  if (currentPageItems.length > 0) {
+  if (currentPageRows.length > 0 || pendingCategoryHeader) {
+    if (pendingCategoryHeader) {
+      currentPageRows.push(pendingCategoryHeader);
+    }
     const emptyCount = pages.length === 0 ? ITEMS_PER_PAGE - itemCountOnCurrentPage : 0;
-    pages.push({ rows: currentPageItems, emptyCount, category: currentPageCategory });
+    pages.push({ rows: currentPageRows, emptyCount });
   }
 
   // If no items, still create one page with 13 empty rows
