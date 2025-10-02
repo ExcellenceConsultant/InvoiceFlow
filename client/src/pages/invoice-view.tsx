@@ -385,9 +385,13 @@ function InvoiceView() {
 
   const handlePrint = () => window.print();
 
+  // Separate regular items from scheme items
+  const regularItems = lineItems.filter(item => !item.isFreeFromScheme);
+  const schemeItems = lineItems.filter(item => item.isFreeFromScheme);
+
   // Build flat list of rows (category headers + items)
   const categorizedItems: { [key: string]: any[] } = {};
-  lineItems.forEach((item) => {
+  regularItems.forEach((item) => {
     const cat = item.category || "Uncategorized";
     if (!categorizedItems[cat]) {
       categorizedItems[cat] = [];
@@ -401,6 +405,7 @@ function InvoiceView() {
   const allRows: TableRow[] = [];
   let srCounter = 0;
 
+  // Add regular items with their categories
   Object.entries(categorizedItems).forEach(([category, items]) => {
     allRows.push({ type: 'category', category });
     items.forEach((item) => {
@@ -408,6 +413,15 @@ function InvoiceView() {
       allRows.push({ type: 'item', item, srNo: srCounter });
     });
   });
+
+  // Add scheme items at the end if any exist
+  if (schemeItems.length > 0) {
+    allRows.push({ type: 'category', category: 'Promotional Schemes' });
+    schemeItems.forEach((item) => {
+      srCounter++;
+      allRows.push({ type: 'item', item, srNo: srCounter });
+    });
+  }
 
   // Pagination: 13 PRODUCT ITEMS per page (category headers don't count)
   const ITEMS_PER_PAGE = 13;
