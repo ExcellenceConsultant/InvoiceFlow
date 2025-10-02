@@ -399,7 +399,7 @@ function InvoiceView() {
     categorizedItems[cat].push(item);
   });
 
-  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number };
+  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean };
   
   // Build all rows first (category headers + items in order)
   const allRows: TableRow[] = [];
@@ -410,16 +410,15 @@ function InvoiceView() {
     allRows.push({ type: 'category', category });
     items.forEach((item) => {
       srCounter++;
-      allRows.push({ type: 'item', item, srNo: srCounter });
+      allRows.push({ type: 'item', item, srNo: srCounter, isScheme: false });
     });
   });
 
-  // Add scheme items at the end if any exist
+  // Add scheme items at the end if any exist (without Sr. No.)
   if (schemeItems.length > 0) {
     allRows.push({ type: 'category', category: 'Promotional Schemes' });
     schemeItems.forEach((item) => {
-      srCounter++;
-      allRows.push({ type: 'item', item, srNo: srCounter });
+      allRows.push({ type: 'item', item, srNo: 0, isScheme: true });
     });
   }
 
@@ -638,25 +637,19 @@ function InvoiceView() {
                     const qty = toNumber(item.quantity);
                     const rate = toNumber(item.unitPrice);
                     const lineTotal = toNumber(item.lineTotal);
-                    const isFree = item.isFreeFromScheme;
 
                     return (
                       <tr key={`item-${pageIndex}-${idx}`}>
-                        <td style={{ textAlign: "center" }}>{row.srNo}</td>
+                        <td style={{ textAlign: "center" }}>
+                          {row.isScheme ? "—" : row.srNo}
+                        </td>
                         <td>{item.productCode || "—"}</td>
                         <td>
                           {item.packingSize
                             ? item.packingSize.replace(/GM/g, "G")
                             : "—"}
                         </td>
-                        <td>
-                          {item.description}
-                          {isFree && rate === 0 && (
-                            <div className="scheme-info">
-                              Free item from promotional scheme
-                            </div>
-                          )}
-                        </td>
+                        <td>{item.description}</td>
                         <td style={{ textAlign: "center" }}>{qty || "—"}</td>
                         <td style={{ textAlign: "right" }}>
                           {formatCurrency(rate)}
