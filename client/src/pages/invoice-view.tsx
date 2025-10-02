@@ -209,6 +209,7 @@ function InvoiceView() {
   border-collapse: collapse;
   margin-bottom: 15px;
   font-size: 11px;
+  border: 1px solid #ddd;
 }
 
 .invoice-table th {
@@ -216,13 +217,19 @@ function InvoiceView() {
   padding: 8px 6px;
   text-align: left;
   font-weight: 600;
-  border: 1px solid #ddd;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  border-left: none;
+  border-right: none;
   font-size: 11px;
 }
 
 .invoice-table td {
   padding: 6px;
-  border: 1px solid #ddd;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  border-left: none;
+  border-right: none;
   vertical-align: top;
 }
 
@@ -231,7 +238,10 @@ function InvoiceView() {
   font-weight: 600;
   text-align: center;
   padding: 6px;
-  border: 1px solid #ddd;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  border-left: none;
+  border-right: none;
 }
 
 .scheme-info {
