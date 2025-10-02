@@ -361,6 +361,27 @@ export default function Inventory() {
     }
   };
 
+  // Individual delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/products/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete product",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -413,6 +434,13 @@ export default function Inventory() {
     const confirmMessage = `Are you sure you want to delete ${selectedProducts.length} product(s)? This action cannot be undone.`;
     if (confirm(confirmMessage)) {
       bulkDeleteMutation.mutate(selectedProducts);
+    }
+  };
+
+  const handleDeleteProduct = (productId: string, productName: string) => {
+    const confirmMessage = `Are you sure you want to delete "${productName}"? This action cannot be undone.`;
+    if (confirm(confirmMessage)) {
+      deleteMutation.mutate(productId);
     }
   };
 
@@ -726,6 +754,7 @@ export default function Inventory() {
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteProduct(product.id, product.name)}
                               data-testid={`button-delete-product-${product.id}`}
                             >
                               <Trash2 size={14} />
