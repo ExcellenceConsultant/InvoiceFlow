@@ -666,13 +666,13 @@ function InvoiceView() {
                     return (
                       <tr key={`item-${pageIndex}-${idx}`}>
                         <td style={{ textAlign: "center" }}>
-                          {row.isScheme ? "—" : row.srNo}
+                          {row.isScheme ? "" : row.srNo}
                         </td>
                         <td>{item.productCode || "—"}</td>
                         <td>
                           {item.packingSize
                             ? item.packingSize.replace(/GM/g, "G")
-                            : "—"}
+                            : row.isScheme ? "" : "—"}
                         </td>
                         <td>{item.description}</td>
                         <td style={{ textAlign: "center" }}>{qty || "—"}</td>
