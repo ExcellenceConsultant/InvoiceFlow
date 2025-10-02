@@ -6,7 +6,7 @@ InvoiceFlow is a comprehensive invoice management application built with a moder
 
 ## Current Status - All Systems Working ✅
 
-**Last Updated**: September 16, 2025
+**Last Updated**: October 2, 2025
 
 All major functionality is fully operational:
 
@@ -19,6 +19,116 @@ All major functionality is fully operational:
 - **Packing List Generation**: PDF generation with exact format matching and last 5-digit product codes
 - **Promotional Schemes**: Buy X get Y free functionality with automatic free item calculation
 - **Invoice Type Support**: Both receivable (AR) and payable (AP) invoice types with proper categorization
+- **Invoice PDF Export/Print**: Professional invoice printing with PDF generation capability
+
+### 📄 Invoice PDF/Print Formatting (Latest Implementation)
+
+#### Pagination Rules
+- **13 line items per page** with specific pagination logic:
+  - Page 1: Shows up to 13 line items (filled with empty rows if fewer items)
+  - Page 2+: Shows actual line items only (no empty row padding)
+  - Minimum 2 pages always created (page 2 for summary even if ≤13 items)
+
+#### Page Layout Structure
+**Page 1:**
+- Invoice header (company info, logo, invoice details)
+- Customer shipping address and invoice details
+- Line items table with headers (Sr. No., Product Code, Packing Size, Product Description, Qty (Carton), Rate per Carton, Total Amount)
+- Up to 13 rows (with empty rows to fill if needed)
+- NO summary, notes, or footer sections
+
+**Page 2 (Always Present):**
+- Invoice header (repeated on each page)
+- Table headers (ONLY if there are product items on page 2, i.e., invoice has >13 items)
+- Remaining product line items (if invoice has >13 items)
+- Summary section with:
+  - Total Carton count
+  - Net Weight LBS
+  - Gross Weight LBS
+  - Amount in words (formatted with proper capitalization)
+  - Subtotal, Discount, Grand Total
+- Notes section
+- Footer section with "Received By:" and "Total Pallets:" fields
+- Company name at bottom
+
+#### PDF Print Styling
+- **A4 page size** with margins: 50mm top, 10mm sides, 40mm bottom
+- **White backgrounds** throughout (no grey borders):
+  - @page, html, body, container, invoice-page all set to white background
+  - Notes section: transparent/white background, no borders in print mode
+- **Page breaks**: Automatic page breaks between pages using `.page-break` class
+- **Print-only elements**: Footer and summary appear only in print/PDF output
+- **Hidden in print**: Navigation buttons and UI controls
+
+#### Technical Implementation Details
+- File: `client/src/pages/invoice-view.tsx`
+- Conditional table rendering: Table headers only show on page 2 if product items exist
+- Summary always renders on page 2 (pageIndex === 1)
+- Print trigger: `window.print()` for native browser print dialog
+- Category headers included in row count for pagination
+- Empty rows use `&nbsp;` for proper spacing
+- Currency formatting with proper decimal handling
+
+#### Key Code Implementation (October 2, 2025)
+```typescript
+// Pagination logic - 13 rows per page
+const ROWS_PER_PAGE = 13;
+const pages = [];
+
+// First page fills with empty rows, subsequent pages show actual items only
+for (let i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
+  const pageRows = allRows.slice(i, i + ROWS_PER_PAGE);
+  const pageIndex = pages.length;
+  const emptyCount = pageIndex === 0 ? ROWS_PER_PAGE - pageRows.length : 0;
+  pages.push({ rows: pageRows, emptyCount });
+}
+
+// Always ensure at least 2 pages (page 2 for summary/notes)
+if (pages.length === 1) {
+  pages.push({ rows: [], emptyCount: 0 });
+}
+
+// Conditional table rendering (page 1 always, page 2 only if items exist)
+{(pageIndex === 0 || page.rows.length > 0 || page.emptyCount > 0) && (
+  <table className="invoice-table">
+    {/* Table content */}
+  </table>
+)}
+
+// Summary always on page 2
+{pageIndex === 1 && (
+  <>
+    {/* Summary Section */}
+    {/* Notes Section */}
+    {/* Footer Section */}
+  </>
+)}
+```
+
+#### Print CSS Specifications
+```css
+@media print {
+  @page {
+    size: A4;
+    margin: 50mm 10mm 40mm 10mm;
+  }
+  
+  html, body, .container, .invoice-page {
+    background-color: white !important;
+  }
+  
+  .notes-box {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .page-break {
+    page-break-after: always;
+  }
+}
+```
 
 ### 🔧 Recent Critical Fixes Applied
 1. **QuickBooks API Integration**: Removed problematic "Name" property from customer/vendor creation requests
