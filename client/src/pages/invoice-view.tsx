@@ -414,6 +414,11 @@ function InvoiceView() {
     pages.push({ rows: [], emptyCount: ROWS_PER_PAGE });
   }
 
+  // Always ensure at least 2 pages exist (page 2 for summary/notes)
+  if (pages.length === 1) {
+    pages.push({ rows: [], emptyCount: 0 });
+  }
+
   const totalPages = pages.length;
 
   return (
@@ -622,8 +627,8 @@ function InvoiceView() {
             </tbody>
           </table>
 
-          {/* Summary, Notes, Footer only on last page */}
-          {pageIndex === pages.length - 1 && (
+          {/* Summary, Notes, Footer always on page 2 (pageIndex 1) */}
+          {pageIndex === 1 && (
             <>
               {/* Summary Section */}
               <div className="summary-section">
