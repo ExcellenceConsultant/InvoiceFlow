@@ -144,7 +144,7 @@ function InvoiceView() {
     @media print {
   @page { 
     size: A4; 
-    margin: 50mm 10mm 40mm 10mm;
+    margin: 40mm 10mm 30mm 10mm;
     background: white;
   }
   body { margin: 0; padding: 0; background: white !important; }
