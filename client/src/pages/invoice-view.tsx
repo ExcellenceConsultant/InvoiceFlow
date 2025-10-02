@@ -668,7 +668,7 @@ function InvoiceView() {
                         <td style={{ textAlign: "center" }}>
                           {row.isScheme ? "" : row.srNo}
                         </td>
-                        <td>{item.productCode || "—"}</td>
+                        <td>{item.productCode || (row.isScheme ? "" : "—")}</td>
                         <td>
                           {item.packingSize
                             ? item.packingSize.replace(/GM/g, "G")
