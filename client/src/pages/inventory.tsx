@@ -235,8 +235,9 @@ export default function Inventory() {
               category: cleanString(row[4]) || 'Imported', // Category
               qty: cleanInteger(row[5]), // Qty (as integer)
               basePrice: cleanNumber(row[6]), // Base Price
-              grossWeight: cleanString(row[7]) || null, // Gross Weight
-              netWeight: cleanString(row[8]) || null, // Net Weight
+              grossWeight: cleanString(row[7]) || null, // Gross Weight (LBS)
+              netWeight: cleanString(row[8]) || null, // Net Weight (LBS)
+              schemeDescription: cleanString(row[9]) || null, // Scheme Description
               description: 'Imported from Excel',
             };
             
@@ -274,11 +275,11 @@ export default function Inventory() {
         } else {
           toast({
             title: "No Valid Data",
-            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Gross Weight, Net Weight`,
+            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Gross Weight(LBS), Net Weight(LBS), Scheme Description`,
             variant: "destructive",
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Excel parsing error:', error);
         toast({
           title: "Parse Error",
@@ -318,7 +319,7 @@ export default function Inventory() {
     }
 
     try {
-      // Prepare report data with Amount calculation (Qty × Base Price)
+      // Prepare report data
       const reportData = products.map((product: any) => ({
         'Product Name': product.name || '',
         'Date': product.date ? new Date(product.date).toLocaleDateString() : '',
@@ -327,10 +328,9 @@ export default function Inventory() {
         'Category': product.category || '',
         'Qty': product.qty || 0,
         'Base Price': parseFloat(product.basePrice || 0).toFixed(2),
-        'Amount': (product.qty * parseFloat(product.basePrice || 0)).toFixed(2),
-        'Gross Weight': product.grossWeight || '',
-        'Net Weight': product.netWeight || '',
-        'Description': product.description || ''
+        'Gross Weight(LBS)': product.grossWeight || '',
+        'Net Weight(LBS)': product.netWeight || '',
+        'Scheme Description': product.schemeDescription || ''
       }));
 
       // Create worksheet
@@ -651,8 +651,9 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Qty</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Base Price</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight(LBS)</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight(LBS)</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Scheme Description</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -699,10 +700,13 @@ export default function Inventory() {
                           ${parseFloat(product.basePrice || 0).toFixed(2)}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-gross-weight-${product.id}`}>
-                          {product.grossWeight ? `${product.grossWeight} kg` : '-'}
+                          {product.grossWeight || '-'}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-net-weight-${product.id}`}>
-                          {product.netWeight ? `${product.netWeight} kg` : '-'}
+                          {product.netWeight || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-scheme-description-${product.id}`}>
+                          {product.schemeDescription || '-'}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">
