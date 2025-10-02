@@ -385,9 +385,10 @@ function InvoiceView() {
 
   const handlePrint = () => window.print();
 
-  // Separate regular items from scheme items
-  const regularItems = lineItems.filter(item => !item.isFreeFromScheme);
+  // Separate regular items, scheme items, and scheme description items
+  const regularItems = lineItems.filter(item => !item.isFreeFromScheme && !item.isSchemeDescription);
   const schemeItems = lineItems.filter(item => item.isFreeFromScheme);
+  const schemeDescItems = lineItems.filter(item => item.isSchemeDescription);
 
   // Build flat list of rows (category headers + items)
   const categorizedItems: { [key: string]: any[] } = {};
@@ -399,22 +400,28 @@ function InvoiceView() {
     categorizedItems[cat].push(item);
   });
 
-  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean };
+  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean } | { type: 'schemeDesc'; item: any };
   
-  // Build all rows first (category headers + items in order)
+  // Build all rows first (category headers + items + scheme descriptions in order)
   const allRows: TableRow[] = [];
   let srCounter = 0;
 
-  // Add regular items with their categories
+  // Add regular items with their categories and scheme descriptions
   Object.entries(categorizedItems).forEach(([category, items]) => {
     allRows.push({ type: 'category', category });
     items.forEach((item) => {
       srCounter++;
       allRows.push({ type: 'item', item, srNo: srCounter, isScheme: false });
+      
+      // Add scheme description right after the product if it exists
+      const relatedSchemeDesc = schemeDescItems.find(sd => sd.productId === item.productId);
+      if (relatedSchemeDesc) {
+        allRows.push({ type: 'schemeDesc', item: relatedSchemeDesc });
+      }
     });
   });
 
-  // Add scheme items at the end if any exist (without Sr. No.)
+  // Add promotional scheme items at the end if any exist (without Sr. No.)
   if (schemeItems.length > 0) {
     allRows.push({ type: 'category', category: 'Promotional Schemes' });
     schemeItems.forEach((item) => {
@@ -434,8 +441,11 @@ function InvoiceView() {
     if (row.type === 'category') {
       // Store category header to add before next item
       pendingCategoryHeader = row;
+    } else if (row.type === 'schemeDesc') {
+      // Scheme description doesn't count toward pagination, just add it to current page
+      currentPageRows.push(row);
     } else {
-      // This is an item
+      // This is a regular item
       // Add pending category header if exists
       if (pendingCategoryHeader) {
         currentPageRows.push(pendingCategoryHeader);
@@ -632,25 +642,23 @@ function InvoiceView() {
                         </td>
                       </tr>
                     );
+                  } else if (row.type === 'schemeDesc') {
+                    // Scheme description row (merged across all columns)
+                    return (
+                      <tr key={`scheme-desc-${pageIndex}-${idx}`} className="scheme-description-row">
+                        <td colSpan={7} style={{ 
+                          paddingLeft: "2em",
+                          fontStyle: "italic",
+                          backgroundColor: "#f9fafb",
+                          fontSize: "0.9em",
+                          color: "#4b5563"
+                        }}>
+                          {row.item.description}
+                        </td>
+                      </tr>
+                    );
                   } else {
                     const item = row.item;
-                    
-                    // Check if this is a scheme description line item
-                    if (item.isSchemeDescription) {
-                      return (
-                        <tr key={`scheme-desc-${pageIndex}-${idx}`} className="scheme-description-row">
-                          <td colSpan={7} style={{ 
-                            paddingLeft: "2em",
-                            fontStyle: "italic",
-                            backgroundColor: "#f9fafb",
-                            fontSize: "0.9em"
-                          }}>
-                            {item.description}
-                          </td>
-                        </tr>
-                      );
-                    }
-                    
                     const qty = toNumber(item.quantity);
                     const rate = toNumber(item.unitPrice);
                     const lineTotal = toNumber(item.lineTotal);

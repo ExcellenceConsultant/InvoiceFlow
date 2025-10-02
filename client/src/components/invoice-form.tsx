@@ -163,7 +163,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         productId: item.productId || "",
         variantId: item.variantId || "",
         description: item.description || "",
-        quantity: item.quantity || 1,
+        quantity: item.quantity || 0,
         unitPrice: parseFloat(item.unitPrice) || 0,
         lineTotal: parseFloat(item.lineTotal) || 0,
         productCode: item.productCode || "",
@@ -172,6 +172,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         netWeightKgs: parseFloat(item.netWeightKgs) || 0,
         category: item.category || "",
         isFreeFromScheme: item.isFreeFromScheme || false,
+        isSchemeDescription: item.isSchemeDescription || false,
+        schemeDescription: item.description || "",
         schemeId: item.schemeId || "",
       }));
       setLineItems(formattedItems);
@@ -367,7 +369,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         item.productId.trim() !== "" &&
         item.description &&
         item.description.trim() !== "" &&
-        item.quantity > 0,
+        (item.quantity > 0 || item.isSchemeDescription), // Allow scheme description with 0 quantity
     );
 
     console.log("Valid line items:", validLineItems);
@@ -397,8 +399,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           ? item.grossWeightKgs.toString()
           : null,
         netWeightKgs: item.netWeightKgs ? item.netWeightKgs.toString() : null,
-        category: item.category || null, // 👈 new
+        category: item.category || null,
         isFreeFromScheme: false,
+        isSchemeDescription: item.isSchemeDescription || false,
         schemeId: null,
       });
 
@@ -752,7 +755,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                               console.log("Found product:", product);
 
                               if (product) {
-                                const updatedItems = [...lineItems];
+                                let updatedItems = [...lineItems];
                                 const unitPrice =
                                   parseFloat(product.basePrice) || 0;
                                 updatedItems[index] = {
@@ -783,8 +786,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   const isNextItemSchemeDesc = nextItem?.isSchemeDescription && nextItem?.productId === value;
                                   
                                   if (!isNextItemSchemeDesc) {
-                                    // Insert scheme description line item after the product
-                                    updatedItems.splice(index + 1, 0, {
+                                    // Insert scheme description line item after the product using array spread
+                                    const schemeDescItem = {
                                       productId: value,
                                       variantId: "",
                                       description: product.schemeDescription,
@@ -798,7 +801,13 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                       category: product.category || "",
                                       isSchemeDescription: true,
                                       schemeDescription: product.schemeDescription,
-                                    });
+                                    };
+                                    // Create new array with scheme description inserted
+                                    updatedItems = [
+                                      ...updatedItems.slice(0, index + 1),
+                                      schemeDescItem,
+                                      ...updatedItems.slice(index + 1)
+                                    ];
                                   }
                                 }
 
