@@ -634,6 +634,23 @@ function InvoiceView() {
                     );
                   } else {
                     const item = row.item;
+                    
+                    // Check if this is a scheme description line item
+                    if (item.isSchemeDescription) {
+                      return (
+                        <tr key={`scheme-desc-${pageIndex}-${idx}`} className="scheme-description-row">
+                          <td colSpan={7} style={{ 
+                            paddingLeft: "2em",
+                            fontStyle: "italic",
+                            backgroundColor: "#f9fafb",
+                            fontSize: "0.9em"
+                          }}>
+                            {item.description}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    
                     const qty = toNumber(item.quantity);
                     const rate = toNumber(item.unitPrice);
                     const lineTotal = toNumber(item.lineTotal);

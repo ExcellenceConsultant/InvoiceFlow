@@ -66,6 +66,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       grossWeightKgs: 0,
       netWeightKgs: 0,
       category: "", // added category field to initial state
+      isSchemeDescription: false, // flag for scheme description line items
+      schemeDescription: "", // text for scheme description
     },
   ]);
   const [showSchemeItems, setShowSchemeItems] = useState<{
@@ -331,6 +333,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         grossWeightKgs: 0,
         netWeightKgs: 0,
         category: "", // keep category empty initially
+        isSchemeDescription: false,
+        schemeDescription: "",
       },
     ]);
   };
@@ -692,11 +696,48 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 <div className="space-y-3">
                   {lineItems.map((item, index) => (
                     <div key={index}>
-                      {/* Main line item */}
-                      <div
-                        className="grid grid-cols-12 gap-3 items-end p-3 bg-muted/50 rounded-lg"
-                        data-testid={`line-item-${index}`}
-                      >
+                      {/* Scheme Description Line Item (merged row) */}
+                      {item.isSchemeDescription ? (
+                        <div
+                          className="grid grid-cols-12 gap-3 items-end p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border-l-4 border-blue-400"
+                          data-testid={`scheme-desc-item-${index}`}
+                        >
+                          <div className="col-span-11">
+                            <label className="block text-xs text-muted-foreground mb-1">
+                              Scheme Description (editable)
+                            </label>
+                            <Input
+                              value={item.description}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "description",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8"
+                              data-testid={`input-scheme-description-${index}`}
+                            />
+                          </div>
+                          <div className="col-span-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeLineItem(index)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              data-testid={`button-remove-scheme-desc-${index}`}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Normal Product Line Item */
+                        <div
+                          className="grid grid-cols-12 gap-3 items-end p-3 bg-muted/50 rounded-lg"
+                          data-testid={`line-item-${index}`}
+                        >
                         <div className="col-span-3">
                           <label className="block text-xs text-muted-foreground mb-1">
                             Product
@@ -729,10 +770,37 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   ),
                                   category:
                                     product.category ||
-                                    updatedItems[index].category, // 👈 add this
+                                    updatedItems[index].category,
                                   lineTotal:
                                     updatedItems[index].quantity * unitPrice,
+                                  isSchemeDescription: false,
                                 };
+
+                                // Check if product has scheme description and add it as next line item
+                                if (product.schemeDescription && product.schemeDescription.trim()) {
+                                  // Check if next item is already a scheme description for this product
+                                  const nextItem = updatedItems[index + 1];
+                                  const isNextItemSchemeDesc = nextItem?.isSchemeDescription && nextItem?.productId === value;
+                                  
+                                  if (!isNextItemSchemeDesc) {
+                                    // Insert scheme description line item after the product
+                                    updatedItems.splice(index + 1, 0, {
+                                      productId: value,
+                                      variantId: "",
+                                      description: product.schemeDescription,
+                                      quantity: 0,
+                                      unitPrice: 0,
+                                      lineTotal: 0,
+                                      productCode: "",
+                                      packingSize: "",
+                                      grossWeightKgs: 0,
+                                      netWeightKgs: 0,
+                                      category: product.category || "",
+                                      isSchemeDescription: true,
+                                      schemeDescription: product.schemeDescription,
+                                    });
+                                  }
+                                }
 
                                 setLineItems(updatedItems);
                                 console.log(
@@ -887,9 +955,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           </Button>
                         </div>
                       </div>
-
-                      {/* Scheme items */}
-                      {showSchemeItems[index] && (
+                      )}
+                      
+                      {!item.isSchemeDescription && showSchemeItems[index] && (
                         <div className="ml-4 mt-2 space-y-2">
                           <div className="flex items-center gap-2 mb-2">
                             <Gift className="text-accent" size={16} />
