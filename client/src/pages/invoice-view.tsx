@@ -543,89 +543,91 @@ function InvoiceView() {
             </div>
           </div>
 
-          {/* Table */}
-          <table className="invoice-table">
-            <thead>
-              <tr>
-                <th style={{ width: "5%", textAlign: "center" }}>Sr. No.</th>
-                <th style={{ width: "12%" }}>Product Code</th>
-                <th style={{ width: "12%" }}>Packing Size</th>
-                <th style={{ width: "35%" }}>Product Description</th>
-                <th style={{ width: "10%", textAlign: "center" }}>
-                  Qty
-                  <br />
-                  (Carton)
-                </th>
-                <th style={{ width: "13%", textAlign: "right" }}>
-                  Rate per Carton
-                </th>
-                <th style={{ width: "13%", textAlign: "right" }}>
-                  Total
-                  <br />
-                  Amount
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {page.rows.map((row, idx) => {
-                if (row.type === 'category') {
-                  return (
-                    <tr key={`cat-${pageIndex}-${idx}`}>
-                      <td colSpan={7} className="category-header">
-                        {row.category}
-                      </td>
-                    </tr>
-                  );
-                } else {
-                  const item = row.item;
-                  const qty = toNumber(item.quantity);
-                  const rate = toNumber(item.unitPrice);
-                  const lineTotal = toNumber(item.lineTotal);
-                  const isFree = item.isFreeFromScheme;
-
-                  return (
-                    <tr key={`item-${pageIndex}-${idx}`}>
-                      <td style={{ textAlign: "center" }}>{row.srNo}</td>
-                      <td>{item.productCode || "—"}</td>
-                      <td>
-                        {item.packingSize
-                          ? item.packingSize.replace(/GM/g, "G")
-                          : "—"}
-                      </td>
-                      <td>
-                        {item.description}
-                        {isFree && rate === 0 && (
-                          <div className="scheme-info">
-                            Free item from promotional scheme
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: "center" }}>{qty || "—"}</td>
-                      <td style={{ textAlign: "right" }}>
-                        {formatCurrency(rate)}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        {formatCurrency(lineTotal)}
-                      </td>
-                    </tr>
-                  );
-                }
-              })}
-
-              {/* Empty rows to fill page */}
-              {Array.from({ length: page.emptyCount }).map((_, idx) => (
-                <tr key={`empty-${pageIndex}-${idx}`}>
-                  <td style={{ textAlign: "center" }}>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td style={{ textAlign: "center" }}>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
+          {/* Table - only show if page 1 OR if there are items on this page */}
+          {(pageIndex === 0 || page.rows.length > 0 || page.emptyCount > 0) && (
+            <table className="invoice-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "5%", textAlign: "center" }}>Sr. No.</th>
+                  <th style={{ width: "12%" }}>Product Code</th>
+                  <th style={{ width: "12%" }}>Packing Size</th>
+                  <th style={{ width: "35%" }}>Product Description</th>
+                  <th style={{ width: "10%", textAlign: "center" }}>
+                    Qty
+                    <br />
+                    (Carton)
+                  </th>
+                  <th style={{ width: "13%", textAlign: "right" }}>
+                    Rate per Carton
+                  </th>
+                  <th style={{ width: "13%", textAlign: "right" }}>
+                    Total
+                    <br />
+                    Amount
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {page.rows.map((row, idx) => {
+                  if (row.type === 'category') {
+                    return (
+                      <tr key={`cat-${pageIndex}-${idx}`}>
+                        <td colSpan={7} className="category-header">
+                          {row.category}
+                        </td>
+                      </tr>
+                    );
+                  } else {
+                    const item = row.item;
+                    const qty = toNumber(item.quantity);
+                    const rate = toNumber(item.unitPrice);
+                    const lineTotal = toNumber(item.lineTotal);
+                    const isFree = item.isFreeFromScheme;
+
+                    return (
+                      <tr key={`item-${pageIndex}-${idx}`}>
+                        <td style={{ textAlign: "center" }}>{row.srNo}</td>
+                        <td>{item.productCode || "—"}</td>
+                        <td>
+                          {item.packingSize
+                            ? item.packingSize.replace(/GM/g, "G")
+                            : "—"}
+                        </td>
+                        <td>
+                          {item.description}
+                          {isFree && rate === 0 && (
+                            <div className="scheme-info">
+                              Free item from promotional scheme
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ textAlign: "center" }}>{qty || "—"}</td>
+                        <td style={{ textAlign: "right" }}>
+                          {formatCurrency(rate)}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {formatCurrency(lineTotal)}
+                        </td>
+                      </tr>
+                    );
+                  }
+                })}
+
+                {/* Empty rows to fill page */}
+                {Array.from({ length: page.emptyCount }).map((_, idx) => (
+                  <tr key={`empty-${pageIndex}-${idx}`}>
+                    <td style={{ textAlign: "center" }}>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td style={{ textAlign: "center" }}>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           {/* Summary, Notes, Footer always on page 2 (pageIndex 1) */}
           {pageIndex === 1 && (
