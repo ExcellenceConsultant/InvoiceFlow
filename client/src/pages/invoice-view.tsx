@@ -151,7 +151,13 @@ function InvoiceView() {
   html { background: white !important; }
   * { box-shadow: none !important; background-color: inherit; }
   .container { background: white !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-  .invoice-page { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; min-height: auto; background: white !important; }
+  .invoice-page { box-shadow: none; border: none; margin: 0 !important; padding: 0 !important; width: 100%; min-height: auto; background: white !important; }
+  .invoice-header { margin-top: 0 !important; margin-bottom: 10px !important; }
+  .invoice-info-grid { margin-bottom: 10px !important; }
+  .invoice-table { margin-top: 0 !important; margin-bottom: 0 !important; }
+  .summary-section { margin-top: 10px !important; margin-bottom: 10px !important; }
+  .notes-section { margin-bottom: 10px !important; }
+  .footer-section { margin-top: 10px !important; margin-bottom: 0 !important; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
 }
