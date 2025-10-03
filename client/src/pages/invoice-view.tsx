@@ -296,7 +296,7 @@ function InvoiceView() {
 }
 
 .notes-section {
-  margin-bottom: 15px;
+  margin-bottom: 30px;
 }
 
 .notes-label {
