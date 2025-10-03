@@ -616,10 +616,10 @@ function InvoiceView() {
                     <br />
                     (Carton)
                   </th>
-                  <th style={{ width: "13%", textAlign: "right" }}>
+                  <th style={{ width: "13%", textAlign: "center" }}>
                     Rate per Carton
                   </th>
-                  <th style={{ width: "13%", textAlign: "right" }}>
+                  <th style={{ width: "13%", textAlign: "center" }}>
                     Total
                     <br />
                     Amount
