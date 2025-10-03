@@ -631,15 +631,16 @@ function InvoiceView() {
                       </tr>
                     );
                   } else if (row.type === 'schemeDesc') {
-                    // Scheme description row (merged across all columns)
+                    // Scheme description row (starts from Product Code column)
                     return (
                       <tr key={`scheme-desc-${pageIndex}-${idx}`} className="scheme-description-row">
-                        <td colSpan={7} style={{ 
-                          paddingLeft: "2em",
-                          fontStyle: "italic",
-                          backgroundColor: "#f9fafb",
-                          fontSize: "0.9em",
-                          color: "#4b5563"
+                        <td style={{ border: "none" }}></td>
+                        <td style={{ border: "none" }}></td>
+                        <td colSpan={5} style={{ 
+                          backgroundColor: "white",
+                          fontSize: "inherit",
+                          color: "inherit",
+                          textAlign: "left"
                         }}>
                           {row.item.description}
                         </td>
