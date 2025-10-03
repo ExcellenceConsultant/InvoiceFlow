@@ -259,8 +259,8 @@ function InvoiceView() {
 
 .summary-section {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 74% auto;
+  gap: 0;
   margin-bottom: 15px;
 }
 
