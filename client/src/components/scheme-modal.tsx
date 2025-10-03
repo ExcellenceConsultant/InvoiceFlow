@@ -28,7 +28,6 @@ import { DEFAULT_USER_ID } from "@/lib/constants";
 const schemeSchema = z.object({
   name: z.string().min(1, "Scheme name is required"),
   description: z.string().optional(),
-  productId: z.string().min(1, "Product is required"),
   buyQuantity: z.number().min(1, "Buy quantity must be at least 1"),
   freeQuantity: z.number().min(1, "Free quantity must be at least 1"),
 });
@@ -47,7 +46,6 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
     defaultValues: {
       name: "",
       description: "",
-      productId: "",
       buyQuantity: 1,
       freeQuantity: 1,
     },
@@ -202,38 +200,6 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="productId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Apply to Product</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-scheme-product">
-                          <SelectValue placeholder="Select Product" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {products?.map((product: any) => (
-                          <SelectItem
-                            key={product.id}
-                            value={product.id}
-                            data-testid={`option-scheme-product-${product.id}`}
-                          >
-                            {product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <div className="flex space-x-3 pt-4">
                 <Button

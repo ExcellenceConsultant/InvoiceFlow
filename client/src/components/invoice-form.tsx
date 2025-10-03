@@ -73,6 +73,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const [showSchemeItems, setShowSchemeItems] = useState<{
     [key: number]: any[];
   }>({});
+  const [manualFreeItems, setManualFreeItems] = useState<any[]>([]); // For total quantity-based schemes
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const { toast } = useToast();
@@ -355,6 +356,39 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     return lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
   };
 
+  const calculateTotalQuantity = () => {
+    return lineItems.reduce((sum, item) => {
+      if (!item.isSchemeDescription && item.productId) {
+        return sum + (item.quantity || 0);
+      }
+      return sum;
+    }, 0);
+  };
+
+  const addManualFreeItem = (productId: string, schemeId: string, quantity: number) => {
+    const product = products?.find((p: any) => p.id === productId);
+    if (!product) return;
+
+    const newFreeItem = {
+      productId: product.id,
+      description: product.name,
+      quantity: quantity,
+      unitPrice: 0,
+      lineTotal: 0,
+      productCode: product.itemCode || "",
+      packingSize: product.packingSize || "",
+      category: product.category || "",
+      schemeId: schemeId,
+      isFreeFromScheme: true,
+    };
+
+    setManualFreeItems([...manualFreeItems, newFreeItem]);
+  };
+
+  const removeManualFreeItem = (index: number) => {
+    setManualFreeItems(manualFreeItems.filter((_, i) => i !== index));
+  };
+
   const onSubmit = (data: z.infer<typeof invoiceSchema>) => {
     const subtotal = calculateTotal();
     const freight = data.freight || 0;
@@ -421,6 +455,24 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           });
         });
       }
+    });
+
+    // Add manual free items (from total quantity-based schemes)
+    manualFreeItems.forEach((freeItem) => {
+      allLineItems.push({
+        productId: freeItem.productId,
+        variantId: null,
+        description: freeItem.description,
+        quantity: freeItem.quantity,
+        unitPrice: "0",
+        lineTotal: "0",
+        productCode: freeItem.productCode || null,
+        packingSize: freeItem.packingSize || null,
+        category: freeItem.category || null,
+        isFreeFromScheme: true,
+        isSchemeDescription: false,
+        schemeId: freeItem.schemeId || null,
+      });
     });
 
     // Calculate due date based on invoice date + payment terms
@@ -1065,6 +1117,112 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       Free items are automatically added when you meet scheme
                       requirements
                     </div>
+                  </div>
+                )}
+
+                {/* Total Quantity-Based Schemes */}
+                {schemes && schemes.filter((s: any) => s.isActive && !s.productId).length > 0 && (
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Gift className="text-primary" size={20} />
+                      <h3 className="text-lg font-semibold text-primary">
+                        Quantity-Based Promotional Schemes
+                      </h3>
+                    </div>
+                    <div className="mb-3 text-sm">
+                      <span className="font-medium text-foreground">Total Quantity: </span>
+                      <span className="text-lg font-bold text-primary">{calculateTotalQuantity()}</span>
+                    </div>
+                    
+                    {schemes.filter((s: any) => s.isActive && !s.productId).map((scheme: any) => {
+                      const totalQty = calculateTotalQuantity();
+                      const timesTriggered = Math.floor(totalQty / scheme.buyQuantity);
+                      const freeQuantityEarned = timesTriggered * scheme.freeQuantity;
+                      const isTriggered = timesTriggered > 0;
+
+                      return (
+                        <div key={scheme.id} className="border border-border rounded-lg p-3 mb-3 bg-background">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="font-semibold text-foreground">{scheme.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Buy {scheme.buyQuantity} Get {scheme.freeQuantity} Free
+                              </div>
+                            </div>
+                            {isTriggered && (
+                              <div className="text-accent font-bold">
+                                {freeQuantityEarned} Free Items Available
+                              </div>
+                            )}
+                          </div>
+                          
+                          {isTriggered && (
+                            <div className="mt-3 space-y-2">
+                              <div className="grid grid-cols-12 gap-2">
+                                <div className="col-span-6">
+                                  <Select
+                                    onValueChange={(productId) => {
+                                      addManualFreeItem(productId, scheme.id, freeQuantityEarned);
+                                    }}
+                                    data-testid={`select-free-product-${scheme.id}`}
+                                  >
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue placeholder="Select Free Product" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {products?.map((product: any) => (
+                                        <SelectItem
+                                          key={product.id}
+                                          value={product.id}
+                                        >
+                                          {product.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="col-span-6 text-xs text-muted-foreground">
+                                  Select any product to add as free item
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {!isTriggered && (
+                            <div className="text-xs text-muted-foreground mt-2">
+                              Add {scheme.buyQuantity - (totalQty % scheme.buyQuantity)} more items to trigger this scheme
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Show manual free items added */}
+                    {manualFreeItems.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-border">
+                        <div className="text-sm font-medium text-foreground mb-2">Free Items Added:</div>
+                        <div className="space-y-2">
+                          {manualFreeItems.map((item, index) => (
+                            <div key={index} className="flex items-center justify-between bg-accent/10 rounded px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <Gift className="text-accent" size={16} />
+                                <span className="text-sm font-medium">{item.description}</span>
+                                <span className="text-xs text-muted-foreground">x{item.quantity}</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeManualFreeItem(index)}
+                                className="h-6 px-2"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
