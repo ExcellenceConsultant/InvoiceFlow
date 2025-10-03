@@ -818,10 +818,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   productCode: product.itemCode || "",
                                   packingSize: product.packingSize || "",
                                   grossWeightKgs: parseFloat(
-                                    product.grossWeightKgs || "0",
+                                    product.grossWeight || "0",
                                   ),
                                   netWeightKgs: parseFloat(
-                                    product.netWeightKgs || "0",
+                                    product.netWeight || "0",
                                   ),
                                   category:
                                     product.category ||
