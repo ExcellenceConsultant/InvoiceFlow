@@ -15,6 +15,7 @@ interface InvoiceLineItem {
   category: string;
   netWeightKgs: number;
   grossWeightKgs: number;
+  isSchemeDescription?: boolean;
 }
 
 interface Invoice {
@@ -153,11 +154,14 @@ export default function PackingList() {
     return <div>Loading...</div>;
   }
 
+  // Filter out scheme description items - they are only for invoice format, not packing list
+  const filteredLineItems = lineItems.filter(item => !item.isSchemeDescription);
+
   // Group line items by category
   const groupedItems: { [category: string]: InvoiceLineItem[] } = {};
   let totalCartons = 0;
 
-  lineItems.forEach((item: InvoiceLineItem) => {
+  filteredLineItems.forEach((item: InvoiceLineItem) => {
     const category = item.category || "Uncategorized";
     if (!groupedItems[category]) {
       groupedItems[category] = [];
@@ -165,18 +169,6 @@ export default function PackingList() {
     groupedItems[category].push(item);
     totalCartons += item.quantity;
   });
-
-  // Calculate total net weight and gross weight in LBS
-  const KG_TO_LBS = 2.20462;
-  const totalNetWeightLbs = lineItems.reduce(
-    (sum, item) => sum + (item.netWeightKgs || 0) * (item.quantity || 0),
-    0
-  ) * KG_TO_LBS;
-  
-  const totalGrossWeightLbs = lineItems.reduce(
-    (sum, item) => sum + (item.grossWeightKgs || 0) * (item.quantity || 0),
-    0
-  ) * KG_TO_LBS;
 
   // Parse addresses
   const billAddress = typeof invoice.customer?.address === "string" 
@@ -375,8 +367,6 @@ export default function PackingList() {
             {pageIndex === pages.length - 1 && (
               <div className="text-right mt-4 space-y-1">
                 <div><strong>Total Carton: {totalCartons}</strong></div>
-                <div><strong>Net Weight LBS Total: {totalNetWeightLbs.toFixed(2)}</strong></div>
-                <div><strong>Gross Weight LBS Total: {totalGrossWeightLbs.toFixed(2)}</strong></div>
               </div>
             )}
 
