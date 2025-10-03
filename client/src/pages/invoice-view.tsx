@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Invoice, InvoiceLineItem, Customer } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Package } from "lucide-react";
+import { DEFAULT_USER_ID } from "@/lib/constants";
 
 function formatCurrency(num: number) {
   if (Number.isNaN(num) || num === null || num === undefined) return "$0.00";
@@ -95,6 +96,15 @@ function InvoiceView() {
     InvoiceLineItem[]
   >({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
 
+  const { data: schemes } = useQuery<any[]>({
+    queryKey: ["/api/schemes"],
+    queryFn: async () => {
+      const response = await fetch(`/api/schemes?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error("Failed to fetch schemes");
+      return response.json();
+    },
+  });
+
   const isLoading = invoiceLoading || lineItemsLoading;
   const rawLineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
@@ -107,6 +117,7 @@ function InvoiceView() {
     grossWeightKgs: toNumber((item as any).grossWeightKgs),
     category: (item as any).category || "",
     isFreeFromScheme: (item as any).isFreeFromScheme || false,
+    schemeId: (item as any).schemeId || null,
   }));
 
   // fix Uncategorized by inheriting from matching product
@@ -387,6 +398,14 @@ function InvoiceView() {
 
   const handlePrint = () => window.print();
 
+  // Create scheme lookup map
+  const schemeMap = new Map<string, string>();
+  if (schemes) {
+    schemes.forEach((scheme: any) => {
+      schemeMap.set(scheme.id, scheme.name || '');
+    });
+  }
+
   // Separate regular items, scheme items, and scheme description items
   const regularItems = lineItems.filter(item => !item.isFreeFromScheme && !item.isSchemeDescription);
   const schemeItems = lineItems.filter(item => item.isFreeFromScheme);
@@ -402,7 +421,7 @@ function InvoiceView() {
     categorizedItems[cat].push(item);
   });
 
-  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean } | { type: 'schemeDesc'; item: any };
+  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean } | { type: 'schemeDesc'; item: any } | { type: 'schemeName'; schemeName: string };
   
   // Build all rows first (category headers + items + scheme descriptions in order)
   const allRows: TableRow[] = [];
@@ -428,6 +447,12 @@ function InvoiceView() {
     allRows.push({ type: 'category', category: 'Promotional Schemes' });
     schemeItems.forEach((item) => {
       allRows.push({ type: 'item', item, srNo: 0, isScheme: true });
+      
+      // Add scheme name row below the promotional scheme item if schemeId exists
+      if (item.schemeId && schemeMap.has(item.schemeId)) {
+        const schemeName = schemeMap.get(item.schemeId) || '';
+        allRows.push({ type: 'schemeName', schemeName });
+      }
     });
   }
 
@@ -645,6 +670,23 @@ function InvoiceView() {
                           textAlign: "left"
                         }}>
                           {row.item.description}
+                        </td>
+                      </tr>
+                    );
+                  } else if (row.type === 'schemeName') {
+                    // Scheme name row (starts from Packing Size column)
+                    return (
+                      <tr key={`scheme-name-${pageIndex}-${idx}`} className="scheme-name-row">
+                        <td style={{ border: "none" }}></td>
+                        <td style={{ border: "none" }}></td>
+                        <td style={{ border: "none" }}></td>
+                        <td colSpan={4} style={{ 
+                          backgroundColor: "white",
+                          fontSize: "inherit",
+                          color: "inherit",
+                          textAlign: "left"
+                        }}>
+                          {row.schemeName}
                         </td>
                       </tr>
                     );
