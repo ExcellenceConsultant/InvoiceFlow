@@ -16,6 +16,16 @@
     print-color-adjust: exact;
     background: white !important;
   }
+  
+  /* Ensure all containers and divs have white background */
+  * {
+    background: white !important;
+  }
+  
+  /* Preserve specific backgrounds that should have color */
+  .category-header {
+    background: #f3f4f6 !important;
+  }
 }
 
 /* Additional print styles */
