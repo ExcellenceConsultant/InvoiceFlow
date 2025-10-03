@@ -26,6 +26,11 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 
+const DEFAULT_NOTES = `1. All matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related here to shall be adjudicated exclusively in the state or federal courts located in  Pennsylvania.
+2. Overdue balances subject to finance charge of 2 %  per month.
+3. I understand and accept that cheque image deposited through ACH debits are valid mode of payment.
+4. Final Sale`;
+
 const invoiceSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
   invoiceNumber: z.string().min(1, "Invoice number is required"),
@@ -35,6 +40,7 @@ const invoiceSchema = z.object({
     required_error: "Please select invoice type",
   }),
   freight: z.number().min(0, "Freight must be non-negative").default(0),
+  notes: z.string().optional(),
 });
 
 const lineItemSchema = z.object({
@@ -88,6 +94,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       paymentTerms: 30,
       invoiceType: invoice.invoiceType || "receivable",
       freight: parseFloat(invoice.freight || 0),
+      notes: invoice.notes || DEFAULT_NOTES,
     } : {
       customerId: "",
       invoiceNumber: `INV-${Date.now()}`,
@@ -95,6 +102,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       paymentTerms: 30,
       invoiceType: "receivable",
       freight: 0,
+      notes: DEFAULT_NOTES,
     },
   });
 
@@ -108,6 +116,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         paymentTerms: invoice.paymentTerms || 30,
         invoiceType: invoice.invoiceType || "receivable",
         freight: parseFloat(invoice.freight || 0),
+        notes: invoice.notes || DEFAULT_NOTES,
       });
     }
   }, [isEditMode, invoice, form]);

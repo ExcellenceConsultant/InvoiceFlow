@@ -746,7 +746,9 @@ function InvoiceView() {
               {/* Notes Section */}
               <div className="notes-section">
                 <div className="notes-label">Notes:</div>
-                <div className="notes-box">Enter notes here...</div>
+                <div className="notes-box" style={{ whiteSpace: 'pre-line' }}>
+                  {(invoice as any).notes || ""}
+                </div>
               </div>
 
               {/* Footer */}
