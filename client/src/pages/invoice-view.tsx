@@ -764,9 +764,9 @@ function InvoiceView() {
                   <span>Received By:</span>
                   <span>___________________</span>
                 </div>
-                <div className="footer-item">
+                <div className="footer-item" style={{ textAlign: 'center' }}>
                   <span>Total Pallet:</span>
-                  <span>8</span>
+                  <span></span>
                 </div>
                 <div className="footer-company">Kitchen Express Overseas Inc</div>
               </div>
