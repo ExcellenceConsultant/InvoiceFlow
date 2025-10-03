@@ -435,54 +435,36 @@ function InvoiceView() {
     });
   }
 
-  // Pagination: 13 PRODUCT ITEMS per page (category headers don't count)
-  const ITEMS_PER_PAGE = 13;
+  // Pagination: 22 TOTAL LINE ITEMS per page (including categories, items, scheme descriptions - everything)
+  const ROWS_PER_PAGE = 22;
   const pages: { rows: TableRow[]; emptyCount: number }[] = [];
   
   let currentPageRows: TableRow[] = [];
-  let itemCountOnCurrentPage = 0;
-  let pendingCategoryHeader: TableRow | null = null;
+  let rowCountOnCurrentPage = 0;
 
   allRows.forEach((row) => {
-    if (row.type === 'category') {
-      // Store category header to add before next item
-      pendingCategoryHeader = row;
-    } else if (row.type === 'schemeDesc') {
-      // Scheme description doesn't count toward pagination, just add it to current page
-      currentPageRows.push(row);
-    } else {
-      // This is a regular item
-      // Add pending category header if exists
-      if (pendingCategoryHeader) {
-        currentPageRows.push(pendingCategoryHeader);
-        pendingCategoryHeader = null;
-      }
-      
-      currentPageRows.push(row);
-      itemCountOnCurrentPage++;
+    // Add the row to current page
+    currentPageRows.push(row);
+    rowCountOnCurrentPage++;
 
-      // If we've reached 13 items, create a page
-      if (itemCountOnCurrentPage === ITEMS_PER_PAGE) {
-        const emptyCount = pages.length === 0 ? ITEMS_PER_PAGE - itemCountOnCurrentPage : 0;
-        pages.push({ rows: currentPageRows, emptyCount });
-        currentPageRows = [];
-        itemCountOnCurrentPage = 0;
-      }
+    // If we've reached 22 total rows, create a page
+    if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
+      pages.push({ rows: currentPageRows, emptyCount: 0 });
+      currentPageRows = [];
+      rowCountOnCurrentPage = 0;
     }
   });
 
   // Add remaining items as last page
-  if (currentPageRows.length > 0 || pendingCategoryHeader) {
-    if (pendingCategoryHeader) {
-      currentPageRows.push(pendingCategoryHeader);
-    }
-    const emptyCount = pages.length === 0 ? ITEMS_PER_PAGE - itemCountOnCurrentPage : 0;
+  if (currentPageRows.length > 0) {
+    // Only add empty rows on the first page if needed
+    const emptyCount = pages.length === 0 ? ROWS_PER_PAGE - rowCountOnCurrentPage : 0;
     pages.push({ rows: currentPageRows, emptyCount });
   }
 
-  // If no items, still create one page with 13 empty rows
+  // If no items, still create one page with 22 empty rows
   if (pages.length === 0) {
-    pages.push({ rows: [], emptyCount: ITEMS_PER_PAGE });
+    pages.push({ rows: [], emptyCount: ROWS_PER_PAGE });
   }
 
   // Always ensure at least 2 pages exist (page 2 for summary/notes)
