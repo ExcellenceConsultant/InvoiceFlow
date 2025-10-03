@@ -82,6 +82,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   }>({});
   const [manualFreeItems, setManualFreeItems] = useState<any[]>([]); // For total quantity-based schemes
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [schemePendingSelections, setSchemePendingSelections] = useState<{
+    [schemeId: string]: { productId: string; quantity: number };
+  }>({});
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -375,6 +378,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     }, 0);
   };
 
+  const getUsedFreeQuantity = (schemeId: string) => {
+    return manualFreeItems
+      .filter(item => item.schemeId === schemeId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const addManualFreeItem = (productId: string, schemeId: string, quantity: number) => {
     const product = products?.find((p: any) => p.id === productId);
     if (!product) return;
@@ -395,6 +404,13 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     };
 
     setManualFreeItems([...manualFreeItems, newFreeItem]);
+    
+    // Reset pending selection for this scheme
+    setSchemePendingSelections(prev => {
+      const updated = { ...prev };
+      delete updated[schemeId];
+      return updated;
+    });
   };
 
   const removeManualFreeItem = (index: number) => {
@@ -1213,17 +1229,24 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           </div>
                           
                           {isTriggered && (
-                            <div className="mt-3 space-y-2">
+                            <div className="mt-3 space-y-3">
                               <div className="grid grid-cols-12 gap-2">
-                                <div className="col-span-6">
+                                <div className="col-span-5">
                                   <Select
+                                    value={schemePendingSelections[scheme.id]?.productId || ""}
                                     onValueChange={(productId) => {
-                                      addManualFreeItem(productId, scheme.id, freeQuantityEarned);
+                                      setSchemePendingSelections(prev => ({
+                                        ...prev,
+                                        [scheme.id]: { 
+                                          productId, 
+                                          quantity: prev[scheme.id]?.quantity || 1 
+                                        }
+                                      }));
                                     }}
                                     data-testid={`select-free-product-${scheme.id}`}
                                   >
                                     <SelectTrigger className="h-8">
-                                      <SelectValue placeholder="Select Free Product" />
+                                      <SelectValue placeholder="Select Product" />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {products?.map((product: any) => (
@@ -1237,10 +1260,87 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                <div className="col-span-6 text-xs text-muted-foreground">
-                                  Select any product to add as free item
+                                <div className="col-span-3">
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max={freeQuantityEarned - getUsedFreeQuantity(scheme.id)}
+                                    value={schemePendingSelections[scheme.id]?.quantity || 1}
+                                    onChange={(e) => {
+                                      const quantity = parseInt(e.target.value) || 1;
+                                      setSchemePendingSelections(prev => ({
+                                        ...prev,
+                                        [scheme.id]: { 
+                                          productId: prev[scheme.id]?.productId || "", 
+                                          quantity 
+                                        }
+                                      }));
+                                    }}
+                                    placeholder="Qty"
+                                    className="h-8"
+                                    data-testid={`input-free-quantity-${scheme.id}`}
+                                  />
+                                </div>
+                                <div className="col-span-4">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => {
+                                      const pending = schemePendingSelections[scheme.id];
+                                      if (pending?.productId && pending?.quantity > 0) {
+                                        const remaining = freeQuantityEarned - getUsedFreeQuantity(scheme.id);
+                                        if (pending.quantity <= remaining) {
+                                          addManualFreeItem(pending.productId, scheme.id, pending.quantity);
+                                        } else {
+                                          toast({
+                                            title: "Invalid Quantity",
+                                            description: `Only ${remaining} items remaining`,
+                                            variant: "destructive"
+                                          });
+                                        }
+                                      }
+                                    }}
+                                    className="h-8 w-full"
+                                    data-testid={`button-add-free-item-${scheme.id}`}
+                                  >
+                                    <Plus size={14} className="mr-1" /> Add
+                                  </Button>
                                 </div>
                               </div>
+                              
+                              {/* Show remaining quantity */}
+                              <div className="text-xs text-muted-foreground">
+                                Available: {freeQuantityEarned - getUsedFreeQuantity(scheme.id)} of {freeQuantityEarned} free items
+                              </div>
+                              
+                              {/* Show added items for this scheme */}
+                              {manualFreeItems.filter(item => item.schemeId === scheme.id).length > 0 && (
+                                <div className="space-y-1">
+                                  <div className="text-xs font-medium text-foreground">Selected Free Items:</div>
+                                  {manualFreeItems
+                                    .map((item, index) => ({ item, index }))
+                                    .filter(({ item }) => item.schemeId === scheme.id)
+                                    .map(({ item, index }) => (
+                                      <div key={index} className="flex items-center justify-between bg-accent/10 rounded px-2 py-1.5">
+                                        <div className="flex items-center gap-2">
+                                          <Gift className="text-accent" size={14} />
+                                          <span className="text-xs font-medium">{item.description}</span>
+                                          <span className="text-xs text-muted-foreground">x{item.quantity}</span>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => removeManualFreeItem(index)}
+                                          className="h-5 px-1"
+                                          data-testid={`button-remove-free-item-${index}`}
+                                        >
+                                          <Trash2 size={12} />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
                           )}
                           
@@ -1252,33 +1352,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         </div>
                       );
                     })}
-
-                    {/* Show manual free items added */}
-                    {manualFreeItems.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-border">
-                        <div className="text-sm font-medium text-foreground mb-2">Free Items Added:</div>
-                        <div className="space-y-2">
-                          {manualFreeItems.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between bg-accent/10 rounded px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <Gift className="text-accent" size={16} />
-                                <span className="text-sm font-medium">{item.description}</span>
-                                <span className="text-xs text-muted-foreground">x{item.quantity}</span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeManualFreeItem(index)}
-                                className="h-6 px-2"
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
 
