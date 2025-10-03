@@ -89,6 +89,43 @@ export default function PackingList() {
         position: relative;
       }
 
+      .invoice-header {
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 20px;
+      }
+
+      .invoice-info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+        font-size: 11px;
+      }
+
+      .info-section {
+        line-height: 1.6;
+      }
+
+      .info-label {
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        font-size: 11px;
+        color: #333;
+      }
+
+      .info-company {
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .info-detail {
+        color: #555;
+        margin: 1px 0;
+      }
+
       .packing-table {
         width: 100%;
         border-collapse: collapse;
@@ -247,82 +284,90 @@ export default function PackingList() {
           key={pageIndex} 
           className={`packing-list-page ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
         >
-          {/* Letter Head Header - hidden during print */}
-          <div className="letter-head print-hide-content">
-            <strong>Letter Head Header</strong>
-          </div>
+          {/* Header */}
+          <div className="invoice-header">PACKING SLIP</div>
 
-          {/* Title */}
-          <div className="text-center font-bold text-lg mb-6">
-            Packing Slip
-          </div>
+          {/* Info Grid */}
+          <div className="invoice-info-grid">
+            {/* Billed To */}
+            <div className="info-section">
+              <div className="info-label">BILLED TO:</div>
+              <div className="info-company">
+                {invoice.customer?.name || "—"}
+              </div>
+              {billAddress && (
+                <>
+                  {billAddress.street && (
+                    <div className="info-detail">{billAddress.street}</div>
+                  )}
+                  {billAddress.city && (
+                    <div className="info-detail">
+                      {billAddress.city}
+                      {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
+                      {billAddress.zipCode || ""}
+                    </div>
+                  )}
+                  {billAddress.country && (
+                    <div className="info-detail">{billAddress.country}</div>
+                  )}
+                </>
+              )}
+            </div>
 
-          {/* Bill To / Ship To / Invoice Details */}
-          <div className="grid grid-cols-12 gap-4 mb-6">
-              <div className="col-span-4">
-                <div className="font-semibold">Bill To :</div>
-                <div className="mt-1">
-                  <div>{invoice.customer?.name || "—"}</div>
-                  {billAddress && (
-                    <div className="small-label">
-                      {billAddress.street && <div>{billAddress.street}</div>}
-                      {billAddress.city && (
-                        <div>
-                          {billAddress.city}
-                          {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
-                          {billAddress.zipCode || ""}
+            {/* Ship To */}
+            <div className="info-section">
+              <div className="info-label">SHIP TO:</div>
+              <div className="info-company">
+                {invoice.shipToName || invoice.customer?.name || "—"}
+              </div>
+              {shipAddress && (
+                <>
+                  {typeof shipAddress === "string" ? (
+                    <div className="info-detail">{shipAddress}</div>
+                  ) : (
+                    <>
+                      {shipAddress.street && (
+                        <div className="info-detail">{shipAddress.street}</div>
+                      )}
+                      {shipAddress.city && (
+                        <div className="info-detail">
+                          {shipAddress.city}
+                          {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                          {shipAddress.zipCode || ""}
                         </div>
                       )}
-                      {billAddress.country && <div>{billAddress.country}</div>}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="col-span-4">
-                <div className="font-semibold">Ship To :</div>
-                <div className="mt-1">
-                  <div>{invoice.shipToName || invoice.customer?.name || "—"}</div>
-                  {shipAddress && (
-                    <div className="small-label">
-                      {typeof shipAddress === "string" ? (
-                        shipAddress
-                      ) : (
-                        <>
-                          {shipAddress.street && <div>{shipAddress.street}</div>}
-                          {shipAddress.city && (
-                            <div>
-                              {shipAddress.city}
-                              {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
-                              {shipAddress.zipCode || ""}
-                            </div>
-                          )}
-                          {shipAddress.country && <div>{shipAddress.country}</div>}
-                        </>
+                      {shipAddress.country && (
+                        <div className="info-detail">{shipAddress.country}</div>
                       )}
-                    </div>
+                    </>
                   )}
-                </div>
+                </>
+              )}
+            </div>
+
+            {/* Invoice Details */}
+            <div className="info-section">
+              <div className="info-detail">
+                <strong>Invoice No.</strong> : {invoice.invoiceNumber}
               </div>
-              <div className="col-span-4">
-                <div>
-                  <strong>Invoice No :</strong> {invoice.invoiceNumber}
-                </div>
-                <div>
-                  <strong>Invoice Date :</strong>{" "}
-                  {new Date(invoice.invoiceDate).toLocaleDateString()}
-                </div>
-                <div>
-                  <strong>Shipping Info :</strong>{" "}
-                  {invoice.purchaseOrderNo || "—"}
-                </div>
-                <div>
-                  <strong>Shipping Date :</strong>{" "}
-                  {invoice.shipDate
-                    ? new Date(invoice.shipDate).toLocaleDateString()
-                    : "—"}
-                </div>
+              <div className="info-detail">
+                <strong>Invoice Date</strong> :{" "}
+                {invoice.invoiceDate
+                  ? new Date(invoice.invoiceDate).toLocaleDateString()
+                  : "—"}
+              </div>
+              <div className="info-detail">
+                <strong>Shipping Info</strong> :{" "}
+                {invoice.purchaseOrderNo || "—"}
+              </div>
+              <div className="info-detail">
+                <strong>Shipping Date</strong> :{" "}
+                {invoice.shipDate
+                  ? new Date(invoice.shipDate).toLocaleDateString()
+                  : "—"}
               </div>
             </div>
+          </div>
 
           {/* Table */}
           <table className="packing-table">
