@@ -26,6 +26,11 @@
   .category-header {
     background: #f3f4f6 !important;
   }
+  
+  /* Ensure Total Amount is black in print */
+  .summary-total {
+    color: black !important;
+  }
 }
 
 /* Additional print styles */
