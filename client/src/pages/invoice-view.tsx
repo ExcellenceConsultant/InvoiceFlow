@@ -118,6 +118,8 @@ function InvoiceView() {
     category: (item as any).category || "",
     isFreeFromScheme: (item as any).isFreeFromScheme || false,
     schemeId: (item as any).schemeId || null,
+    isSchemeDescription: (item as any).isSchemeDescription || false,
+    schemeDescription: (item as any).schemeDescription || "",
   }));
 
   // fix Uncategorized by inheriting from matching product
