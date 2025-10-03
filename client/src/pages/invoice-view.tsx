@@ -5,7 +5,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Invoice, InvoiceLineItem, Customer } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Package } from "lucide-react";
+import { ArrowLeft, Printer, Package, Tag } from "lucide-react";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 
 function formatCurrency(num: number) {
@@ -567,6 +567,14 @@ function InvoiceView() {
           >
             <Package className="h-4 w-4 mr-2" />
             View Packing List
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setLocation(`/invoices/${id}/shipping-label`)}
+            data-testid="button-shipping-label"
+          >
+            <Tag className="h-4 w-4 mr-2" />
+            Shipping Label
           </Button>
           <Button onClick={handlePrint} data-testid="button-print">
             <Printer className="h-4 w-4 mr-2" />

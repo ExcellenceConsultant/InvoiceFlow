@@ -7,6 +7,7 @@ import Dashboard from "@/pages/dashboard";
 import Invoices from "@/pages/invoices";
 import InvoiceView from "@/pages/invoice-view";
 import PackingList from "@/pages/packing-list";
+import ShippingLabel from "@/pages/shipping-label";
 import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import Accounts from "@/pages/accounts";
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/invoices" component={Invoices} />
         <Route path="/invoices/:id" component={InvoiceView} />
         <Route path="/invoices/:id/packing-list" component={PackingList} />
+        <Route path="/invoices/:id/shipping-label" component={ShippingLabel} />
         <Route path="/inventory" component={Inventory} />
         <Route path="/schemes" component={Schemes} />
         <Route path="/accounts" component={Accounts} />
