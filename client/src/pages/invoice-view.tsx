@@ -282,7 +282,6 @@ function InvoiceView() {
 
 .summary-total {
   color: #000;
-  margin-top: 8px;
 }
 
 .notes-section {
@@ -733,13 +732,13 @@ function InvoiceView() {
                 {/* Right side - Financial summary */}
                 <div className="summary-right">
                   <div>
-                    <strong>Subtotal:</strong> {formatCurrency(netAmount)}
+                    <strong>Subtotal:</strong> <span style={{ float: 'right' }}>{formatCurrency(netAmount)}</span>
                   </div>
                   <div>
-                    <strong>Freight:</strong> {formatCurrency(freight)}
+                    <strong>Freight:</strong> <span style={{ float: 'right' }}>{formatCurrency(freight)}</span>
                   </div>
                   <div className="summary-total">
-                    <strong>Total Amount:</strong> {formatCurrency(totalInvoiceAmount)}
+                    <strong>Total Amount:</strong> <span style={{ float: 'right' }}>{formatCurrency(totalInvoiceAmount)}</span>
                   </div>
                 </div>
               </div>
