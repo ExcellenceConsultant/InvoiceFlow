@@ -816,7 +816,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   description: product.name,
                                   unitPrice: unitPrice,
                                   productCode: product.itemCode || "",
-                                  packingSize: product.packingType || "",
+                                  packingSize: product.packingSize || "",
                                   grossWeightKgs: parseFloat(
                                     product.grossWeightKgs || "0",
                                   ),
