@@ -313,6 +313,21 @@ function InvoiceView() {
   line-height: 1.6;
 }
 
+.notes-box ol {
+  margin: 0;
+  padding-left: 30px;
+  list-style-position: outside;
+}
+
+.notes-box ol li {
+  padding-left: 10px;
+  margin-bottom: 8px;
+}
+
+.notes-box ol li::marker {
+  font-weight: bold;
+}
+
 .footer-section {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -788,8 +803,14 @@ function InvoiceView() {
               {/* Notes Section */}
               <div className="notes-section">
                 <div className="notes-label">Notes:</div>
-                <div className="notes-box" style={{ whiteSpace: 'pre-line', paddingLeft: '20px' }}>
-                  {(invoice as any).notes || ""}
+                <div className="notes-box">
+                  <ol>
+                    {((invoice as any).notes || "").split('\n').filter((line: string) => line.trim()).map((line: string, idx: number) => {
+                      // Remove existing numbering (e.g., "1. ", "2. ", etc.)
+                      const cleanLine = line.replace(/^\d+\.\s*/, '');
+                      return <li key={idx}>{cleanLine}</li>;
+                    })}
+                  </ol>
                 </div>
               </div>
               
