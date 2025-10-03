@@ -13,6 +13,8 @@ interface InvoiceLineItem {
   description: string;
   quantity: number;
   category: string;
+  netWeightKgs: number;
+  grossWeightKgs: number;
 }
 
 interface Invoice {
@@ -163,6 +165,18 @@ export default function PackingList() {
     groupedItems[category].push(item);
     totalCartons += item.quantity;
   });
+
+  // Calculate total net weight and gross weight in LBS
+  const KG_TO_LBS = 2.20462;
+  const totalNetWeightLbs = lineItems.reduce(
+    (sum, item) => sum + (item.netWeightKgs || 0) * (item.quantity || 0),
+    0
+  ) * KG_TO_LBS;
+  
+  const totalGrossWeightLbs = lineItems.reduce(
+    (sum, item) => sum + (item.grossWeightKgs || 0) * (item.quantity || 0),
+    0
+  ) * KG_TO_LBS;
 
   // Parse addresses
   const billAddress = typeof invoice.customer?.address === "string" 
@@ -359,8 +373,10 @@ export default function PackingList() {
 
             {/* Total Summary - only on last page */}
             {pageIndex === pages.length - 1 && (
-              <div className="text-right mt-4">
-                <strong>Total Carton: {totalCartons}</strong>
+              <div className="text-right mt-4 space-y-1">
+                <div><strong>Total Carton: {totalCartons}</strong></div>
+                <div><strong>Net Weight LBS Total: {totalNetWeightLbs.toFixed(2)}</strong></div>
+                <div><strong>Gross Weight LBS Total: {totalGrossWeightLbs.toFixed(2)}</strong></div>
               </div>
             )}
 
