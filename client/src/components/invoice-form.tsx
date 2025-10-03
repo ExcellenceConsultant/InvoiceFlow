@@ -1230,88 +1230,91 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           
                           {isTriggered && (
                             <div className="mt-3 space-y-3">
-                              <div className="grid grid-cols-12 gap-2">
-                                <div className="col-span-5">
-                                  <Select
-                                    value={schemePendingSelections[scheme.id]?.productId || ""}
-                                    onValueChange={(productId) => {
-                                      setSchemePendingSelections(prev => ({
-                                        ...prev,
-                                        [scheme.id]: { 
-                                          productId, 
-                                          quantity: prev[scheme.id]?.quantity || 1 
-                                        }
-                                      }));
-                                    }}
-                                    data-testid={`select-free-product-${scheme.id}`}
-                                  >
-                                    <SelectTrigger className="h-8">
-                                      <SelectValue placeholder="Select Product" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {products?.map((product: any) => (
-                                        <SelectItem
-                                          key={product.id}
-                                          value={product.id}
-                                        >
-                                          {product.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="col-span-3">
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    max={freeQuantityEarned - getUsedFreeQuantity(scheme.id)}
-                                    value={schemePendingSelections[scheme.id]?.quantity || 1}
-                                    onChange={(e) => {
-                                      const quantity = parseInt(e.target.value) || 1;
-                                      setSchemePendingSelections(prev => ({
-                                        ...prev,
-                                        [scheme.id]: { 
-                                          productId: prev[scheme.id]?.productId || "", 
-                                          quantity 
-                                        }
-                                      }));
-                                    }}
-                                    placeholder="Qty"
-                                    className="h-8"
-                                    data-testid={`input-free-quantity-${scheme.id}`}
-                                  />
-                                </div>
-                                <div className="col-span-4">
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={() => {
-                                      const pending = schemePendingSelections[scheme.id];
-                                      if (pending?.productId && pending?.quantity > 0) {
-                                        const remaining = freeQuantityEarned - getUsedFreeQuantity(scheme.id);
-                                        if (pending.quantity <= remaining) {
-                                          addManualFreeItem(pending.productId, scheme.id, pending.quantity);
-                                        } else {
-                                          toast({
-                                            title: "Invalid Quantity",
-                                            description: `Only ${remaining} items remaining`,
-                                            variant: "destructive"
-                                          });
-                                        }
-                                      }
-                                    }}
-                                    className="h-8 w-full"
-                                    data-testid={`button-add-free-item-${scheme.id}`}
-                                  >
-                                    <Plus size={14} className="mr-1" /> Add
-                                  </Button>
-                                </div>
-                              </div>
-                              
                               {/* Show remaining quantity */}
                               <div className="text-xs text-muted-foreground">
                                 Available: {freeQuantityEarned - getUsedFreeQuantity(scheme.id)} of {freeQuantityEarned} free items
                               </div>
+                              
+                              {/* Only show selector if there are remaining free items */}
+                              {(freeQuantityEarned - getUsedFreeQuantity(scheme.id)) > 0 && (
+                                <div className="grid grid-cols-12 gap-2">
+                                  <div className="col-span-5">
+                                    <Select
+                                      value={schemePendingSelections[scheme.id]?.productId || ""}
+                                      onValueChange={(productId) => {
+                                        setSchemePendingSelections(prev => ({
+                                          ...prev,
+                                          [scheme.id]: { 
+                                            productId, 
+                                            quantity: prev[scheme.id]?.quantity || 1 
+                                          }
+                                        }));
+                                      }}
+                                      data-testid={`select-free-product-${scheme.id}`}
+                                    >
+                                      <SelectTrigger className="h-8">
+                                        <SelectValue placeholder="Select Product" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {products?.map((product: any) => (
+                                          <SelectItem
+                                            key={product.id}
+                                            value={product.id}
+                                          >
+                                            {product.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="col-span-3">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max={freeQuantityEarned - getUsedFreeQuantity(scheme.id)}
+                                      value={schemePendingSelections[scheme.id]?.quantity || 1}
+                                      onChange={(e) => {
+                                        const quantity = parseInt(e.target.value) || 1;
+                                        setSchemePendingSelections(prev => ({
+                                          ...prev,
+                                          [scheme.id]: { 
+                                            productId: prev[scheme.id]?.productId || "", 
+                                            quantity 
+                                          }
+                                        }));
+                                      }}
+                                      placeholder="Qty"
+                                      className="h-8"
+                                      data-testid={`input-free-quantity-${scheme.id}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-4">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => {
+                                        const pending = schemePendingSelections[scheme.id];
+                                        if (pending?.productId && pending?.quantity > 0) {
+                                          const remaining = freeQuantityEarned - getUsedFreeQuantity(scheme.id);
+                                          if (pending.quantity <= remaining) {
+                                            addManualFreeItem(pending.productId, scheme.id, pending.quantity);
+                                          } else {
+                                            toast({
+                                              title: "Invalid Quantity",
+                                              description: `Only ${remaining} items remaining`,
+                                              variant: "destructive"
+                                            });
+                                          }
+                                        }
+                                      }}
+                                      className="h-8 w-full"
+                                      data-testid={`button-add-free-item-${scheme.id}`}
+                                    >
+                                      <Plus size={14} className="mr-1" /> Add
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                               
                               {/* Show added items for this scheme */}
                               {manualFreeItems.filter(item => item.schemeId === scheme.id).length > 0 && (
