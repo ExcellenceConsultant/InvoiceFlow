@@ -47,14 +47,21 @@ export default function PackingList() {
     style.id = "packing-list-print-styles";
     style.textContent = `
      @media print {
-        @page { size: A4; margin: 35mm 15mm 0 15mm; }
+        @page { 
+          size: A4; 
+          margin: 30mm 15mm 0 15mm;
+        }
+        body {
+          background: white !important;
+        }
         .packing-list-page { 
           box-shadow: none !important; 
           border: none !important; 
           margin: 0 !important; 
-          width: auto !important; 
+          padding: 0 !important;
+          width: 100% !important; 
           min-height: auto !important;
-          background: transparent !important;
+          background: white !important;
         }
         .print-hide { display: none !important; }
         .print-hide-content { display: none !important; }
@@ -62,15 +69,18 @@ export default function PackingList() {
         /* Keep table structure for print to match PDF */
         table.packing-table { 
           border-collapse: collapse !important;
-          background: transparent !important;
+          background: white !important;
         }
         table.packing-table th, table.packing-table td {
           border: 1px solid #000 !important;
-          background: transparent !important;
+          background: white !important;
         }
         thead, tbody, tr { 
           page-break-inside: avoid;
-          background: transparent !important;
+          background: white !important;
+        }
+        .category-row {
+          background: white !important;
         }
         .page-break { page-break-after: always; }
       }
@@ -78,7 +88,7 @@ export default function PackingList() {
         width: 210mm;
         min-height: 297mm;
         margin: 10px auto;
-        padding: 35mm 16mm 30mm 16mm;
+        padding: 30mm 16mm 0 16mm;
         background: white;
         box-sizing: border-box;
         font-family: Calibri, sans-serif;
