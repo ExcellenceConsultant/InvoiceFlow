@@ -372,6 +372,24 @@ function InvoiceView() {
     padding: 0 !important;
     min-height: 0 !important;
   }
+  
+  .notes-box ol {
+    list-style-type: decimal !important;
+    list-style-position: outside !important;
+    padding-left: 30px !important;
+    margin: 0 !important;
+  }
+  
+  .notes-box ol li {
+    padding-left: 10px !important;
+    margin-bottom: 8px !important;
+    display: list-item !important;
+  }
+  
+  .notes-box ol li::marker {
+    font-weight: bold !important;
+    color: #000 !important;
+  }
 }
     `;
     document.head.appendChild(style);
