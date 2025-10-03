@@ -743,7 +743,7 @@ function InvoiceView() {
                     <span>Freight:</span>
                     <span>{formatCurrency(freight)}</span>
                   </div>
-                  <div className="summary-row summary-total">
+                  <div className="summary-row summary-total" style={{ color: 'black' }}>
                     <span>Total Amount:</span>
                     <span>{formatCurrency(totalInvoiceAmount)}</span>
                   </div>
