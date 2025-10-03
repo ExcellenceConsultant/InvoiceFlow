@@ -49,92 +49,97 @@ export default function PackingList() {
     const style = document.createElement("style");
     style.id = "packing-list-print-styles";
     style.textContent = `
-     @media print {
+      @media print {
         @page { 
           size: A4; 
-          margin: 30mm 15mm 0 15mm;
+          margin: 40mm 10mm 30mm 10mm;
+          background: white;
         }
-        body {
-          background: white !important;
-        }
-        .packing-list-page { 
-          box-shadow: none !important; 
-          border: none !important; 
-          margin: 0 !important; 
-          padding: 0 !important;
-          width: 100% !important; 
-          min-height: auto !important;
-          background: white !important;
-        }
+        body { margin: 0; padding: 0; background: white !important; }
+        html { background: white !important; }
+        * { box-shadow: none !important; background-color: inherit; }
+        .container { background: white !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+        .packing-list-page { box-shadow: none; border: none; margin: 0 !important; padding: 0 !important; width: 100%; min-height: auto; background: white !important; }
+        .packing-table { margin: 0 !important; padding: 0 !important; }
+        .page-break { page-break-after: always; }
         .print-hide { display: none !important; }
         .print-hide-content { display: none !important; }
         
-        /* Keep table structure for print to match PDF */
-        table.packing-table { 
-          border-collapse: collapse !important;
-          background: white !important;
+        .category-header {
+          background-color: #f9f9f9 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-        table.packing-table th, table.packing-table td {
-          border: 1px solid #000 !important;
-          background: white !important;
+        
+        .packing-table th {
+          background-color: #f5f5f5 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-        thead, tbody, tr { 
-          page-break-inside: avoid;
-          background: white !important;
-        }
-        .category-row {
-          background: white !important;
-        }
-        .page-break { page-break-after: always; }
       }
+
       .packing-list-page {
-        width: 210mm;
-        min-height: 297mm;
-        margin: 10px auto;
-        padding: 30mm 16mm 0 16mm;
         background: white;
-        box-sizing: border-box;
-        font-family: Calibri, sans-serif;
-        box-shadow: none;
-        border: none;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        max-width: 210mm;
+        margin: 0 auto;
+        position: relative;
       }
-      .small-label { font-size: 12px; color: #374151; }
-      table.packing-table {
+
+      .packing-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 13px;
-        font-family: Calibri, sans-serif;
-        margin-top: 20px;
+        margin-bottom: 15px;
+        font-size: 11px;
+        border: 1px solid #ddd;
       }
-      table.packing-table th, table.packing-table td {
-        padding: 6px 8px;
-        vertical-align: top;
-        border: 0;
-      }
-      table.packing-table thead th {
+
+      .packing-table th {
+        background-color: #f5f5f5;
+        padding: 8px 6px;
+        text-align: left;
         font-weight: 600;
+        border-top: 1px solid #ddd;
+        border-bottom: 1px solid #ddd;
+        border-left: none;
+        border-right: none;
+        font-size: 11px;
       }
-      
-      /* Add borders only for screen view */
-      @media screen {
-        table.packing-table th, table.packing-table td {
-          border: 1px solid #d1d5db;
-        }
+
+      .packing-table td {
+        padding: 6px;
+        border-top: 1px solid #ddd;
+        border-bottom: 1px solid #ddd;
+        border-left: none;
+        border-right: none;
+        vertical-align: top;
       }
+
+      .category-header {
+        background-color: #f9f9f9;
+        font-weight: 600;
+        text-align: center;
+        padding: 6px;
+        border-top: 1px solid #ddd;
+        border-bottom: 1px solid #ddd;
+        border-left: none;
+        border-right: none;
+      }
+
       .totals-row { 
         font-weight: 600; 
         margin-top: 12px; 
       }
-      .category-header {
-        font-weight: 600;
-        text-align: center;
-        padding-left: 0;
-      }
+
       .letter-head {
         text-align: center;
         font-size: 14px;
         margin-bottom: 20px;
       }
+
       .letter-footer {
         text-align: center;
         font-size: 14px;
