@@ -435,41 +435,47 @@ function InvoiceView() {
     });
   }
 
-  // Pagination: 22 TOTAL LINE ITEMS per page (including categories, items, scheme descriptions - everything)
+  // Dynamic Pagination: Fit summary on same page if possible, otherwise paginate with 22 rows per page
   const ROWS_PER_PAGE = 22;
-  const pages: { rows: TableRow[]; emptyCount: number }[] = [];
+  const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
+  const totalRows = allRows.length;
   
-  let currentPageRows: TableRow[] = [];
-  let rowCountOnCurrentPage = 0;
+  const pages: { rows: TableRow[]; emptyCount: number; showSummary: boolean }[] = [];
+  
+  // If total rows fit on one page with summary, create single page
+  if (totalRows <= MAX_ROWS_WITH_SUMMARY) {
+    pages.push({ rows: allRows, emptyCount: 0, showSummary: true });
+  } else {
+    // Otherwise, paginate with 22 rows per page
+    let currentPageRows: TableRow[] = [];
+    let rowCountOnCurrentPage = 0;
 
-  allRows.forEach((row) => {
-    // Add the row to current page
-    currentPageRows.push(row);
-    rowCountOnCurrentPage++;
+    allRows.forEach((row) => {
+      currentPageRows.push(row);
+      rowCountOnCurrentPage++;
 
-    // If we've reached 22 total rows, create a page
-    if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
-      pages.push({ rows: currentPageRows, emptyCount: 0 });
-      currentPageRows = [];
-      rowCountOnCurrentPage = 0;
+      // If we've reached 22 total rows, create a page
+      if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
+        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
+        currentPageRows = [];
+        rowCountOnCurrentPage = 0;
+      }
+    });
+
+    // Add remaining items as last page with summary
+    if (currentPageRows.length > 0) {
+      pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
     }
-  });
 
-  // Add remaining items as last page
-  if (currentPageRows.length > 0) {
-    // Only add empty rows on the first page if needed
-    const emptyCount = pages.length === 0 ? ROWS_PER_PAGE - rowCountOnCurrentPage : 0;
-    pages.push({ rows: currentPageRows, emptyCount });
+    // If no remaining items, add a page just for summary
+    if (currentPageRows.length === 0 && pages.length > 0) {
+      pages.push({ rows: [], emptyCount: 0, showSummary: true });
+    }
   }
 
-  // If no items, still create one page with 22 empty rows
+  // If no items at all, create one page with summary
   if (pages.length === 0) {
-    pages.push({ rows: [], emptyCount: ROWS_PER_PAGE });
-  }
-
-  // Always ensure at least 2 pages exist (page 2 for summary/notes)
-  if (pages.length === 1) {
-    pages.push({ rows: [], emptyCount: 0 });
+    pages.push({ rows: [], emptyCount: 0, showSummary: true });
   }
 
   const totalPages = pages.length;
@@ -692,8 +698,8 @@ function InvoiceView() {
             </table>
           )}
 
-          {/* Summary, Notes, Footer always on page 2 (pageIndex 1) */}
-          {pageIndex === 1 && (
+          {/* Summary, Notes, Footer on the last page or single page */}
+          {page.showSummary && (
             <>
               {/* Summary Section */}
               <div className="summary-section">
