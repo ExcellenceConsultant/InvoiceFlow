@@ -226,40 +226,39 @@ export default function PackingList() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header with Back and Print buttons */}
-        <div className="flex items-center justify-between mb-6 print-hide">
-          <Link href={`/invoices/${invoice.id}`}>
-            <Button variant="outline" data-testid="button-back">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Invoice
-            </Button>
-          </Link>
-          <Button onClick={handlePrint} data-testid="button-print">
-            <Printer className="h-4 w-4 mr-2" />
-            Print Packing List
+    <div className="container max-w-6xl mx-auto p-6">
+      {/* Header with Back and Print buttons */}
+      <div className="flex items-center justify-between mb-6 print-hide">
+        <Link href={`/invoices/${invoice.id}`}>
+          <Button variant="outline" data-testid="button-back">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Invoice
           </Button>
-        </div>
+        </Link>
+        <Button onClick={handlePrint} data-testid="button-print">
+          <Printer className="h-4 w-4 mr-2" />
+          Print Packing List
+        </Button>
+      </div>
 
-        {/* Packing List Content - Multiple Pages */}
-        {pages.map((pageRows, pageIndex) => (
-          <div 
-            key={pageIndex} 
-            className={`packing-list-page bg-white ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
-          >
-            {/* Letter Head Header - hidden during print */}
-            <div className="letter-head print-hide-content">
-              <strong>Letter Head Header</strong>
-            </div>
+      {/* Packing List Content - Multiple Pages */}
+      {pages.map((pageRows, pageIndex) => (
+        <div 
+          key={pageIndex} 
+          className={`packing-list-page ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
+        >
+          {/* Letter Head Header - hidden during print */}
+          <div className="letter-head print-hide-content">
+            <strong>Letter Head Header</strong>
+          </div>
 
-            {/* Title */}
-            <div className="text-center font-bold text-lg mb-6">
-              Packing Slip
-            </div>
+          {/* Title */}
+          <div className="text-center font-bold text-lg mb-6">
+            Packing Slip
+          </div>
 
-            {/* Bill To / Ship To / Invoice Details */}
-            <div className="grid grid-cols-12 gap-4 mb-6">
+          {/* Bill To / Ship To / Invoice Details */}
+          <div className="grid grid-cols-12 gap-4 mb-6">
               <div className="col-span-4">
                 <div className="font-semibold">Bill To :</div>
                 <div className="mt-1">
@@ -325,8 +324,8 @@ export default function PackingList() {
               </div>
             </div>
 
-            {/* Table */}
-            <table className="packing-table">
+          {/* Table */}
+          <table className="packing-table">
               <thead>
                 <tr>
                   <th style={{ width: "8%" }}>Sr No.</th>
@@ -368,20 +367,19 @@ export default function PackingList() {
               </tbody>
             </table>
 
-            {/* Total Summary - only on last page */}
-            {pageIndex === pages.length - 1 && (
-              <div className="text-right mt-4 space-y-1">
-                <div><strong>Total Carton: {totalCartons}</strong></div>
-              </div>
-            )}
-
-            {/* Letter Head Footer - hidden during print */}
-            <div className="letter-footer print-hide-content">
-              <strong>Letter Head Footer</strong>
+          {/* Total Summary - only on last page */}
+          {pageIndex === pages.length - 1 && (
+            <div className="text-right mt-4 space-y-1">
+              <div><strong>Total Carton: {totalCartons}</strong></div>
             </div>
+          )}
+
+          {/* Letter Head Footer - hidden during print */}
+          <div className="letter-footer print-hide-content">
+            <strong>Letter Head Footer</strong>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
