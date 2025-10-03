@@ -671,10 +671,10 @@ function InvoiceView() {
                         </td>
                         <td>{item.description}</td>
                         <td style={{ textAlign: "center" }}>{qty || "—"}</td>
-                        <td style={{ textAlign: "right" }}>
+                        <td style={{ textAlign: "center" }}>
                           {formatCurrency(rate)}
                         </td>
-                        <td style={{ textAlign: "right" }}>
+                        <td style={{ textAlign: "center" }}>
                           {formatCurrency(lineTotal)}
                         </td>
                       </tr>
