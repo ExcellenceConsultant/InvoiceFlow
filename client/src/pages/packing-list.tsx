@@ -235,31 +235,47 @@ export default function PackingList() {
     });
   });
 
-  // Pagination: 15 rows per page
-  const ROWS_PER_PAGE = 15;
-  const pages: PackingRow[][] = [];
-  let currentPage: PackingRow[] = [];
-  let rowCount = 0;
+  // Dynamic Pagination: Same as invoice format
+  const ROWS_PER_PAGE = 22;
+  const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
+  const totalRows = allRows.length;
+  
+  const pages: { rows: PackingRow[]; emptyCount: number; showSummary: boolean }[] = [];
+  
+  // If total rows fit on one page with summary, create single page
+  if (totalRows <= MAX_ROWS_WITH_SUMMARY) {
+    pages.push({ rows: allRows, emptyCount: 0, showSummary: true });
+  } else {
+    // Otherwise, paginate with 22 rows per page
+    let currentPageRows: PackingRow[] = [];
+    let rowCountOnCurrentPage = 0;
 
-  allRows.forEach((row) => {
-    currentPage.push(row);
-    rowCount++;
+    allRows.forEach((row) => {
+      currentPageRows.push(row);
+      rowCountOnCurrentPage++;
 
-    if (rowCount === ROWS_PER_PAGE) {
-      pages.push(currentPage);
-      currentPage = [];
-      rowCount = 0;
+      // If we've reached 22 total rows, create a page
+      if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
+        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
+        currentPageRows = [];
+        rowCountOnCurrentPage = 0;
+      }
+    });
+
+    // Add remaining items as last page with summary
+    if (currentPageRows.length > 0) {
+      pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
     }
-  });
 
-  // Add remaining rows
-  if (currentPage.length > 0) {
-    pages.push(currentPage);
+    // If no remaining items, add a page just for summary
+    if (currentPageRows.length === 0 && pages.length > 0) {
+      pages.push({ rows: [], emptyCount: 0, showSummary: true });
+    }
   }
 
-  // If no rows, create at least one empty page
+  // If no items at all, create one page with summary
   if (pages.length === 0) {
-    pages.push([]);
+    pages.push({ rows: [], emptyCount: 0, showSummary: true });
   }
 
   return (
@@ -279,7 +295,7 @@ export default function PackingList() {
       </div>
 
       {/* Packing List Content - Multiple Pages */}
-      {pages.map((pageRows, pageIndex) => (
+      {pages.map((page, pageIndex) => (
         <div 
           key={pageIndex} 
           className={`packing-list-page ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
@@ -381,7 +397,7 @@ export default function PackingList() {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((row, idx) => {
+                {page.rows.map((row, idx) => {
                   if (row.type === 'category') {
                     return (
                       <tr key={`cat-${pageIndex}-${idx}`} className="category-row">
@@ -402,18 +418,11 @@ export default function PackingList() {
                     );
                   }
                 })}
-
-                {/* Add empty rows to fill the page if it's the first page */}
-                {pageIndex === 0 && Array.from({ length: ROWS_PER_PAGE - pageRows.length }).map((_, idx) => (
-                  <tr key={`empty-${idx}`}>
-                    <td colSpan={5}>&nbsp;</td>
-                  </tr>
-                ))}
               </tbody>
             </table>
 
-          {/* Total Summary - only on last page */}
-          {pageIndex === pages.length - 1 && (
+          {/* Total Summary - only show on pages with showSummary */}
+          {page.showSummary && (
             <div className="text-right mt-4 space-y-1">
               <div><strong>Total Carton: {totalCartons}</strong></div>
             </div>
