@@ -477,6 +477,7 @@ function InvoiceView() {
 
   // Add promotional scheme items at the end if any exist (without Sr. No.)
   if (schemeItems.length > 0) {
+    allRows.push({ type: 'category', category: 'Promotional Schemes' });
     schemeItems.forEach((item) => {
       allRows.push({ type: 'item', item, srNo: 0, isScheme: true });
       
