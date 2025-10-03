@@ -235,8 +235,8 @@ export default function PackingList() {
     });
   });
 
-  // Dynamic Pagination: Same as invoice format
-  const ROWS_PER_PAGE = 22;
+  // Dynamic Pagination: Packing list uses 17 rows per page
+  const ROWS_PER_PAGE = 17;
   const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
   const totalRows = allRows.length;
   
@@ -254,7 +254,7 @@ export default function PackingList() {
       currentPageRows.push(row);
       rowCountOnCurrentPage++;
 
-      // If we've reached 22 total rows, create a page
+      // If we've reached 17 total rows, create a page
       if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
         pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
         currentPageRows = [];
