@@ -138,8 +138,17 @@ function InvoiceView() {
   }
 
   // merge duplicates (like freebies showing multiple times)
+  // BUT: exclude scheme description items from merging as they need unique productId associations
   const itemMap = new Map<string, any>();
+  const schemeDescriptionItems: any[] = [];
+  
   for (const item of rawLineItems) {
+    // Don't merge scheme description items - they need to maintain their productId associations
+    if (item.isSchemeDescription) {
+      schemeDescriptionItems.push(item);
+      continue;
+    }
+    
     const key = `${item.productCode || item.description}::${item.unitPrice}`;
     if (itemMap.has(key)) {
       const acc = itemMap.get(key);
@@ -149,7 +158,9 @@ function InvoiceView() {
       itemMap.set(key, { ...item });
     }
   }
-  const lineItems = Array.from(itemMap.values());
+  
+  // Combine merged items with unmerged scheme descriptions
+  const lineItems = [...Array.from(itemMap.values()), ...schemeDescriptionItems];
   useEffect(() => {
     const style = document.createElement("style");
     style.id = "invoice-print-styles";
