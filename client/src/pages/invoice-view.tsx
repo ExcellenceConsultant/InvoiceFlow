@@ -737,15 +737,15 @@ function InvoiceView() {
                 <div className="summary-right">
                   <div className="summary-row">
                     <span><strong>Subtotal:</strong></span>
-                    <span>{formatCurrency(netAmount)}</span>
+                    <span style={{ textAlign: 'right' }}>{formatCurrency(netAmount)}</span>
                   </div>
                   <div className="summary-row">
                     <span><strong>Freight:</strong></span>
-                    <span>{formatCurrency(freight)}</span>
+                    <span style={{ textAlign: 'right' }}>{formatCurrency(freight)}</span>
                   </div>
                   <div className="summary-row summary-total" style={{ color: 'black' }}>
                     <span>Total Amount:</span>
-                    <span>{formatCurrency(totalInvoiceAmount)}</span>
+                    <span style={{ textAlign: 'right' }}>{formatCurrency(totalInvoiceAmount)}</span>
                   </div>
                 </div>
               </div>
