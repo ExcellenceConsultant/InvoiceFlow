@@ -721,7 +721,26 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Notes</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Notes</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentNotes = field.value || "";
+                          const lines = currentNotes.split('\n').filter(line => line.trim());
+                          const numberedLines = lines.map((line, index) => {
+                            const cleanLine = line.replace(/^\d+\.\s*/, '');
+                            return `${index + 1}. ${cleanLine}`;
+                          });
+                          field.onChange(numberedLines.join('\n'));
+                        }}
+                        data-testid="button-add-numbering"
+                      >
+                        Add Numbering
+                      </Button>
+                    </div>
                     <FormControl>
                       <Textarea
                         {...field}
