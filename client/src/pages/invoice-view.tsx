@@ -712,7 +712,7 @@ function InvoiceView() {
                     LBS
                   </div>
                   <div style={{ marginTop: "10px" }}>
-                    <strong>Amount in words:</strong>
+                    <strong>Amount in Words:</strong>
                   </div>
                   <div>
                     {numberToWords(Math.floor(totalInvoiceAmount))
@@ -750,6 +750,7 @@ function InvoiceView() {
                   {(invoice as any).notes || ""}
                 </div>
               </div>
+              
 
               {/* Footer */}
               <div className="footer-section">
