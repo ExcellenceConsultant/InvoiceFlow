@@ -736,11 +736,11 @@ function InvoiceView() {
                 {/* Right side - Financial summary */}
                 <div className="summary-right">
                   <div className="summary-row">
-                    <span>Subtotal:</span>
+                    <span><strong>Subtotal:</strong></span>
                     <span>{formatCurrency(netAmount)}</span>
                   </div>
                   <div className="summary-row">
-                    <span>Freight:</span>
+                    <span><strong>Freight:</strong></span>
                     <span>{formatCurrency(freight)}</span>
                   </div>
                   <div className="summary-row summary-total" style={{ color: 'black' }}>
