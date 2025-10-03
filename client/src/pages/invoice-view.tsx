@@ -292,18 +292,17 @@ function InvoiceView() {
 }
 
 .notes-label {
-  font-weight: 600;
+  font-weight: bold;
   margin-bottom: 5px;
   font-size: 11px;
 }
 
 .notes-box {
-  border: 1px solid #ddd;
-  padding: 10px;
+  padding: 0;
   min-height: 40px;
-  background-color: #fafafa;
-  font-size: 10px;
-  color: #666;
+  font-size: 11px;
+  color: #000;
+  line-height: 1.6;
 }
 
 .footer-section {
