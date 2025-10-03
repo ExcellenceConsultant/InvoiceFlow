@@ -47,25 +47,32 @@ export default function PackingList() {
     style.id = "packing-list-print-styles";
     style.textContent = `
      @media print {
-        @page { size: A4; margin: 35mm 15mm 30mm 15mm; }
-        .packing-list-page { box-shadow: none; border: none; margin: 0; width: auto; min-height: auto; }
+        @page { size: A4; margin: 35mm 15mm 0 15mm; }
+        .packing-list-page { 
+          box-shadow: none !important; 
+          border: none !important; 
+          margin: 0 !important; 
+          width: auto !important; 
+          min-height: auto !important;
+          background: transparent !important;
+        }
         .print-hide { display: none !important; }
         .print-hide-content { display: none !important; }
         
         /* Keep table structure for print to match PDF */
-        .packing-list-page {
-          border: none !important;
-          box-shadow: none !important;
-        }
         table.packing-table { 
-          border-collapse: collapse !important; 
+          border-collapse: collapse !important;
+          background: transparent !important;
         }
         table.packing-table th, table.packing-table td {
           border: 1px solid #000 !important;
+          background: transparent !important;
         }
         thead, tbody, tr { 
-          page-break-inside: avoid; 
+          page-break-inside: avoid;
+          background: transparent !important;
         }
+        .page-break { page-break-after: always; }
       }
       .packing-list-page {
         width: 210mm;
@@ -158,7 +165,44 @@ export default function PackingList() {
         : invoice.shipAddress)
     : billAddress;
 
+  // Build flat list of rows (category + items)
+  type PackingRow = { type: 'category'; category: string } | { type: 'item'; item: InvoiceLineItem; srNo: number };
+  const allRows: PackingRow[] = [];
   let serialNumber = 1;
+
+  Object.entries(groupedItems).forEach(([category, items]) => {
+    allRows.push({ type: 'category', category });
+    items.forEach((item) => {
+      allRows.push({ type: 'item', item, srNo: serialNumber++ });
+    });
+  });
+
+  // Pagination: 15 rows per page
+  const ROWS_PER_PAGE = 15;
+  const pages: PackingRow[][] = [];
+  let currentPage: PackingRow[] = [];
+  let rowCount = 0;
+
+  allRows.forEach((row) => {
+    currentPage.push(row);
+    rowCount++;
+
+    if (rowCount === ROWS_PER_PAGE) {
+      pages.push(currentPage);
+      currentPage = [];
+      rowCount = 0;
+    }
+  });
+
+  // Add remaining rows
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+
+  // If no rows, create at least one empty page
+  if (pages.length === 0) {
+    pages.push([]);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -177,134 +221,145 @@ export default function PackingList() {
           </Button>
         </div>
 
-        {/* Packing List Content */}
-        <div className="packing-list-page bg-white">
-          {/* Letter Head Header - hidden during print */}
-          <div className="letter-head print-hide-content">
-            <strong>Letter Head Header</strong>
-          </div>
+        {/* Packing List Content - Multiple Pages */}
+        {pages.map((pageRows, pageIndex) => (
+          <div 
+            key={pageIndex} 
+            className={`packing-list-page bg-white ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
+          >
+            {/* Letter Head Header - hidden during print */}
+            <div className="letter-head print-hide-content">
+              <strong>Letter Head Header</strong>
+            </div>
 
-          {/* Title */}
-          <div className="text-center font-bold text-lg mb-6">
-            Packing Slip
-          </div>
+            {/* Title */}
+            <div className="text-center font-bold text-lg mb-6">
+              Packing Slip
+            </div>
 
-          {/* Bill To / Ship To / Invoice Details */}
-          <div className="grid grid-cols-12 gap-4 mb-6">
-            <div className="col-span-4">
-              <div className="font-semibold">Bill To :</div>
-              <div className="mt-1">
-                <div>{invoice.customer?.name || "—"}</div>
-                {billAddress && (
-                  <div className="small-label">
-                    {billAddress.street && <div>{billAddress.street}</div>}
-                    {billAddress.city && (
-                      <div>
-                        {billAddress.city}
-                        {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
-                        {billAddress.zipCode || ""}
-                      </div>
-                    )}
-                    {billAddress.country && <div>{billAddress.country}</div>}
-                  </div>
-                )}
+            {/* Bill To / Ship To / Invoice Details */}
+            <div className="grid grid-cols-12 gap-4 mb-6">
+              <div className="col-span-4">
+                <div className="font-semibold">Bill To :</div>
+                <div className="mt-1">
+                  <div>{invoice.customer?.name || "—"}</div>
+                  {billAddress && (
+                    <div className="small-label">
+                      {billAddress.street && <div>{billAddress.street}</div>}
+                      {billAddress.city && (
+                        <div>
+                          {billAddress.city}
+                          {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
+                          {billAddress.zipCode || ""}
+                        </div>
+                      )}
+                      {billAddress.country && <div>{billAddress.country}</div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-4">
+                <div className="font-semibold">Ship To :</div>
+                <div className="mt-1">
+                  <div>{invoice.shipToName || invoice.customer?.name || "—"}</div>
+                  {shipAddress && (
+                    <div className="small-label">
+                      {typeof shipAddress === "string" ? (
+                        shipAddress
+                      ) : (
+                        <>
+                          {shipAddress.street && <div>{shipAddress.street}</div>}
+                          {shipAddress.city && (
+                            <div>
+                              {shipAddress.city}
+                              {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                              {shipAddress.zipCode || ""}
+                            </div>
+                          )}
+                          {shipAddress.country && <div>{shipAddress.country}</div>}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-4">
+                <div>
+                  <strong>Invoice No :</strong> {invoice.invoiceNumber}
+                </div>
+                <div>
+                  <strong>Invoice Date :</strong>{" "}
+                  {new Date(invoice.invoiceDate).toLocaleDateString()}
+                </div>
+                <div>
+                  <strong>Shipping Info :</strong>{" "}
+                  {invoice.purchaseOrderNo || "—"}
+                </div>
+                <div>
+                  <strong>Shipping Date :</strong>{" "}
+                  {invoice.shipDate
+                    ? new Date(invoice.shipDate).toLocaleDateString()
+                    : "—"}
+                </div>
               </div>
             </div>
-            <div className="col-span-4">
-              <div className="font-semibold">Ship To :</div>
-              <div className="mt-1">
-                <div>{invoice.shipToName || invoice.customer?.name || "—"}</div>
-                {shipAddress && (
-                  <div className="small-label">
-                    {typeof shipAddress === "string" ? (
-                      shipAddress
-                    ) : (
-                      <>
-                        {shipAddress.street && <div>{shipAddress.street}</div>}
-                        {shipAddress.city && (
-                          <div>
-                            {shipAddress.city}
-                            {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
-                            {shipAddress.zipCode || ""}
-                          </div>
-                        )}
-                        {shipAddress.country && <div>{shipAddress.country}</div>}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="col-span-4">
-              <div>
-                <strong>Invoice No :</strong> {invoice.invoiceNumber}
-              </div>
-              <div>
-                <strong>Invoice Date :</strong>{" "}
-                {new Date(invoice.invoiceDate).toLocaleDateString()}
-              </div>
-              <div>
-                <strong>Shipping Info :</strong>{" "}
-                {invoice.purchaseOrderNo || "—"}
-              </div>
-              <div>
-                <strong>Shipping Date :</strong>{" "}
-                {invoice.shipDate
-                  ? new Date(invoice.shipDate).toLocaleDateString()
-                  : "—"}
-              </div>
-            </div>
-          </div>
 
-          {/* Table */}
-          <table className="packing-table">
-            <thead>
-              <tr>
-                <th style={{ width: "8%" }}>Sr No.</th>
-                <th style={{ width: "15%" }}>Item Code</th>
-                <th style={{ width: "45%" }}>Product Description</th>
-                <th style={{ width: "17%" }}>Packing Size</th>
-                <th style={{ width: "15%" }}>Quantity (Carton)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(groupedItems).map(([category, items]) => (
-                <React.Fragment key={`category-${category}`}>
-                  {/* Category Header Row */}
-                  <tr className="category-row">
-                    <td colSpan={5} className="category-header">
-                      {category}
-                    </td>
+            {/* Table */}
+            <table className="packing-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "8%" }}>Sr No.</th>
+                  <th style={{ width: "15%" }}>Item Code</th>
+                  <th style={{ width: "45%" }}>Product Description</th>
+                  <th style={{ width: "17%" }}>Packing Size</th>
+                  <th style={{ width: "15%" }}>Quantity (Carton)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((row, idx) => {
+                  if (row.type === 'category') {
+                    return (
+                      <tr key={`cat-${pageIndex}-${idx}`} className="category-row">
+                        <td colSpan={5} className="category-header">
+                          {row.category}
+                        </td>
+                      </tr>
+                    );
+                  } else {
+                    return (
+                      <tr key={`item-${pageIndex}-${idx}`}>
+                        <td className="text-center">{row.srNo}</td>
+                        <td>{row.item.productCode ? row.item.productCode.slice(-5) : "—"}</td>
+                        <td>{row.item.description}</td>
+                        <td>{row.item.packingSize ? row.item.packingSize.replace(/GM/g, 'G') : "—"}</td>
+                        <td className="text-center">{row.item.quantity}</td>
+                      </tr>
+                    );
+                  }
+                })}
+
+                {/* Add empty rows to fill the page if it's the first page */}
+                {pageIndex === 0 && Array.from({ length: ROWS_PER_PAGE - pageRows.length }).map((_, idx) => (
+                  <tr key={`empty-${idx}`}>
+                    <td colSpan={5}>&nbsp;</td>
                   </tr>
-                  {/* Category Items */}
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="text-center">{serialNumber++}</td>
-                      <td>{item.productCode ? item.productCode.slice(-5) : "—"}</td>
-                      <td>{item.description}</td>
-                      <td>{item.packingSize ? item.packingSize.replace(/GM/g, 'G') : "—"}</td>
-                      <td className="text-center">{item.quantity}</td>
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
+                ))}
+              </tbody>
+            </table>
 
-              {/* Spacer rows */}
-              <tr><td colSpan={5}>&nbsp;</td></tr>
-              <tr><td colSpan={5}>&nbsp;</td></tr>
-            </tbody>
-          </table>
+            {/* Total Summary - only on last page */}
+            {pageIndex === pages.length - 1 && (
+              <div className="text-right mt-4">
+                <strong>Total Carton: {totalCartons}</strong>
+              </div>
+            )}
 
-          {/* Total Summary - outside table to match PDF */}
-          <div className="text-right mt-4">
-            <strong>Total Carton: {totalCartons}</strong>
+            {/* Letter Head Footer - hidden during print */}
+            <div className="letter-footer print-hide-content">
+              <strong>Letter Head Footer</strong>
+            </div>
           </div>
-
-          {/* Letter Head Footer - hidden during print */}
-          <div className="letter-footer print-hide-content">
-            <strong>Letter Head Footer</strong>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
