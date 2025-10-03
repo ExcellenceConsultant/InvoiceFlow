@@ -270,8 +270,8 @@ function InvoiceView() {
 }
 
 .summary-right {
-  text-align: right;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.8;
 }
 
 .summary-row {
@@ -281,9 +281,7 @@ function InvoiceView() {
 }
 
 .summary-total {
-  color: #0066cc;
-  font-weight: bold;
-  font-size: 16px;
+  color: #000;
   margin-top: 8px;
 }
 
@@ -325,7 +323,7 @@ function InvoiceView() {
 
 @media print {
   .summary-total {
-    color: #0066cc !important;
+    color: #000 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -734,17 +732,14 @@ function InvoiceView() {
 
                 {/* Right side - Financial summary */}
                 <div className="summary-right">
-                  <div className="summary-row">
-                    <span><strong>Subtotal:</strong></span>
-                    <span style={{ textAlign: 'right' }}>{formatCurrency(netAmount)}</span>
+                  <div>
+                    <strong>Subtotal:</strong> {formatCurrency(netAmount)}
                   </div>
-                  <div className="summary-row">
-                    <span><strong>Freight:</strong></span>
-                    <span style={{ textAlign: 'right' }}>{formatCurrency(freight)}</span>
+                  <div>
+                    <strong>Freight:</strong> {formatCurrency(freight)}
                   </div>
-                  <div className="summary-row summary-total" style={{ color: 'black' }}>
-                    <span>Total Amount:</span>
-                    <span style={{ textAlign: 'right' }}>{formatCurrency(totalInvoiceAmount)}</span>
+                  <div className="summary-total">
+                    <strong>Total Amount:</strong> {formatCurrency(totalInvoiceAmount)}
                   </div>
                 </div>
               </div>
