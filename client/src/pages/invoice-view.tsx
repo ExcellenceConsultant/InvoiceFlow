@@ -167,7 +167,7 @@ function InvoiceView() {
   .invoice-info-grid { margin: 0 !important; padding: 0 !important; margin-bottom: 5px !important; }
   .invoice-table { margin: 0 !important; padding: 0 !important; }
   .summary-section { margin: 0 !important; padding: 5px 0 !important; }
-  .notes-section { margin: 0 !important; padding: 5px 0 !important; }
+  .notes-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 30px !important; }
   .footer-section { margin: 0 !important; padding: 5px 0 0 !important; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
