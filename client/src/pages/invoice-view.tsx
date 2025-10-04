@@ -476,6 +476,26 @@ function InvoiceView() {
     });
   });
 
+  // Define category order for invoice: Frozen Vegetable first, Frozen Fruit second, Frozen Bulk third
+  const categoryOrder = ['Frozen Vegetable', 'Frozen Fruit', 'Frozen Bulk'];
+  
+  // Sort categories based on the defined order
+  const sortedCategories = Object.keys(categorizedItems).sort((a, b) => {
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+    
+    // If both categories are in the order array, sort by their index
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    // If only A is in the order array, it comes first
+    if (indexA !== -1) return -1;
+    // If only B is in the order array, it comes first
+    if (indexB !== -1) return 1;
+    // If neither is in the order array, sort alphabetically
+    return a.localeCompare(b);
+  });
+
   type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean } | { type: 'schemeDesc'; item: any } | { type: 'schemeName'; schemeName: string };
   
   // Build all rows first (category headers + items + scheme descriptions in order)
@@ -483,7 +503,8 @@ function InvoiceView() {
   let srCounter = 0;
 
   // Add regular items with their categories and scheme descriptions
-  Object.entries(categorizedItems).forEach(([category, items]) => {
+  sortedCategories.forEach((category) => {
+    const items = categorizedItems[category];
     allRows.push({ type: 'category', category });
     items.forEach((item) => {
       srCounter++;
