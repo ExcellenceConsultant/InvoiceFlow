@@ -56,10 +56,10 @@ export default function ShippingLabel() {
 
       .shipping-label-page {
         background: white;
-        padding: 60px;
+        padding: 50px;
         font-family: Arial, sans-serif;
-        font-size: 24px;
-        line-height: 1.6;
+        font-size: 20px;
+        line-height: 1.5;
         max-width: 210mm;
         margin: 0 auto;
         position: relative;
@@ -67,40 +67,40 @@ export default function ShippingLabel() {
 
       .shipping-label-title {
         text-align: center;
-        font-size: 48px;
+        font-size: 42px;
         font-weight: bold;
-        margin-bottom: 60px;
+        margin-bottom: 45px;
         text-transform: uppercase;
       }
 
       .label-section {
-        margin-bottom: 50px;
+        margin-bottom: 40px;
         border: 3px solid #000;
-        padding: 30px;
+        padding: 25px;
       }
 
       .label-header {
         font-weight: bold;
-        font-size: 32px;
-        margin-bottom: 20px;
+        font-size: 28px;
+        margin-bottom: 15px;
         text-transform: uppercase;
         border-bottom: 2px solid #000;
-        padding-bottom: 10px;
+        padding-bottom: 8px;
       }
 
       .label-content {
-        font-size: 24px;
-        line-height: 2;
+        font-size: 20px;
+        line-height: 1.8;
       }
 
       .label-field {
-        margin-bottom: 15px;
+        margin-bottom: 12px;
       }
 
       .field-label {
         font-weight: bold;
         display: inline-block;
-        width: 250px;
+        width: 220px;
       }
 
       .field-value {
@@ -111,9 +111,9 @@ export default function ShippingLabel() {
       .blank-field {
         display: inline-block;
         border-bottom: 2px solid #000;
-        min-width: 300px;
-        height: 35px;
-        font-size: 24px;
+        min-width: 280px;
+        height: 32px;
+        font-size: 20px;
         font-weight: bold;
       }
 
@@ -122,7 +122,7 @@ export default function ShippingLabel() {
           border: none;
           border-bottom: 2px solid #000;
           background: white !important;
-          font-size: 24px;
+          font-size: 20px;
           font-weight: bold;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
