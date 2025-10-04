@@ -223,6 +223,15 @@ export default function PackingList() {
         : invoice.shipAddress)
     : billAddress;
 
+  // Sort items alphabetically within each category
+  Object.keys(groupedItems).forEach((cat) => {
+    groupedItems[cat].sort((a, b) => {
+      const nameA = (a.description || '').toLowerCase();
+      const nameB = (b.description || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  });
+
   // Define category order: Frozen Bulk first, Frozen Vegetable second, Frozen Fruit last
   const categoryOrder = ['Frozen Bulk', 'Frozen Vegetable', 'Frozen Fruit'];
   
