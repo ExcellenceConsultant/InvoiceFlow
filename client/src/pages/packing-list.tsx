@@ -223,12 +223,33 @@ export default function PackingList() {
         : invoice.shipAddress)
     : billAddress;
 
+  // Define category order: Frozen Bulk first, Frozen Vegetable second, Frozen Fruit last
+  const categoryOrder = ['Frozen Bulk', 'Frozen Vegetable', 'Frozen Fruit'];
+  
+  // Sort categories based on the defined order
+  const sortedCategories = Object.keys(groupedItems).sort((a, b) => {
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+    
+    // If both categories are in the order array, sort by their index
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    // If only A is in the order array, it comes first
+    if (indexA !== -1) return -1;
+    // If only B is in the order array, it comes first
+    if (indexB !== -1) return 1;
+    // If neither is in the order array, sort alphabetically
+    return a.localeCompare(b);
+  });
+
   // Build flat list of rows (category + items)
   type PackingRow = { type: 'category'; category: string } | { type: 'item'; item: InvoiceLineItem; srNo: number };
   const allRows: PackingRow[] = [];
   let serialNumber = 1;
 
-  Object.entries(groupedItems).forEach(([category, items]) => {
+  sortedCategories.forEach((category) => {
+    const items = groupedItems[category];
     allRows.push({ type: 'category', category });
     items.forEach((item) => {
       allRows.push({ type: 'item', item, srNo: serialNumber++ });
