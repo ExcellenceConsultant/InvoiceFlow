@@ -467,6 +467,15 @@ function InvoiceView() {
     categorizedItems[cat].push(item);
   });
 
+  // Sort items alphabetically within each category
+  Object.keys(categorizedItems).forEach((cat) => {
+    categorizedItems[cat].sort((a, b) => {
+      const nameA = (a.description || '').toLowerCase();
+      const nameB = (b.description || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  });
+
   type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean } | { type: 'schemeDesc'; item: any } | { type: 'schemeName'; schemeName: string };
   
   // Build all rows first (category headers + items + scheme descriptions in order)
