@@ -56,9 +56,9 @@ export default function ShippingLabel() {
 
       .shipping-label-page {
         background: white;
-        padding: 40px;
+        padding: 60px;
         font-family: Arial, sans-serif;
-        font-size: 14px;
+        font-size: 24px;
         line-height: 1.6;
         max-width: 210mm;
         margin: 0 auto;
@@ -67,58 +67,63 @@ export default function ShippingLabel() {
 
       .shipping-label-title {
         text-align: center;
-        font-size: 24px;
+        font-size: 48px;
         font-weight: bold;
-        margin-bottom: 40px;
+        margin-bottom: 60px;
         text-transform: uppercase;
       }
 
       .label-section {
-        margin-bottom: 30px;
-        border: 2px solid #000;
-        padding: 20px;
+        margin-bottom: 50px;
+        border: 3px solid #000;
+        padding: 30px;
       }
 
       .label-header {
         font-weight: bold;
-        font-size: 16px;
-        margin-bottom: 10px;
+        font-size: 32px;
+        margin-bottom: 20px;
         text-transform: uppercase;
-        border-bottom: 1px solid #000;
-        padding-bottom: 5px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 10px;
       }
 
       .label-content {
-        font-size: 14px;
-        line-height: 1.8;
+        font-size: 24px;
+        line-height: 2;
       }
 
       .label-field {
-        margin-bottom: 8px;
+        margin-bottom: 15px;
       }
 
       .field-label {
         font-weight: bold;
         display: inline-block;
-        width: 150px;
+        width: 250px;
       }
 
       .field-value {
         display: inline-block;
+        font-weight: bold;
       }
 
       .blank-field {
         display: inline-block;
-        border-bottom: 1px solid #000;
-        min-width: 200px;
-        height: 20px;
+        border-bottom: 2px solid #000;
+        min-width: 300px;
+        height: 35px;
+        font-size: 24px;
+        font-weight: bold;
       }
 
       @media print {
         input {
           border: none;
-          border-bottom: 1px solid #000;
+          border-bottom: 2px solid #000;
           background: white !important;
+          font-size: 24px;
+          font-weight: bold;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
