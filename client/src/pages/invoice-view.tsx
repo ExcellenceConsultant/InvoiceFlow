@@ -180,8 +180,8 @@ function InvoiceView() {
   .invoice-info-grid { margin: 0 !important; padding: 0 !important; margin-bottom: 5px !important; }
   .invoice-table { margin: 0 !important; padding: 0 !important; }
   .summary-section { margin: 0 !important; padding: 5px 0 !important; }
-  .notes-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 30px !important; }
-  .footer-section { margin: 0 !important; padding: 5px 0 0 !important; }
+  .notes-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 10px !important; }
+  .footer-section { margin: 0 !important; padding: 0 !important; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
 }
@@ -516,9 +516,6 @@ function InvoiceView() {
   const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
   const totalRows = allRows.length;
   
-  // Count note lines to determine if we need extra space for footer
-  const noteLines = ((invoice as any).notes || "").split('\n').filter((line: string) => line.trim()).length;
-  
   const pages: { rows: TableRow[]; emptyCount: number; showSummary: boolean }[] = [];
   
   // If total rows fit on one page with summary, create single page
@@ -541,19 +538,9 @@ function InvoiceView() {
       }
     });
 
-    // Check if last page has too many rows combined with notes - if so, move summary to new page
-    const lastPageRowCount = currentPageRows.length;
-    const needsExtraPageForFooter = lastPageRowCount > 6 && noteLines > 2;
-
+    // Add remaining items as last page with summary
     if (currentPageRows.length > 0) {
-      if (needsExtraPageForFooter) {
-        // Too much content - put rows on current page without summary, then summary on new page
-        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
-        pages.push({ rows: [], emptyCount: 0, showSummary: true });
-      } else {
-        // Enough space - put everything on last page
-        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
-      }
+      pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
     }
 
     // If no remaining items, add a page just for summary
