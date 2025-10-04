@@ -516,6 +516,9 @@ function InvoiceView() {
   const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
   const totalRows = allRows.length;
   
+  // Count note lines to determine if we need extra space for footer
+  const noteLines = ((invoice as any).notes || "").split('\n').filter((line: string) => line.trim()).length;
+  
   const pages: { rows: TableRow[]; emptyCount: number; showSummary: boolean }[] = [];
   
   // If total rows fit on one page with summary, create single page
@@ -538,9 +541,19 @@ function InvoiceView() {
       }
     });
 
-    // Add remaining items as last page with summary
+    // Check if last page has too many rows combined with notes - if so, move summary to new page
+    const lastPageRowCount = currentPageRows.length;
+    const needsExtraPageForFooter = lastPageRowCount > 6 && noteLines > 2;
+
     if (currentPageRows.length > 0) {
-      pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
+      if (needsExtraPageForFooter) {
+        // Too much content - put rows on current page without summary, then summary on new page
+        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
+        pages.push({ rows: [], emptyCount: 0, showSummary: true });
+      } else {
+        // Enough space - put everything on last page
+        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
+      }
     }
 
     // If no remaining items, add a page just for summary
