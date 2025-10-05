@@ -327,6 +327,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/products/:id", async (req, res) => {
+    try {
+      console.log("Updating product with data:", req.body);
+      
+      const validation = insertProductSchema.partial().safeParse(req.body);
+      
+      if (!validation.success) {
+        console.error("Product validation failed:", validation.error.errors);
+        return res.status(400).json({ message: "Invalid product data", errors: validation.error.errors });
+      }
+
+      const product = await storage.updateProduct(req.params.id, validation.data);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      console.log("Product updated successfully:", product.id, product.name);
+      res.json(product);
+    } catch (error) {
+      console.error("Product update error:", error);
+      const err = error as any;
+      res.status(500).json({ message: "Failed to update product", error: err.message });
+    }
+  });
+
   app.delete("/api/products", async (req, res) => {
     try {
       const userId = req.query.userId as string;
