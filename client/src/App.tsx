@@ -12,6 +12,7 @@ import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import Accounts from "@/pages/accounts";
 import QuickBooksAuth from "@/pages/quickbooks-auth";
+import QuickBooksCallback from "@/pages/quickbooks-callback";
 import QuickBooksSync from "@/pages/quickbooks-sync";
 import Navbar from "@/components/layout/navbar";
 import NotFound from "@/pages/not-found";
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/schemes" component={Schemes} />
         <Route path="/accounts" component={Accounts} />
         <Route path="/auth/quickbooks" component={QuickBooksAuth} />
+        <Route path="/callback" component={QuickBooksCallback} />
         <Route path="/quickbooks/sync" component={QuickBooksSync} />
         <Route component={NotFound} />
       </Switch>
