@@ -423,11 +423,11 @@ function InvoiceView() {
   // Calculate totals
   const netAmount = lineItems.reduce((s, it) => s + (it.lineTotal || 0), 0);
   const totalCartons = lineItems.reduce((s, it) => s + (it.quantity || 0), 0);
-  const netWeightKgs = lineItems.reduce(
+  const netWeightLbs = lineItems.reduce(
     (s, it) => s + (it.netWeightKgs || 0) * (it.quantity || 0),
     0,
   );
-  const grossWeightKgs = lineItems.reduce(
+  const grossWeightLbs = lineItems.reduce(
     (s, it) => s + (it.grossWeightKgs || 0) * (it.quantity || 0),
     0,
   );
@@ -435,8 +435,6 @@ function InvoiceView() {
     (invoice as any).freight || (invoice as any).freightAmount || 0,
   );
   const totalInvoiceAmount = netAmount + freight;
-  const netWeightLbs = netWeightKgs * 2.20462;
-  const grossWeightLbs = grossWeightKgs * 2.20462;
 
   const billAddress =
     (invoice as any).customer?.address || (invoice as any).billToAddress;
