@@ -116,6 +116,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alternative callback route for QuickBooks OAuth (matches redirect URI)
+  app.get("/callback", async (req, res) => {
+    try {
+      const { code, realmId, state } = req.query;
+      
+      if (!code || !realmId || !state) {
+        return res.redirect("/#/quickbooks-auth?error=missing_params");
+      }
+
+      const tokens = await quickBooksService.exchangeCodeForTokens(
+        code as string,
+        realmId as string
+      );
+
+      // Update user with QuickBooks tokens
+      await storage.updateUser(state as string, {
+        quickbooksCompanyId: tokens.companyId,
+        quickbooksAccessToken: tokens.accessToken,
+        quickbooksRefreshToken: tokens.refreshToken,
+        quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
+      });
+
+      res.redirect("/#/auth/quickbooks?success=true");
+    } catch (error) {
+      console.error("QuickBooks callback error:", error);
+      res.redirect("/#/auth/quickbooks?error=auth_failed");
+    }
+  });
+
   // Customer routes
   app.get("/api/customers", async (req, res) => {
     try {
