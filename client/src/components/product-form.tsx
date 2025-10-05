@@ -18,9 +18,10 @@ const productSchema = z.object({
   basePrice: z.number().min(0, "Price must be positive"),
   category: z.string().optional(),
   itemCode: z.string().optional(),
-  packingType: z.string().optional(),
-  grossWeightKgs: z.number().min(0, "Gross weight must be positive").optional(),
-  netWeightKgs: z.number().min(0, "Net weight must be positive").optional(),
+  packingSize: z.string().optional(),
+  schemeDescription: z.string().optional(),
+  grossWeight: z.number().min(0, "Gross weight must be positive").optional(),
+  netWeight: z.number().min(0, "Net weight must be positive").optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -42,9 +43,10 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
       basePrice: product ? parseFloat(product.basePrice) : 0,
       category: product?.category || "",
       itemCode: product?.itemCode || "",
-      packingType: product?.packingType || "",
-      grossWeightKgs: product?.grossWeightKgs ? parseFloat(product.grossWeightKgs) : 0,
-      netWeightKgs: product?.netWeightKgs ? parseFloat(product.netWeightKgs) : 0,
+      packingSize: product?.packingSize || "",
+      schemeDescription: product?.schemeDescription || "",
+      grossWeight: product?.grossWeight ? parseFloat(product.grossWeight) : 0,
+      netWeight: product?.netWeight ? parseFloat(product.netWeight) : 0,
     },
   });
 
@@ -60,8 +62,8 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
         body: JSON.stringify({
           ...data,
           basePrice: data.basePrice.toString(),
-          grossWeightKgs: data.grossWeightKgs?.toString() || null,
-          netWeightKgs: data.netWeightKgs?.toString() || null,
+          grossWeight: data.grossWeight?.toString() || null,
+          netWeight: data.netWeight?.toString() || null,
         }),
       });
       if (!response.ok) throw new Error('Failed to save product');
@@ -105,10 +107,7 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
         
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">Basic Information</h3>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
@@ -159,15 +158,17 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
                   <p className="text-sm text-red-500">{form.formState.errors.basePrice.message}</p>
                 )}
               </div>
-            </div>
 
-            {/* Inventory Specifications */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center">
-                <Sparkles className="mr-2 text-orange-500" size={18} />
-                Inventory Specifications
-              </h3>
-              
+              <div className="space-y-2">
+                <Label htmlFor="schemeDescription">Scheme Description</Label>
+                <Textarea
+                  id="schemeDescription"
+                  placeholder="Enter scheme description"
+                  data-testid="input-scheme-description"
+                  {...form.register("schemeDescription")}
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="itemCode">Item Code</Label>
@@ -180,46 +181,46 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="packingType">Packing Type</Label>
+                  <Label htmlFor="packingSize">Packing Size</Label>
                   <Input
-                    id="packingType"
-                    placeholder="Enter packing type"
-                    data-testid="input-packing-type"
-                    {...form.register("packingType")}
+                    id="packingSize"
+                    placeholder="Enter packing size"
+                    data-testid="input-packing-size"
+                    {...form.register("packingSize")}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="grossWeightKgs">Gross Weight (KGS)</Label>
+                  <Label htmlFor="grossWeight">Gross Weight (LBS)</Label>
                   <Input
-                    id="grossWeightKgs"
+                    id="grossWeight"
                     type="number"
                     step="0.001"
                     min="0"
                     placeholder="0.000"
                     data-testid="input-gross-weight"
-                    {...form.register("grossWeightKgs", { valueAsNumber: true })}
+                    {...form.register("grossWeight", { valueAsNumber: true })}
                   />
-                  {form.formState.errors.grossWeightKgs && (
-                    <p className="text-sm text-red-500">{form.formState.errors.grossWeightKgs.message}</p>
+                  {form.formState.errors.grossWeight && (
+                    <p className="text-sm text-red-500">{form.formState.errors.grossWeight.message}</p>
                   )}
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="netWeightKgs">Net Weight (KGS)</Label>
+                  <Label htmlFor="netWeight">Net Weight (LBS)</Label>
                   <Input
-                    id="netWeightKgs"
+                    id="netWeight"
                     type="number"
                     step="0.001"
                     min="0"
                     placeholder="0.000"
                     data-testid="input-net-weight"
-                    {...form.register("netWeightKgs", { valueAsNumber: true })}
+                    {...form.register("netWeight", { valueAsNumber: true })}
                   />
-                  {form.formState.errors.netWeightKgs && (
-                    <p className="text-sm text-red-500">{form.formState.errors.netWeightKgs.message}</p>
+                  {form.formState.errors.netWeight && (
+                    <p className="text-sm text-red-500">{form.formState.errors.netWeight.message}</p>
                   )}
                 </div>
               </div>
