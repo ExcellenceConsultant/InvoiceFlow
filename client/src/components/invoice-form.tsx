@@ -424,7 +424,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const onSubmit = (data: z.infer<typeof invoiceSchema>) => {
     const subtotal = calculateTotal();
     const freight = data.freight || 0;
-    const total = subtotal + freight;
+    const discountPercent = data.discount || 0;
+    const discountAmount = (subtotal * discountPercent) / 100;
+    const total = subtotal + freight - discountAmount;
 
     console.log("Current line items on submit:", lineItems);
 
