@@ -42,13 +42,13 @@ export default function ShippingLabel() {
     style.textContent = `
       @media print {
         @page { 
-          size: A4; 
-          margin: 20mm;
+          size: A4 landscape; 
+          margin: 15mm;
           background: white;
         }
         body { margin: 0; padding: 0; background: white !important; }
         html { background: white !important; }
-        * { box-shadow: none !important; background-color: inherit; }
+        * { box-shadow: none !important; background-color: white !important; }
         .container { background: white !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
         .shipping-label-page { box-shadow: none; border: none; margin: 0 !important; padding: 0 !important; width: 100%; min-height: auto; background: white !important; }
         .print-hide { display: none !important; }
@@ -56,74 +56,63 @@ export default function ShippingLabel() {
 
       .shipping-label-page {
         background: white;
-        padding: 50px;
+        padding: 40px;
         font-family: Arial, sans-serif;
-        font-size: 20px;
-        line-height: 1.5;
-        max-width: 210mm;
+        font-size: 18px;
+        line-height: 1.6;
+        max-width: 100%;
         margin: 0 auto;
         position: relative;
       }
 
       .shipping-label-title {
         text-align: center;
-        font-size: 42px;
+        font-size: 32px;
         font-weight: bold;
-        margin-bottom: 45px;
-        text-transform: uppercase;
-      }
-
-      .label-section {
         margin-bottom: 40px;
+      }
+
+      .label-container {
         border: 3px solid #000;
-        padding: 25px;
+        padding: 30px 40px;
+        background: white;
       }
 
-      .label-header {
+      .section-title {
         font-weight: bold;
-        font-size: 28px;
-        margin-bottom: 15px;
-        text-transform: uppercase;
-        border-bottom: 2px solid #000;
-        padding-bottom: 8px;
-      }
-
-      .label-content {
-        font-size: 20px;
-        line-height: 1.8;
+        font-size: 22px;
+        margin-bottom: 20px;
       }
 
       .label-field {
-        margin-bottom: 12px;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: baseline;
       }
 
       .field-label {
-        font-weight: bold;
         display: inline-block;
-        width: 220px;
+        min-width: 180px;
+        font-size: 18px;
       }
 
       .field-value {
         display: inline-block;
-        font-weight: bold;
+        font-size: 18px;
       }
 
-      .blank-field {
+      .field-value-bold {
         display: inline-block;
-        border-bottom: 2px solid #000;
-        min-width: 280px;
-        height: 32px;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
       }
 
       @media print {
         input {
           border: none;
-          border-bottom: 2px solid #000;
           background: white !important;
-          font-size: 20px;
-          font-weight: bold;
+          font-size: 18px;
+          outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
@@ -159,7 +148,7 @@ export default function ShippingLabel() {
   const shipToName = invoice.shipToName || invoice.customer?.name || "";
 
   return (
-    <div className="container max-w-4xl mx-auto p-6">
+    <div className="container max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between gap-4 mb-6 print-hide">
         <Link href={`/invoices/${id}`}>
           <Button variant="outline" size="sm" data-testid="button-back">
@@ -176,68 +165,62 @@ export default function ShippingLabel() {
       <div className="shipping-label-page">
         <div className="shipping-label-title">Shipping Label</div>
 
-        <div className="label-section">
-          <div className="label-header">Ship To</div>
-          <div className="label-content">
-            <div className="label-field">
-              <span className="field-label">Customer Name:</span>
-              <span className="field-value">{shipToName}</span>
-            </div>
-            {shipAddress && (
-              <>
-                {shipAddress.street && (
-                  <div className="label-field">
-                    <span className="field-label">Address:</span>
-                    <span className="field-value">{shipAddress.street}</span>
-                  </div>
-                )}
-                <div className="label-field">
-                  <span className="field-label">City, State ZIP:</span>
-                  <span className="field-value">
-                    {shipAddress.city || ""}
-                    {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
-                    {shipAddress.zipCode || ""}
-                  </span>
-                </div>
-                {shipAddress.country && (
-                  <div className="label-field">
-                    <span className="field-label">Country:</span>
-                    <span className="field-value">{shipAddress.country}</span>
-                  </div>
-                )}
-              </>
-            )}
+        <div className="label-container">
+          <div className="section-title">Ship To</div>
+          
+          <div className="label-field">
+            <span className="field-label">Customer Name :</span>
+            <span className="field-value-bold">{shipToName}</span>
           </div>
-        </div>
 
-        <div className="label-section">
-          <div className="label-header">Shipment Details</div>
-          <div className="label-content">
-            <div className="label-field">
-              <span className="field-label">Invoice Number:</span>
-              <span className="field-value">{invoice.invoiceNumber}</span>
-            </div>
-            <div className="label-field">
-              <span className="field-label">Total Cartons:</span>
-              <span className="field-value">{totalCartons}</span>
-            </div>
-            <div className="label-field">
-              <span className="field-label">Total Pallets:</span>
-              <input
-                type="text"
-                value={palletCount}
-                onChange={(e) => setPalletCount(e.target.value)}
-                className="blank-field px-2"
-                placeholder="Enter pallet count"
-                data-testid="input-pallet-count"
-                style={{
-                  border: "none",
-                  borderBottom: "1px solid #000",
-                  outline: "none",
-                  background: "transparent",
-                }}
-              />
-            </div>
+          {shipAddress && (
+            <>
+              {shipAddress.street && (
+                <div className="label-field">
+                  <span className="field-label">Address :</span>
+                  <span className="field-value">{shipAddress.street}</span>
+                </div>
+              )}
+              
+              <div className="label-field">
+                <span className="field-label">City, State, ZIP :</span>
+                <span className="field-value">
+                  {shipAddress.city || ""}
+                  {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                  {shipAddress.zipCode || ""}
+                </span>
+              </div>
+
+              {shipAddress.country && (
+                <div className="label-field">
+                  <span className="field-label">Country :</span>
+                  <span className="field-value">{shipAddress.country}</span>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="label-field">
+            <span className="field-label">Total Cartons :</span>
+            <span className="field-value">{totalCartons}</span>
+          </div>
+
+          <div className="label-field">
+            <span className="field-label">Total Pallets :</span>
+            <input
+              type="text"
+              value={palletCount}
+              onChange={(e) => setPalletCount(e.target.value)}
+              className="field-value"
+              placeholder=""
+              data-testid="input-pallet-count"
+              style={{
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                width: "200px",
+              }}
+            />
           </div>
         </div>
       </div>
