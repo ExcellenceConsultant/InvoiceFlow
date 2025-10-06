@@ -418,17 +418,35 @@ export class QuickBooksService {
 
   async getAccounts(accessToken: string, companyId: string): Promise<any> {
     try {
-      const response = await axios.get(
-        `${this.getBaseUrl()}/v3/company/${companyId}/query?query=SELECT * FROM Account WHERE Active = true`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: 'application/json',
-          },
-        }
-      );
+      const allAccounts: any[] = [];
+      let startPosition = 1;
+      const maxResults = 1000;
+      let hasMore = true;
 
-      return response.data.QueryResponse?.Account || [];
+      while (hasMore) {
+        const query = `SELECT * FROM Account WHERE Active = true STARTPOSITION ${startPosition} MAXRESULTS ${maxResults}`;
+        const response = await axios.get(
+          `${this.getBaseUrl()}/v3/company/${companyId}/query?query=${encodeURIComponent(query)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: 'application/json',
+            },
+          }
+        );
+
+        const accounts = response.data.QueryResponse?.Account || [];
+        allAccounts.push(...accounts);
+
+        // Check if there are more results
+        if (accounts.length < maxResults) {
+          hasMore = false;
+        } else {
+          startPosition += maxResults;
+        }
+      }
+
+      return allAccounts;
     } catch (error) {
       console.error('QuickBooks accounts fetch failed:', error);
       throw new Error('Failed to fetch accounts from QuickBooks');
