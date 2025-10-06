@@ -1244,28 +1244,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     // Build journal entry lines based on freight/discount combinations
+    // Accounting equation: AR Dr + Discount Dr = Sales Cr + Freight Cr
     const journalLines: any[] = [];
     let lineId = 0;
     
     // Debit entries
-    // 1. Freight (if present) - Debit
-    if (freight > 0) {
-      journalLines.push({
-        Id: (lineId++).toString(),
-        Description: "Freight charges",
-        Amount: freight,
-        DetailType: "JournalEntryLineDetail",
-        JournalEntryLineDetail: {
-          PostingType: "Debit",
-          AccountRef: {
-            value: "136",
-            name: "Freight Income"
-          }
-        }
-      });
-    }
-    
-    // 2. Accounts Receivable - Always Debit (total amount)
+    // 1. Accounts Receivable - Always Debit (total amount customer owes)
     journalLines.push({
       Id: (lineId++).toString(),
       Description: "AR entry for Invoice",
@@ -1287,8 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    // Credit entries
-    // 3. Discount (if present) - Credit
+    // 2. Discount (if present) - Debit (contra-revenue, reduces sales)
     if (discount > 0) {
       journalLines.push({
         Id: (lineId++).toString(),
@@ -1296,7 +1279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         Amount: discount,
         DetailType: "JournalEntryLineDetail",
         JournalEntryLineDetail: {
-          PostingType: "Credit",
+          PostingType: "Debit",
           AccountRef: {
             value: "137",
             name: "Discounts Given"
@@ -1305,7 +1288,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
-    // 4. Sales - Always Credit (subtotal amount)
+    // Credit entries
+    // 3. Sales - Always Credit (subtotal before freight and discount)
     journalLines.push({
       Id: (lineId++).toString(),
       Description: "Sales entry for Invoice",
@@ -1319,6 +1303,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     });
+    
+    // 4. Freight (if present) - Credit (additional income)
+    if (freight > 0) {
+      journalLines.push({
+        Id: (lineId++).toString(),
+        Description: "Freight charges",
+        Amount: freight,
+        DetailType: "JournalEntryLineDetail",
+        JournalEntryLineDetail: {
+          PostingType: "Credit",
+          AccountRef: {
+            value: "136",
+            name: "Freight Income"
+          }
+        }
+      });
+    }
     
     // Create or update journal entry
     let qbJournalEntry;
@@ -1370,11 +1371,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // Build account details for response
-    const accounts: string[] = [];
-    if (freight > 0) accounts.push("Freight Dr");
-    accounts.push("AR Dr");
-    if (discount > 0) accounts.push("Discount Cr");
-    accounts.push("Sales Cr");
+    const debits: string[] = ["AR Dr"];
+    const credits: string[] = ["Sales Cr"];
+    
+    if (discount > 0) debits.push("Discount Dr");
+    if (freight > 0) credits.push("Freight Cr");
+    
+    const accounts = [...debits, ...credits].join(", ");
 
     return res.json({ 
       success: true, 
@@ -1383,7 +1386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       customerName: qbCustomer.DisplayName,
       invoiceType: 'receivable',
       totalAmount: total,
-      accounts: accounts.join(", "),
+      accounts: accounts,
       message: `Journal Entry successfully ${isUpdate ? 'updated' : 'created'} in QuickBooks`
     });
   }
