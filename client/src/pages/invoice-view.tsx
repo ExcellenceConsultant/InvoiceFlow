@@ -865,11 +865,9 @@ function InvoiceView() {
                   <div>
                     <strong>Freight:</strong> <span style={{ float: 'right' }}>{formatCurrency(freight)}</span>
                   </div>
-                  {discountPercent > 0 && (
-                    <div>
-                      <strong>Discount ({discountPercent.toFixed(2)}%):</strong> <span style={{ float: 'right', color: '#dc2626' }}>-{formatCurrency(discountAmount)}</span>
-                    </div>
-                  )}
+                  <div>
+                    <strong>Discount ({discountPercent.toFixed(2)}%):</strong> <span style={{ float: 'right', color: '#dc2626' }}>-{formatCurrency(discountAmount)}</span>
+                  </div>
                   <div className="summary-total">
                     <strong>Total Amount:</strong> <span style={{ float: 'right' }}>{formatCurrency(totalInvoiceAmount)}</span>
                   </div>
