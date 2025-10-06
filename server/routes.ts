@@ -1575,6 +1575,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QuickBooks journal entry count
+  app.get("/api/quickbooks/journal-entry-count", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID required" });
+      }
+
+      const invoices = await storage.getInvoices(userId);
+      
+      // Count unique invoices with posted journal entries (non-null quickbooksInvoiceId)
+      const journalEntryCount = invoices.filter(invoice => 
+        invoice.quickbooksInvoiceId !== null && invoice.quickbooksInvoiceId !== undefined && invoice.quickbooksInvoiceId !== ''
+      ).length;
+
+      res.json({ count: journalEntryCount });
+    } catch (error) {
+      console.error("Failed to fetch journal entry count:", error);
+      res.status(500).json({ message: "Failed to fetch journal entry count" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
