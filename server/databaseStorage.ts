@@ -72,7 +72,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    // Check if this is a QuickBooks disconnect request (all QB fields are null)
+    const isQBDisconnect = 
+      updates.quickbooksAccessToken === null &&
+      updates.quickbooksRefreshToken === null &&
+      updates.quickbooksCompanyId === null;
+    
+    if (isQBDisconnect) {
+      // Use SQL template to force NULL values for QuickBooks fields
+      const [user] = await db
+        .update(users)
+        .set({
+          quickbooksAccessToken: sql`NULL`,
+          quickbooksRefreshToken: sql`NULL`,
+          quickbooksCompanyId: sql`NULL`,
+          quickbooksTokenExpiry: sql`NULL`,
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    }
+    
+    // For normal updates, filter out null and undefined values
+    const filteredUpdates: any = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== null && value !== undefined) {
+        filteredUpdates[key] = value;
+      }
+    }
+    
+    // If no fields to update, return current user
+    if (Object.keys(filteredUpdates).length === 0) {
+      return this.getUser(id);
+    }
+    
+    const [user] = await db.update(users).set(filteredUpdates).where(eq(users.id, id)).returning();
     return user;
   }
 
