@@ -553,7 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create line items with scheme application
       const createdLineItems = [];
-      const hasFrontendFreeItems = lineItems.some(li => li.isFreeFromScheme);
+      const hasFrontendFreeItems = lineItems.some((li: any) => li.isFreeFromScheme);
       
       for (const item of lineItems) {
         // Skip line items with empty productId
