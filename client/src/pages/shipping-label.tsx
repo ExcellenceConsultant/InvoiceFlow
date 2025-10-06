@@ -63,16 +63,16 @@ export default function ShippingLabel() {
           flex-direction: column;
         }
         .shipping-label-title {
-          font-size: 36px !important;
+          font-size: 38px !important;
           margin-bottom: 8mm !important;
         }
         .label-container {
-          padding: 12mm 20mm !important;
-          border-width: 4px !important;
+          padding: 14mm 22mm !important;
+          border-width: 6px !important;
           flex: 1;
         }
         .section-title {
-          font-size: 24px !important;
+          font-size: 26px !important;
           margin-bottom: 6mm !important;
         }
         .label-field {
@@ -85,7 +85,7 @@ export default function ShippingLabel() {
         background: white;
         padding: 40px;
         font-family: Arial, sans-serif;
-        font-size: 20px;
+        font-size: 22px;
         line-height: 1.6;
         max-width: 100%;
         margin: 0 auto;
@@ -94,20 +94,20 @@ export default function ShippingLabel() {
 
       .shipping-label-title {
         text-align: center;
-        font-size: 36px;
+        font-size: 38px;
         font-weight: bold;
         margin-bottom: 30px;
       }
 
       .label-container {
-        border: 4px solid #000;
+        border: 6px solid #000;
         padding: 40px 50px;
         background: white;
       }
 
       .section-title {
         font-weight: bold;
-        font-size: 24px;
+        font-size: 26px;
         margin-bottom: 20px;
       }
 
@@ -120,32 +120,32 @@ export default function ShippingLabel() {
       .field-label {
         display: inline-block;
         min-width: 200px;
-        font-size: 20px;
+        font-size: 22px;
       }
 
       .field-value {
         display: inline-block;
-        font-size: 20px;
+        font-size: 22px;
       }
 
       .field-value-bold {
         display: inline-block;
-        font-size: 20px;
+        font-size: 22px;
         font-weight: bold;
       }
 
       @media print {
         .field-label {
-          font-size: 20px !important;
+          font-size: 22px !important;
         }
         .field-value,
         .field-value-bold {
-          font-size: 20px !important;
+          font-size: 22px !important;
         }
         input {
           border: none;
           background: white !important;
-          font-size: 20px !important;
+          font-size: 22px !important;
           outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
