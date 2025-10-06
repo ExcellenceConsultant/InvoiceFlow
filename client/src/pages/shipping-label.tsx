@@ -122,34 +122,34 @@ export default function ShippingLabel() {
       .field-label {
         display: inline-block;
         min-width: 240px;
-        font-size: 28px;
+        font-size: 34px;
       }
 
       .field-value {
         display: inline-block;
-        font-size: 28px;
+        font-size: 34px;
       }
 
       .field-value-bold {
         display: inline-block;
-        font-size: 30px;
+        font-size: 36px;
         font-weight: bold;
       }
 
       @media print {
         .field-label {
-          font-size: 28px !important;
+          font-size: 34px !important;
         }
         .field-value {
-          font-size: 28px !important;
+          font-size: 34px !important;
         }
         .field-value-bold {
-          font-size: 30px !important;
+          font-size: 36px !important;
         }
         input {
           border: none;
           background: white !important;
-          font-size: 28px !important;
+          font-size: 34px !important;
           outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
