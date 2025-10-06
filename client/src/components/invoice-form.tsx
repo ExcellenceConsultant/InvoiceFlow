@@ -41,6 +41,7 @@ const invoiceSchema = z.object({
     required_error: "Please select invoice type",
   }),
   freight: z.number().min(0, "Freight must be non-negative").default(0),
+  discount: z.number().min(0, "Discount must be non-negative").default(0),
   notes: z.string().optional(),
 });
 
@@ -98,6 +99,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       paymentTerms: 30,
       invoiceType: invoice.invoiceType || "receivable",
       freight: parseFloat(invoice.freight || 0),
+      discount: parseFloat(invoice.discount || 0),
       notes: invoice.notes || DEFAULT_NOTES,
     } : {
       customerId: "",
@@ -106,6 +108,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       paymentTerms: 30,
       invoiceType: "receivable",
       freight: 0,
+      discount: 0,
       notes: DEFAULT_NOTES,
     },
   });
@@ -120,6 +123,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         paymentTerms: invoice.paymentTerms || 30,
         invoiceType: invoice.invoiceType || "receivable",
         freight: parseFloat(invoice.freight || 0),
+        discount: parseFloat(invoice.discount || 0),
         notes: invoice.notes || DEFAULT_NOTES,
       });
     }
@@ -368,6 +372,15 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const calculateTotal = () => {
     return lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
   };
+
+  // Auto-calculate 2% discount for new invoices
+  useEffect(() => {
+    if (!isEditMode) {
+      const subtotal = calculateTotal();
+      const defaultDiscount = subtotal * 0.02;
+      form.setValue("discount", parseFloat(defaultDiscount.toFixed(2)));
+    }
+  }, [lineItems, isEditMode, form]);
 
   const calculateTotalQuantity = () => {
     return lineItems.reduce((sum, item) => {
@@ -724,6 +737,28 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           onChange={(e) => field.onChange(Number(e.target.value))}
                           placeholder="0.00"
                           data-testid="input-freight"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="discount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Discount Amount ($)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          placeholder="0.00"
+                          data-testid="input-discount"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1373,6 +1408,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         ${(form.watch("freight") || 0).toFixed(2)}
                       </span>
                     </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Discount:</span>
+                      <span className="font-medium text-red-600" data-testid="invoice-discount-display">
+                        -${(form.watch("discount") || 0).toFixed(2)}
+                      </span>
+                    </div>
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-lg font-semibold text-foreground">
                         Total Amount:
@@ -1381,7 +1422,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="text-2xl font-bold text-primary"
                         data-testid="invoice-total"
                       >
-                        ${(calculateTotal() + (form.watch("freight") || 0)).toFixed(2)}
+                        ${(calculateTotal() + (form.watch("freight") || 0) - (form.watch("discount") || 0)).toFixed(2)}
                       </span>
                     </div>
                   </div>

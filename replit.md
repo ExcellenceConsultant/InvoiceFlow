@@ -6,20 +6,21 @@ InvoiceFlow is a comprehensive invoice management application built with a moder
 
 ## Current Status - All Systems Working ✅
 
-**Last Updated**: October 2, 2025
+**Last Updated**: October 6, 2025
 
 All major functionality is fully operational:
 
 ### ✅ Completed Features
 - **Excel Inventory Reporting**: Generate comprehensive inventory reports with Amount calculations (Qty × Base Price)
 - **AP Journal Entry Integration**: Full AP invoice journal entries with COGS dr (173) → Account Payable cr (1150040005) 
-- **AR Journal Entry Integration**: AR invoice journal entries with Account Receivable dr (1150040004) → Sales cr (135)
+- **AR Journal Entry Integration**: AR invoice journal entries with balanced accounting equation: AR Dr + Discount Dr = Sales Cr + Freight Cr
 - **QuickBooks Customer/Vendor Sync**: Automatic customer and vendor creation with proper field mapping
 - **Inventory Management**: Automatic stock quantity updates (AR invoices reduce, AP invoices increase inventory)
 - **Packing List Generation**: PDF generation with exact format matching and last 5-digit product codes
 - **Promotional Schemes**: Buy X get Y free functionality with automatic free item calculation
 - **Invoice Type Support**: Both receivable (AR) and payable (AP) invoice types with proper categorization
 - **Invoice PDF Export/Print**: Professional invoice printing with PDF generation capability
+- **Invoice Discount Feature**: Editable discount field with 2% automatic default, properly reflected in all calculations and journal entries
 
 ### 📄 Invoice PDF/Print Formatting (Latest Implementation)
 
@@ -131,10 +132,10 @@ if (pages.length === 1) {
 ```
 
 ### 🔧 Recent Critical Fixes Applied
-1. **QuickBooks API Integration**: Removed problematic "Name" property from customer/vendor creation requests
-2. **Database Field Consistency**: Aligned field names to use "quickbooksInvoiceId" throughout the system
-3. **Journal Entry Processing**: Fixed AP/AR journal entry creation and database updates
-4. **Vendor Entity References**: Proper vendor entity inclusion in AP journal entries
+1. **QuickBooks Journal Entry Balancing**: Fixed accounting equation to ensure debits equal credits (AR Dr + Discount Dr = Sales Cr + Freight Cr)
+2. **Journal Entry Update Logic**: System now updates existing journal entries instead of creating duplicates
+3. **Discount Implementation**: Added editable discount field with 2% automatic default for new invoices
+4. **Total Calculation**: Invoice totals now correctly calculate as: Subtotal + Freight - Discount
 
 ### 💾 Data Integrity
 - All database operations use consistent field naming
