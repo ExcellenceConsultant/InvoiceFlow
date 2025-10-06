@@ -116,7 +116,7 @@ export default function ShippingLabel() {
       .label-field {
         margin-bottom: 20px;
         display: flex;
-        align-items: baseline;
+        align-items: center;
       }
 
       .field-label {
