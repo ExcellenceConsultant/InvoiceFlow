@@ -43,7 +43,7 @@ export default function ShippingLabel() {
       @media print {
         @page { 
           size: A4 landscape; 
-          margin: 12mm 15mm;
+          margin: 12mm 15mm 0mm 15mm;
           background: white;
         }
         body { margin: 0; padding: 0; background: white !important; }
