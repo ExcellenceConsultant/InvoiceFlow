@@ -1171,17 +1171,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
       PrivateNote: `JE for AP Invoice #${invoice.invoiceNumber}`,
       Line: [
-        // Debit COGS
+        // Debit Inventory Asset
         {
           Id: "0",
-          Description: "COGS entry for AP Invoice",
+          Description: "Inventory Asset entry for AP Invoice",
           Amount: totalAmount,
           DetailType: "JournalEntryLineDetail",
           JournalEntryLineDetail: {
             PostingType: "Debit",
             AccountRef: {
-              value: "173",
-              name: "Cost of Goods Sold"
+              value: "14",
+              name: "Inventory Asset"
             }
           }
         },
@@ -1194,7 +1194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           JournalEntryLineDetail: {
             PostingType: "Credit",
             AccountRef: {
-              value: "1150040005",
+              value: "18",
               name: "Accounts Payable (A/P)"
             },
             Entity: {
@@ -1228,8 +1228,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       quickbooksInvoiceId: qbJournalEntry.Id,
       invoiceType: 'payable',
       totalAmount: totalAmount,
-      debitAccount: "173 - Cost of Goods Sold",
-      creditAccount: "1150040005 - Accounts Payable (A/P)", 
+      debitAccount: "14 - Inventory Asset",
+      creditAccount: "18 - Accounts Payable (A/P)", 
       message: "AP Journal Entry successfully created in QuickBooks"
     });
   }
@@ -1275,7 +1275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       JournalEntryLineDetail: {
         PostingType: "Debit",
         AccountRef: {
-          value: "1150040004",
+          value: "13",
           name: "Accounts Receivable (A/R)"
         },
         Entity: {
@@ -1315,8 +1315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       JournalEntryLineDetail: {
         PostingType: "Credit",
         AccountRef: {
-          value: "135",
-          name: "Sales of Product Income"
+          value: "1150040052",
+          name: "Sales"
         }
       }
     });
