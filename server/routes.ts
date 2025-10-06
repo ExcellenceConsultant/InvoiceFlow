@@ -1233,10 +1233,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get amounts from invoice
     const subtotal = parseFloat(invoice.subtotal) || 0;
     const freight = parseFloat(invoice.freight) || 0;
-    const discount = parseFloat(invoice.discount) || 0;
+    const discountPercent = parseFloat(invoice.discount) || 0;
+    const discountAmount = (subtotal * discountPercent) / 100;
     const total = parseFloat(invoice.total) || 0;
     
-    console.log('Invoice amounts:', { subtotal, freight, discount, total, invoiceNumber: invoice.invoiceNumber });
+    console.log('Invoice amounts:', { subtotal, freight, discountPercent, discountAmount, total, invoiceNumber: invoice.invoiceNumber });
     
     // Ensure we have a valid total amount
     if (total === 0) {
@@ -1272,11 +1273,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     // 2. Discount (if present) - Debit (contra-revenue, reduces sales)
-    if (discount > 0) {
+    if (discountAmount > 0) {
       journalLines.push({
         Id: (lineId++).toString(),
-        Description: "Discount applied",
-        Amount: discount,
+        Description: `Discount applied (${discountPercent.toFixed(2)}%)`,
+        Amount: discountAmount,
         DetailType: "JournalEntryLineDetail",
         JournalEntryLineDetail: {
           PostingType: "Debit",
@@ -1374,7 +1375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const debits: string[] = ["AR Dr"];
     const credits: string[] = ["Sales Cr"];
     
-    if (discount > 0) debits.push("Discount Dr");
+    if (discountAmount > 0) debits.push("Discount Dr");
     if (freight > 0) credits.push("Freight Cr");
     
     const accounts = [...debits, ...credits].join(", ");

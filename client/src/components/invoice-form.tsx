@@ -108,7 +108,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       paymentTerms: 30,
       invoiceType: "receivable",
       freight: 0,
-      discount: 0,
+      discount: 2,
       notes: DEFAULT_NOTES,
     },
   });
@@ -372,15 +372,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const calculateTotal = () => {
     return lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
   };
-
-  // Auto-calculate 2% discount for new invoices
-  useEffect(() => {
-    if (!isEditMode) {
-      const subtotal = calculateTotal();
-      const defaultDiscount = subtotal * 0.02;
-      form.setValue("discount", parseFloat(defaultDiscount.toFixed(2)));
-    }
-  }, [lineItems, isEditMode, form]);
 
   const calculateTotalQuantity = () => {
     return lineItems.reduce((sum, item) => {
@@ -749,15 +740,16 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   name="discount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Discount Amount ($)</FormLabel>
+                      <FormLabel>Discount %</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           min="0"
+                          max="100"
                           step="0.01"
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
-                          placeholder="0.00"
+                          placeholder="2.00"
                           data-testid="input-discount"
                         />
                       </FormControl>
@@ -1409,9 +1401,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Discount:</span>
+                      <span className="text-muted-foreground">Discount ({(form.watch("discount") || 0).toFixed(2)}%):</span>
                       <span className="font-medium text-red-600" data-testid="invoice-discount-display">
-                        -${(form.watch("discount") || 0).toFixed(2)}
+                        -${((calculateTotal() * (form.watch("discount") || 0)) / 100).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t">
@@ -1422,7 +1414,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="text-2xl font-bold text-primary"
                         data-testid="invoice-total"
                       >
-                        ${(calculateTotal() + (form.watch("freight") || 0) - (form.watch("discount") || 0)).toFixed(2)}
+                        ${(calculateTotal() + (form.watch("freight") || 0) - ((calculateTotal() * (form.watch("discount") || 0)) / 100)).toFixed(2)}
                       </span>
                     </div>
                   </div>
