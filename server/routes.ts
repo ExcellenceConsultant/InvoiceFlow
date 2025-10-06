@@ -803,6 +803,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
         subtotal: invoiceData.subtotal,
         freight: invoiceData.freight,
+        discount: invoiceData.discount,
+        notes: invoiceData.notes,
         total: invoiceData.total,
         status: invoiceData.status,
         invoiceType: invoiceData.invoiceType,
