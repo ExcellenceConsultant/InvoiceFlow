@@ -73,10 +73,10 @@ export default function ShippingLabel() {
         }
         .section-title {
           font-size: 26px !important;
-          margin-bottom: 6mm !important;
+          margin-bottom: 8mm !important;
         }
         .label-field {
-          margin-bottom: 5mm !important;
+          margin-bottom: 5.5mm !important;
         }
         .print-hide { display: none !important; }
       }
@@ -108,18 +108,18 @@ export default function ShippingLabel() {
       .section-title {
         font-weight: bold;
         font-size: 26px;
-        margin-bottom: 20px;
+        margin-bottom: 35px;
       }
 
       .label-field {
-        margin-bottom: 18px;
+        margin-bottom: 20px;
         display: flex;
         align-items: baseline;
       }
 
       .field-label {
         display: inline-block;
-        min-width: 200px;
+        min-width: 240px;
         font-size: 28px;
       }
 
