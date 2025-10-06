@@ -265,9 +265,9 @@ export default function PackingList() {
     });
   });
 
-  // Dynamic Pagination: 21 rows per page to prevent footer overlap
-  const ROWS_PER_PAGE = 21;
-  const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
+  // Dynamic Pagination: Optimized for A4 with 10mm margins - fit maximum rows per page
+  const ROWS_PER_PAGE = 35; // Increased from 21 to utilize full A4 page with new margins
+  const MAX_ROWS_WITH_SUMMARY = 32; // If <= 32 rows, fit everything on one page with summary
   const totalRows = allRows.length;
   
   const pages: { rows: PackingRow[]; emptyCount: number; showSummary: boolean }[] = [];
@@ -276,7 +276,7 @@ export default function PackingList() {
   if (totalRows <= MAX_ROWS_WITH_SUMMARY) {
     pages.push({ rows: allRows, emptyCount: 0, showSummary: true });
   } else {
-    // Otherwise, paginate with 22 rows per page
+    // Otherwise, paginate with 35 rows per page
     let currentPageRows: PackingRow[] = [];
     let rowCountOnCurrentPage = 0;
 
@@ -284,7 +284,7 @@ export default function PackingList() {
       currentPageRows.push(row);
       rowCountOnCurrentPage++;
 
-      // If we've reached 21 total rows, create a page
+      // If we've reached 35 total rows, create a page
       if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
         pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
         currentPageRows = [];
