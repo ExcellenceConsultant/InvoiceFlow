@@ -121,8 +121,9 @@ export default function ShippingLabel() {
 
       .field-label {
         display: inline-block;
-        min-width: 240px;
+        width: 280px;
         font-size: 34px;
+        flex-shrink: 0;
       }
 
       .field-value {
