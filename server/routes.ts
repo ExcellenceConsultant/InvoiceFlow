@@ -51,21 +51,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updateData = req.body;
       
-      // Handle null values for QuickBooks disconnection by converting to undefined
-      if (updateData.quickbooksAccessToken === null) {
-        updateData.quickbooksAccessToken = undefined;
-      }
-      if (updateData.quickbooksRefreshToken === null) {
-        updateData.quickbooksRefreshToken = undefined;
-      }
-      if (updateData.quickbooksCompanyId === null) {
-        updateData.quickbooksCompanyId = undefined;
-      }
-      if (updateData.quickbooksTokenExpiry === null) {
-        updateData.quickbooksTokenExpiry = undefined;
+      // Filter out undefined values, keep null values for QuickBooks disconnection
+      const filteredData: any = {};
+      for (const [key, value] of Object.entries(updateData)) {
+        if (value !== undefined) {
+          filteredData[key] = value;
+        }
       }
       
-      const user = await storage.updateUser(id, updateData);
+      // Ensure we have at least one field to update
+      if (Object.keys(filteredData).length === 0) {
+        return res.status(400).json({ message: "No fields to update" });
+      }
+      
+      const user = await storage.updateUser(id, filteredData);
       res.json(user);
     } catch (error) {
       console.error("Error updating user:", error);
