@@ -68,6 +68,7 @@ export default function Dashboard() {
           quickbooksAccessToken: null,
           quickbooksRefreshToken: null,
           quickbooksCompanyId: null,
+          quickbooksCompanyName: null,
           quickbooksTokenExpiry: null,
         }),
       });

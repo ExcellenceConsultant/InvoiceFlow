@@ -100,9 +100,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         realmId as string
       );
 
-      // Update user with QuickBooks tokens
+      // Fetch company information
+      let companyName = null;
+      try {
+        const companyInfo = await quickBooksService.getCompanyInfo(
+          tokens.accessToken,
+          tokens.companyId
+        );
+        companyName = companyInfo?.CompanyName || companyInfo?.LegalName || null;
+        console.log("QuickBooks company info fetched:", { companyName });
+      } catch (companyInfoError) {
+        console.error("Failed to fetch company info:", companyInfoError);
+      }
+
+      // Update user with QuickBooks tokens and company name
       await storage.updateUser(state as string, {
         quickbooksCompanyId: tokens.companyId,
+        quickbooksCompanyName: companyName,
         quickbooksAccessToken: tokens.accessToken,
         quickbooksRefreshToken: tokens.refreshToken,
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
