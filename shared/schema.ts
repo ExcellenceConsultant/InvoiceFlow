@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
   quickbooksCompanyId: text("quickbooks_company_id"),
+  quickbooksCompanyName: text("quickbooks_company_name"),
   quickbooksAccessToken: text("quickbooks_access_token"),
   quickbooksRefreshToken: text("quickbooks_refresh_token"),
   quickbooksTokenExpiry: timestamp("quickbooks_token_expiry"),
