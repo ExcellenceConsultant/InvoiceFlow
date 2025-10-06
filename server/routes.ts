@@ -1219,7 +1219,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function handleARInvoiceSync(invoice: any, user: any, storage: any, res: any) {
-    console.log(`Creating QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`);
+    const isUpdate = !!invoice.quickbooksInvoiceId;
+    console.log(`${isUpdate ? 'Updating' : 'Creating'} QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`);
 
     // Find or create customer in QuickBooks
     const customer = await storage.getCustomer(invoice.customerId!);
@@ -1229,87 +1230,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const qbCustomer = await findOrCreateCustomer(user, customer.name, customer.id, storage);
 
-    // Get invoice line items to calculate total
-    const lineItems = await storage.getInvoiceLineItems(invoice.id);
+    // Get amounts from invoice
+    const subtotal = parseFloat(invoice.subtotal) || 0;
+    const freight = parseFloat(invoice.freight) || 0;
+    const discount = parseFloat(invoice.discount) || 0;
+    const total = parseFloat(invoice.total) || 0;
     
-    console.log('Invoice data:', { id: invoice.id, total: invoice.total, invoiceNumber: invoice.invoiceNumber });
-    console.log('Line items for amount calculation:', lineItems);
+    console.log('Invoice amounts:', { subtotal, freight, discount, total, invoiceNumber: invoice.invoiceNumber });
     
-    // Calculate total from invoice total first, then fallback to line items
-    let totalAmount = parseFloat(invoice.total) || 0;
-    
-    // If invoice total is 0, calculate from line items
-    if (totalAmount === 0) {
-      totalAmount = lineItems.reduce((sum: number, item: any) => {
-        const itemTotal = parseFloat(item.lineTotal) || 0;
-        console.log(`Line item ${item.description}: ${itemTotal}`);
-        return sum + itemTotal;
-      }, 0);
-    }
-    
-    console.log('Final calculated total amount:', totalAmount);
-    
-    // Ensure we have a valid amount
-    if (totalAmount === 0) {
+    // Ensure we have a valid total amount
+    if (total === 0) {
       throw new Error('Invoice total amount is 0. Cannot create journal entry.');
     }
     
-    // Create Journal Entry data with correct QuickBooks API format
-    const journalEntryData = {
-      TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
-      PrivateNote: `JE for Invoice #${invoice.invoiceNumber}`,
-      Line: [
-        // Debit Accounts Receivable
-        {
-          Id: "0",
-          Description: "AR entry for Invoice",
-          Amount: totalAmount,
-          DetailType: "JournalEntryLineDetail",
-          JournalEntryLineDetail: {
-            PostingType: "Debit",
-            AccountRef: {
-              value: "1150040004",
-              name: "Accounts Receivable (A/R)"
-            },
-            Entity: {
-              Type: "Customer",
-              EntityRef: {
-                value: qbCustomer.Id,
-                name: qbCustomer.DisplayName
-              }
-            }
-          }
-        },
-        // Credit Sales
-        {
-          Id: "1", 
-          Description: "Sales entry for Invoice",
-          Amount: totalAmount,
-          DetailType: "JournalEntryLineDetail",
-          JournalEntryLineDetail: {
-            PostingType: "Credit",
-            AccountRef: {
-              value: "135",
-              name: "Sales of Product Income"
-            }
+    // Build journal entry lines based on freight/discount combinations
+    const journalLines: any[] = [];
+    let lineId = 0;
+    
+    // Debit entries
+    // 1. Freight (if present) - Debit
+    if (freight > 0) {
+      journalLines.push({
+        Id: (lineId++).toString(),
+        Description: "Freight charges",
+        Amount: freight,
+        DetailType: "JournalEntryLineDetail",
+        JournalEntryLineDetail: {
+          PostingType: "Debit",
+          AccountRef: {
+            value: "136",
+            name: "Freight Income"
           }
         }
-      ]
-    };
-
-    console.log('Creating QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
-
-    const qbJournalEntry = await quickBooksService.createJournalEntry(
-      user!.quickbooksAccessToken!,
-      user!.quickbooksCompanyId!,
-      journalEntryData
-    );
-
-    // Update invoice with QuickBooks journal entry ID
-    await storage.updateInvoice(invoice.id, {
-      quickbooksInvoiceId: qbJournalEntry.Id,
-      status: "sent",
+      });
+    }
+    
+    // 2. Accounts Receivable - Always Debit (total amount)
+    journalLines.push({
+      Id: (lineId++).toString(),
+      Description: "AR entry for Invoice",
+      Amount: total,
+      DetailType: "JournalEntryLineDetail",
+      JournalEntryLineDetail: {
+        PostingType: "Debit",
+        AccountRef: {
+          value: "1150040004",
+          name: "Accounts Receivable (A/R)"
+        },
+        Entity: {
+          Type: "Customer",
+          EntityRef: {
+            value: qbCustomer.Id,
+            name: qbCustomer.DisplayName
+          }
+        }
+      }
     });
+    
+    // Credit entries
+    // 3. Discount (if present) - Credit
+    if (discount > 0) {
+      journalLines.push({
+        Id: (lineId++).toString(),
+        Description: "Discount applied",
+        Amount: discount,
+        DetailType: "JournalEntryLineDetail",
+        JournalEntryLineDetail: {
+          PostingType: "Credit",
+          AccountRef: {
+            value: "137",
+            name: "Discounts Given"
+          }
+        }
+      });
+    }
+    
+    // 4. Sales - Always Credit (subtotal amount)
+    journalLines.push({
+      Id: (lineId++).toString(),
+      Description: "Sales entry for Invoice",
+      Amount: subtotal,
+      DetailType: "JournalEntryLineDetail",
+      JournalEntryLineDetail: {
+        PostingType: "Credit",
+        AccountRef: {
+          value: "135",
+          name: "Sales of Product Income"
+        }
+      }
+    });
+    
+    // Create or update journal entry
+    let qbJournalEntry;
+    
+    if (isUpdate) {
+      // Get existing journal entry to retrieve SyncToken
+      console.log(`Retrieving existing journal entry ${invoice.quickbooksInvoiceId} for update`);
+      const existingJE = await quickBooksService.getJournalEntry(
+        user.quickbooksAccessToken!,
+        user.quickbooksCompanyId!,
+        invoice.quickbooksInvoiceId
+      );
+      
+      const journalEntryData = {
+        Id: existingJE.Id,
+        SyncToken: existingJE.SyncToken,
+        TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+        PrivateNote: `JE for Invoice #${invoice.invoiceNumber}`,
+        Line: journalLines
+      };
+      
+      console.log('Updating QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
+      
+      qbJournalEntry = await quickBooksService.updateJournalEntry(
+        user.quickbooksAccessToken!,
+        user.quickbooksCompanyId!,
+        journalEntryData
+      );
+    } else {
+      const journalEntryData = {
+        TxnDate: invoice.invoiceDate.toISOString().split('T')[0],
+        PrivateNote: `JE for Invoice #${invoice.invoiceNumber}`,
+        Line: journalLines
+      };
+      
+      console.log('Creating QuickBooks Journal Entry with data:', JSON.stringify(journalEntryData, null, 2));
+      
+      qbJournalEntry = await quickBooksService.createJournalEntry(
+        user.quickbooksAccessToken!,
+        user.quickbooksCompanyId!,
+        journalEntryData
+      );
+      
+      // Update invoice with QuickBooks journal entry ID for first time
+      await storage.updateInvoice(invoice.id, {
+        quickbooksInvoiceId: qbJournalEntry.Id,
+        status: "sent",
+      });
+    }
+
+    // Build account details for response
+    const accounts: string[] = [];
+    if (freight > 0) accounts.push("Freight Dr");
+    accounts.push("AR Dr");
+    if (discount > 0) accounts.push("Discount Cr");
+    accounts.push("Sales Cr");
 
     return res.json({ 
       success: true, 
@@ -1317,10 +1382,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       customerId: qbCustomer.Id,
       customerName: qbCustomer.DisplayName,
       invoiceType: 'receivable',
-      totalAmount: totalAmount,
-      debitAccount: "1150040004 - Accounts Receivable (A/R)",
-      creditAccount: "135 - Sales", 
-      message: "Journal Entry successfully created in QuickBooks"
+      totalAmount: total,
+      accounts: accounts.join(", "),
+      message: `Journal Entry successfully ${isUpdate ? 'updated' : 'created'} in QuickBooks`
     });
   }
 
