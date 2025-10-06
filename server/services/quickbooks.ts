@@ -628,6 +628,76 @@ export class QuickBooksService {
     }
   }
 
+  async getJournalEntry(
+    accessToken: string,
+    companyId: string,
+    journalEntryId: string
+  ): Promise<any> {
+    try {
+      console.log(`Getting Journal Entry ${journalEntryId} from QuickBooks`);
+      
+      const response = await axios.get(
+        `${this.getBaseUrl()}/v3/company/${companyId}/journalentry/${journalEntryId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      console.log('QuickBooks Get Journal Entry Response:', JSON.stringify(response.data, null, 2));
+      return response.data.JournalEntry;
+    } catch (error: any) {
+      console.error('QuickBooks journal entry get failed:', error.response?.data || error.message);
+      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
+      
+      if (error.response) {
+        const enhancedError = new Error('Failed to get journal entry from QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
+      throw new Error('Failed to get journal entry from QuickBooks');
+    }
+  }
+
+  async updateJournalEntry(
+    accessToken: string,
+    companyId: string,
+    journalEntryData: any
+  ): Promise<any> {
+    try {
+      console.log('Updating Journal Entry in QuickBooks:', JSON.stringify(journalEntryData, null, 2));
+      
+      const response = await axios.post(
+        `${this.getBaseUrl()}/v3/company/${companyId}/journalentry?operation=update`,
+        journalEntryData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      console.log('QuickBooks Journal Entry Update Response:', JSON.stringify(response.data, null, 2));
+      return response.data.JournalEntry;
+    } catch (error: any) {
+      console.error('QuickBooks journal entry update failed:', error.response?.data || error.message);
+      console.error('Full error details:', JSON.stringify(error.response?.data, null, 2));
+      
+      if (error.response) {
+        const enhancedError = new Error('Failed to update journal entry in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
+      throw new Error('Failed to update journal entry in QuickBooks');
+    }
+  }
+
 }
 
 export const quickBooksService = new QuickBooksService();
