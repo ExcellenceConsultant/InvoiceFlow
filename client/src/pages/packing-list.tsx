@@ -82,7 +82,7 @@ export default function PackingList() {
         background: white;
         padding: 20px;
         font-family: Arial, sans-serif;
-        font-size: 12px;
+        font-size: 14px;
         line-height: 1.4;
         max-width: 210mm;
         margin: 0 auto;
@@ -91,7 +91,7 @@ export default function PackingList() {
 
       .invoice-header {
         text-align: center;
-        font-size: 24px;
+        font-size: 28px;
         font-weight: bold;
         margin-bottom: 20px;
       }
@@ -101,7 +101,7 @@ export default function PackingList() {
         grid-template-columns: 1fr 1fr 1fr;
         gap: 20px;
         margin-bottom: 20px;
-        font-size: 11px;
+        font-size: 13px;
       }
 
       .info-section {
@@ -112,7 +112,7 @@ export default function PackingList() {
         font-weight: bold;
         text-transform: uppercase;
         margin-bottom: 5px;
-        font-size: 11px;
+        font-size: 13px;
         color: #333;
       }
 
@@ -130,7 +130,7 @@ export default function PackingList() {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 15px;
-        font-size: 11px;
+        font-size: 13px;
         border: 1px solid #ddd;
       }
 
@@ -143,7 +143,7 @@ export default function PackingList() {
         border-bottom: 1px solid #ddd;
         border-left: none;
         border-right: none;
-        font-size: 11px;
+        font-size: 13px;
       }
 
       .packing-table td {
@@ -173,13 +173,13 @@ export default function PackingList() {
 
       .letter-head {
         text-align: center;
-        font-size: 14px;
+        font-size: 16px;
         margin-bottom: 20px;
       }
 
       .letter-footer {
         text-align: center;
-        font-size: 14px;
+        font-size: 16px;
         margin-top: 30px;
       }
     `;
