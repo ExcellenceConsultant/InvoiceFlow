@@ -1494,14 +1494,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint to list QuickBooks accounts
   app.get("/api/quickbooks/accounts", async (req, res) => {
     try {
-      const user = await storage.getUser("user-1");
-      if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+      const fetchedUser = await storage.getUser("user-1");
+      if (!fetchedUser || !fetchedUser.quickbooksAccessToken || !fetchedUser.quickbooksCompanyId) {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
+      // Ensure tokens are valid and refresh if needed
+      const user = await ensureValidTokens(fetchedUser);
+
       const accounts = await quickBooksService.getAccounts(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId
+        user.quickbooksAccessToken!,
+        user.quickbooksCompanyId!
       );
 
       // Format accounts for easy reading
