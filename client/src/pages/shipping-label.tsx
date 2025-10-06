@@ -120,32 +120,34 @@ export default function ShippingLabel() {
       .field-label {
         display: inline-block;
         min-width: 200px;
-        font-size: 22px;
+        font-size: 28px;
       }
 
       .field-value {
         display: inline-block;
-        font-size: 22px;
+        font-size: 28px;
       }
 
       .field-value-bold {
         display: inline-block;
-        font-size: 22px;
+        font-size: 30px;
         font-weight: bold;
       }
 
       @media print {
         .field-label {
-          font-size: 22px !important;
+          font-size: 28px !important;
         }
-        .field-value,
+        .field-value {
+          font-size: 28px !important;
+        }
         .field-value-bold {
-          font-size: 22px !important;
+          font-size: 30px !important;
         }
         input {
           border: none;
           background: white !important;
-          font-size: 22px !important;
+          font-size: 28px !important;
           outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -197,10 +199,10 @@ export default function ShippingLabel() {
       </div>
 
       <div className="shipping-label-page">
-        <div className="shipping-label-title">Shipping Label</div>
+        <div className="shipping-label-title">SHIPPING LABEL</div>
 
         <div className="label-container">
-          <div className="section-title">Ship To</div>
+          <div className="section-title">SHIP TO</div>
           
           <div className="label-field">
             <span className="field-label">Customer Name :</span>
