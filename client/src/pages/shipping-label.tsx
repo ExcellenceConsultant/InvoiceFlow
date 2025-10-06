@@ -43,7 +43,7 @@ export default function ShippingLabel() {
       @media print {
         @page { 
           size: A4 landscape; 
-          margin: 12mm;
+          margin: 10mm;
           background: white;
         }
         body { margin: 0; padding: 0; background: white !important; }
@@ -54,24 +54,25 @@ export default function ShippingLabel() {
           box-shadow: none; 
           border: none; 
           margin: 0 !important; 
-          padding: 10mm !important; 
+          padding: 5mm !important; 
           width: 100%; 
           min-height: auto; 
           background: white !important; 
         }
         .shipping-label-title {
-          font-size: 28px !important;
-          margin-bottom: 15mm !important;
+          font-size: 40px !important;
+          margin-bottom: 20mm !important;
         }
         .label-container {
-          padding: 8mm 10mm !important;
+          padding: 20mm 25mm !important;
+          border-width: 4px !important;
         }
         .section-title {
-          font-size: 20px !important;
-          margin-bottom: 5mm !important;
+          font-size: 28px !important;
+          margin-bottom: 10mm !important;
         }
         .label-field {
-          margin-bottom: 4mm !important;
+          margin-bottom: 8mm !important;
         }
         .print-hide { display: none !important; }
       }
@@ -80,8 +81,8 @@ export default function ShippingLabel() {
         background: white;
         padding: 40px;
         font-family: Arial, sans-serif;
-        font-size: 16px;
-        line-height: 1.5;
+        font-size: 20px;
+        line-height: 1.6;
         max-width: 100%;
         margin: 0 auto;
         position: relative;
@@ -89,58 +90,58 @@ export default function ShippingLabel() {
 
       .shipping-label-title {
         text-align: center;
-        font-size: 28px;
+        font-size: 40px;
         font-weight: bold;
-        margin-bottom: 30px;
+        margin-bottom: 35px;
       }
 
       .label-container {
-        border: 3px solid #000;
-        padding: 25px 35px;
+        border: 4px solid #000;
+        padding: 40px 50px;
         background: white;
       }
 
       .section-title {
         font-weight: bold;
-        font-size: 20px;
-        margin-bottom: 15px;
+        font-size: 28px;
+        margin-bottom: 25px;
       }
 
       .label-field {
-        margin-bottom: 12px;
+        margin-bottom: 20px;
         display: flex;
         align-items: baseline;
       }
 
       .field-label {
         display: inline-block;
-        min-width: 170px;
-        font-size: 16px;
+        min-width: 220px;
+        font-size: 20px;
       }
 
       .field-value {
         display: inline-block;
-        font-size: 16px;
+        font-size: 20px;
       }
 
       .field-value-bold {
         display: inline-block;
-        font-size: 16px;
+        font-size: 20px;
         font-weight: bold;
       }
 
       @media print {
         .field-label {
-          font-size: 16px !important;
+          font-size: 22px !important;
         }
         .field-value,
         .field-value-bold {
-          font-size: 16px !important;
+          font-size: 22px !important;
         }
         input {
           border: none;
           background: white !important;
-          font-size: 16px !important;
+          font-size: 22px !important;
           outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
