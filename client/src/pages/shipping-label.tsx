@@ -54,25 +54,29 @@ export default function ShippingLabel() {
           box-shadow: none; 
           border: none; 
           margin: 0 !important; 
-          padding: 5mm !important; 
+          padding: 3mm !important; 
           width: 100%; 
+          height: 100%;
           min-height: auto; 
           background: white !important; 
+          display: flex;
+          flex-direction: column;
         }
         .shipping-label-title {
-          font-size: 40px !important;
-          margin-bottom: 20mm !important;
+          font-size: 36px !important;
+          margin-bottom: 8mm !important;
         }
         .label-container {
-          padding: 20mm 25mm !important;
+          padding: 12mm 20mm !important;
           border-width: 4px !important;
+          flex: 1;
         }
         .section-title {
-          font-size: 28px !important;
-          margin-bottom: 10mm !important;
+          font-size: 24px !important;
+          margin-bottom: 6mm !important;
         }
         .label-field {
-          margin-bottom: 8mm !important;
+          margin-bottom: 5mm !important;
         }
         .print-hide { display: none !important; }
       }
@@ -90,9 +94,9 @@ export default function ShippingLabel() {
 
       .shipping-label-title {
         text-align: center;
-        font-size: 40px;
+        font-size: 36px;
         font-weight: bold;
-        margin-bottom: 35px;
+        margin-bottom: 30px;
       }
 
       .label-container {
@@ -103,19 +107,19 @@ export default function ShippingLabel() {
 
       .section-title {
         font-weight: bold;
-        font-size: 28px;
-        margin-bottom: 25px;
+        font-size: 24px;
+        margin-bottom: 20px;
       }
 
       .label-field {
-        margin-bottom: 20px;
+        margin-bottom: 18px;
         display: flex;
         align-items: baseline;
       }
 
       .field-label {
         display: inline-block;
-        min-width: 220px;
+        min-width: 200px;
         font-size: 20px;
       }
 
@@ -132,16 +136,16 @@ export default function ShippingLabel() {
 
       @media print {
         .field-label {
-          font-size: 22px !important;
+          font-size: 20px !important;
         }
         .field-value,
         .field-value-bold {
-          font-size: 22px !important;
+          font-size: 20px !important;
         }
         input {
           border: none;
           background: white !important;
-          font-size: 22px !important;
+          font-size: 20px !important;
           outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
