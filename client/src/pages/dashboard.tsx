@@ -57,6 +57,16 @@ export default function Dashboard() {
     },
   });
 
+  const { data: journalEntryCount } = useQuery({
+    queryKey: ["/api/quickbooks/journal-entry-count"],
+    queryFn: async () => {
+      const response = await fetch(`/api/quickbooks/journal-entry-count?userId=${DEFAULT_USER_ID}`);
+      if (!response.ok) throw new Error("Failed to fetch journal entry count");
+      const data = await response.json();
+      return data.count;
+    },
+  });
+
   const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
 
   const disconnectMutation = useMutation({
@@ -132,7 +142,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="font-medium text-foreground" data-testid="quickbooks-company-name">
-                      {isQuickBooksConnected ? "Tech Solutions LLC" : "Not Connected"}
+                      {isQuickBooksConnected ? (user?.quickbooksCompanyName || "Connected") : "Not Connected"}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Company ID: <span data-testid="quickbooks-company-id">
@@ -164,8 +174,10 @@ export default function Dashboard() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-accent/5 rounded-lg">
-                  <p className="text-2xl font-bold text-accent" data-testid="quickbooks-invoices-synced">156</p>
-                  <p className="text-sm text-muted-foreground">Invoices Synced</p>
+                  <p className="text-2xl font-bold text-accent" data-testid="quickbooks-journal-entry-sync">
+                    {journalEntryCount !== undefined ? journalEntryCount : '...'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Journal Entry Sync</p>
                 </div>
                 <div className="text-center p-3 bg-primary/5 rounded-lg">
                   <p className="text-2xl font-bold text-primary" data-testid="quickbooks-last-sync">2 min ago</p>
