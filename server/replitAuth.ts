@@ -101,15 +101,23 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
+  // Helper function to get the correct strategy name based on hostname
+  const getStrategyName = (hostname: string) => {
+    const domains = process.env.REPLIT_DOMAINS!.split(",");
+    // Try to find a matching domain, or use the first one as fallback
+    const matchingDomain = domains.find(d => hostname.includes(d)) || domains[0];
+    return `replitauth:${matchingDomain}`;
+  };
+
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(getStrategyName(req.hostname), {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(getStrategyName(req.hostname), {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
