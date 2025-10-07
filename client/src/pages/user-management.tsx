@@ -35,17 +35,17 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 
 const roleOptions = [
-  { value: "primary_admin", label: "Primary Admin", color: "bg-purple-500" },
+  { value: "super_admin", label: "Super Admin", color: "bg-purple-500" },
   { value: "admin", label: "Admin", color: "bg-blue-500" },
-  { value: "invoice_creation", label: "Invoice Creation", color: "bg-green-500" },
-  { value: "view_print_only", label: "View & Print Only", color: "bg-gray-500" },
+  { value: "poster", label: "Poster", color: "bg-green-500" },
+  { value: "viewer", label: "Viewer", color: "bg-gray-500" },
 ];
 
 const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["primary_admin", "admin", "invoice_creation", "view_print_only"]),
+  role: z.enum(["super_admin", "admin", "poster", "viewer"]),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -57,11 +57,6 @@ export default function UserManagement() {
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const response = await fetch("/api/users");
-      if (!response.ok) throw new Error("Failed to fetch users");
-      return response.json();
-    },
   });
 
   const form = useForm<UserFormValues>({
@@ -70,7 +65,7 @@ export default function UserManagement() {
       username: "",
       email: "",
       password: "",
-      role: "view_print_only",
+      role: "viewer",
     },
   });
 
