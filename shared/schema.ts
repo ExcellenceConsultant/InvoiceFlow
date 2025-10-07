@@ -3,20 +3,12 @@ import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb } f
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for Replit Auth
-export const sessions = pgTable("sessions", {
-  sid: varchar("sid").primaryKey(),
-  sess: jsonb("sess").notNull(),
-  expire: timestamp("expire").notNull(),
-});
-
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email"), // Removed unique constraint - Replit sub is the unique identifier
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: text("role").notNull().default("view_print_only"), // primary_admin, admin, invoice_creation, view_print_only
+  username: varchar("username").notNull().unique(),
+  email: varchar("email").notNull().unique(),
+  password: text("password").notNull(),
+  role: text("role").notNull().default("viewer"), // super_admin, admin, poster, viewer
   quickbooksCompanyId: text("quickbooks_company_id"),
   quickbooksCompanyName: text("quickbooks_company_name"),
   quickbooksAccessToken: text("quickbooks_access_token"),
@@ -138,15 +130,6 @@ export const insertUserSchema = createInsertSchema(users).omit({
   quickbooksTokenExpiry: true,
 });
 
-// UpsertUser schema for Replit Auth
-export const upsertUserSchema = createInsertSchema(users).pick({
-  id: true,
-  email: true,
-  firstName: true,
-  lastName: true,
-  profileImageUrl: true,
-});
-
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   userId: true,
@@ -190,7 +173,6 @@ export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Product = typeof products.$inferSelect;
