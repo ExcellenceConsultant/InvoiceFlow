@@ -6,13 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function Navbar() {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
-
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
-  };
 
   return (
     <nav className="bg-card/80 glass-effect border-b border-border backdrop-blur-lg sticky top-0 z-50" data-testid="navbar">
@@ -117,26 +113,17 @@ export default function Navbar() {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={handleLogout}
+              onClick={logout}
               data-testid="button-logout"
             >
               <LogOut size={18} />
             </Button>
             
-            {user?.profileImageUrl ? (
-              <img 
-                src={user.profileImageUrl} 
-                alt="User avatar" 
-                className="w-8 h-8 rounded-full object-cover"
-                data-testid="user-avatar"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center" data-testid="user-avatar">
-                <span className="text-xs font-medium text-white">
-                  {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
-                </span>
-              </div>
-            )}
+            <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center" data-testid="user-avatar">
+              <span className="text-xs font-medium text-white">
+                {user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
