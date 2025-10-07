@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { Bolt } from "lucide-react";
 
 export default function Login() {
@@ -35,6 +36,9 @@ export default function Login() {
 
       // Store token in localStorage
       localStorage.setItem("token", data.token);
+      
+      // Invalidate auth query to refetch user data with new token
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
       toast({
         title: "Success",
