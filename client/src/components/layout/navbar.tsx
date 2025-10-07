@@ -86,6 +86,15 @@ export default function Navbar() {
                   QB Sync
                 </Button>
               </Link>
+              <Link href="/users">
+                <Button 
+                  variant={location === "/users" ? "default" : "ghost"} 
+                  size="sm"
+                  data-testid="link-users"
+                >
+                  Users
+                </Button>
+              </Link>
             </div>
           </div>
           

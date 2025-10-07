@@ -40,6 +40,7 @@ export class DatabaseStorage implements IStorage {
           username: "demo",
           password: "password",
           email: "demo@example.com",
+          role: "primary_admin",
         };
         // Override ID after insert
         const [insertedUser] = await db.insert(users).values(defaultUser).returning();
@@ -55,6 +56,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Users
+  async getUsers(): Promise<User[]> {
+    await this.ensureInitialized();
+    return await db.select().from(users);
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     await this.ensureInitialized();
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -108,6 +114,11 @@ export class DatabaseStorage implements IStorage {
     
     const [user] = await db.update(users).set(filteredUpdates).where(eq(users.id, id)).returning();
     return user;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Customers
