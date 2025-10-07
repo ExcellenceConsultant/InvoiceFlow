@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { quickBooksService } from "./services/quickbooks";
 import { insertCustomerSchema, insertProductSchema, insertProductVariantSchema, 
          insertProductSchemeSchema, insertInvoiceSchema, insertInvoiceLineItemSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 // Configure multer for file uploads (memory storage) with limits
 const upload = multer({ 
@@ -33,8 +34,23 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // User routes
-  app.get("/api/users", async (req, res) => {
+  // Setup Replit Auth
+  await setupAuth(app);
+
+  // Auth route to get current user
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // User routes (protected)
+  app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
       const users = await storage.getUsers();
       res.json(users);
@@ -44,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id);
       if (!user) {
@@ -56,16 +72,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", isAuthenticated, async (req, res) => {
     try {
       const userData = req.body;
-      
-      // Check if username or email already exists
-      const existingUser = await storage.getUserByUsername(userData.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-      
       const user = await storage.createUser(userData);
       res.json(user);
     } catch (error: any) {
@@ -74,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/users/:id", async (req, res) => {
+  app.patch("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -100,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -121,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // QuickBooks OAuth routes
-  app.get("/api/auth/quickbooks", async (req, res) => {
+  app.get("/api/auth/quickbooks", isAuthenticated, async (req, res) => {
     try {
       const state = req.query.userId as string;
       if (!state) {
@@ -135,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/quickbooks/callback", async (req, res) => {
+  app.get("/api/auth/quickbooks/callback", isAuthenticated, async (req, res) => {
     try {
       const { code, realmId, state } = req.query;
       
@@ -178,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer routes
-  app.get("/api/customers", async (req, res) => {
+  app.get("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -192,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const validation = insertCustomerSchema.extend({
         userId: z.string(),
@@ -210,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/customers/:id", async (req, res) => {
+  app.patch("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const customer = await storage.updateCustomer(req.params.id, req.body);
       if (!customer) {
@@ -222,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customers/:id", async (req, res) => {
+  app.delete("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const success = await storage.deleteCustomer(req.params.id);
       if (!success) {
@@ -235,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export customers/vendors to Excel
-  app.get("/api/customers/export", async (req, res) => {
+  app.get("/api/customers/export", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       
@@ -351,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Product routes
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -365,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", async (req, res) => {
+  app.post("/api/products", isAuthenticated, async (req, res) => {
     try {
       console.log("Creating product with data:", req.body);
       
@@ -413,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products", async (req, res) => {
+  app.delete("/api/products", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -427,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:id", async (req, res) => {
+  app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const success = await storage.deleteProduct(req.params.id);
       if (!success) {
@@ -440,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Product variant routes
-  app.get("/api/products/:productId/variants", async (req, res) => {
+  app.get("/api/products/:productId/variants", isAuthenticated, async (req, res) => {
     try {
       const variants = await storage.getProductVariants(req.params.productId);
       res.json(variants);
@@ -449,7 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/variants", async (req, res) => {
+  app.post("/api/variants", isAuthenticated, async (req, res) => {
     try {
       const validation = insertProductVariantSchema.safeParse(req.body);
       
@@ -465,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Product scheme routes
-  app.get("/api/schemes", async (req, res) => {
+  app.get("/api/schemes", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -486,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/schemes", async (req, res) => {
+  app.post("/api/schemes", isAuthenticated, async (req, res) => {
     try {
       const validation = insertProductSchemeSchema.extend({
         userId: z.string(),
@@ -503,7 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/schemes/:id", async (req, res) => {
+  app.patch("/api/schemes/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -525,7 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/schemes/:id", async (req, res) => {
+  app.delete("/api/schemes/:id", isAuthenticated, async (req, res) => {
     try {
       const success = await storage.deleteScheme(req.params.id);
       if (!success) {
@@ -538,7 +547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Invoice routes
-  app.get("/api/invoices", async (req, res) => {
+  app.get("/api/invoices", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -552,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/invoices", async (req, res) => {
+  app.post("/api/invoices", isAuthenticated, async (req, res) => {
     try {
       console.log("Creating invoice with data:", JSON.stringify(req.body, null, 2));
       const { invoice, lineItems } = req.body;
@@ -705,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/:id", async (req, res) => {
+  app.get("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -717,7 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/invoices/:id/line-items", async (req, res) => {
+  app.get("/api/invoices/:id/line-items", isAuthenticated, async (req, res) => {
     try {
       const lineItems = await storage.getInvoiceLineItems(req.params.id);
       res.json(lineItems);
@@ -726,7 +735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/invoices/:id", async (req, res) => {
+  app.delete("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       // Get invoice and line items before deletion for inventory adjustment
       const invoice = await storage.getInvoice(req.params.id);
@@ -782,7 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/invoices/:id/status", async (req, res) => {
+  app.patch("/api/invoices/:id/status", isAuthenticated, async (req, res) => {
     try {
       const { status } = req.body;
       if (!status) {
@@ -942,7 +951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers/:id/sync-quickbooks", async (req, res) => {
+  app.post("/api/customers/:id/sync-quickbooks", isAuthenticated, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
       if (!customer) {
@@ -1034,7 +1043,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products/:id/sync-quickbooks", async (req, res) => {
+  app.post("/api/products/:id/sync-quickbooks", isAuthenticated, async (req, res) => {
     try {
       const product = await storage.getProduct(req.params.id);
       if (!product) {
@@ -1117,7 +1126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return user;
   }
 
-  app.post("/api/invoices/:id/sync-quickbooks", async (req, res) => {
+  app.post("/api/invoices/:id/sync-quickbooks", isAuthenticated, async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -1540,7 +1549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Debug endpoint to list QuickBooks accounts
-  app.get("/api/quickbooks/accounts", async (req, res) => {
+  app.get("/api/quickbooks/accounts", isAuthenticated, async (req, res) => {
     try {
       const fetchedUser = await storage.getUser("user-1");
       if (!fetchedUser || !fetchedUser.quickbooksAccessToken || !fetchedUser.quickbooksCompanyId) {
@@ -1576,7 +1585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -1627,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // QuickBooks journal entry count
-  app.get("/api/quickbooks/journal-entry-count", async (req, res) => {
+  app.get("/api/quickbooks/journal-entry-count", isAuthenticated, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {

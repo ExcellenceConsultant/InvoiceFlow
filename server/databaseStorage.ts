@@ -16,6 +16,7 @@ import {
   type Invoice,
   type InvoiceLineItem,
   type InsertUser,
+  type UpsertUser,
   type InsertCustomer,
   type InsertProduct,
   type InsertProductVariant,
@@ -33,22 +34,7 @@ export class DatabaseStorage implements IStorage {
     if (this.initialized) return;
     
     try {
-      // Create default user if none exists
-      const existingUsers = await db.select().from(users).limit(1);
-      if (existingUsers.length === 0) {
-        const defaultUser: InsertUser = {
-          username: "demo",
-          password: "password",
-          email: "demo@example.com",
-          role: "primary_admin",
-        };
-        // Override ID after insert
-        const [insertedUser] = await db.insert(users).values(defaultUser).returning();
-        if (insertedUser.id !== "user-1") {
-          await db.update(users).set({ id: "user-1" }).where(eq(users.id, insertedUser.id));
-        }
-        return;
-      }
+      // No default user - users will be created via Replit Auth on first login
       this.initialized = true;
     } catch (error) {
       console.error("Failed to initialize database:", error);
@@ -67,8 +53,24 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        role: "primary_admin", // First user becomes primary_admin
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
     return user;
   }
 

@@ -1,23 +1,18 @@
 import { Link, useLocation } from "wouter";
-import { Bell, Bolt } from "lucide-react";
+import { Bell, Bolt, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
-import { DEFAULT_USER_ID } from "@/lib/constants";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Navbar() {
   const [location] = useLocation();
-
-  const { data: user } = useQuery({
-    queryKey: ["/api/users", DEFAULT_USER_ID],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch user");
-      return response.json();
-    },
-  });
+  const { user } = useAuth();
 
   const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
 
   return (
     <nav className="bg-card/80 glass-effect border-b border-border backdrop-blur-lg sticky top-0 z-50" data-testid="navbar">
@@ -119,9 +114,29 @@ export default function Navbar() {
               <Bell size={18} />
             </Button>
             
-            <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center" data-testid="user-avatar">
-              <span className="text-xs font-medium text-white">JD</span>
-            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleLogout}
+              data-testid="button-logout"
+            >
+              <LogOut size={18} />
+            </Button>
+            
+            {user?.profileImageUrl ? (
+              <img 
+                src={user.profileImageUrl} 
+                alt="User avatar" 
+                className="w-8 h-8 rounded-full object-cover"
+                data-testid="user-avatar"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center" data-testid="user-avatar">
+                <span className="text-xs font-medium text-white">
+                  {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

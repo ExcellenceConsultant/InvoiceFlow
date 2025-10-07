@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Customer, type InsertCustomer, 
+import { type User, type InsertUser, type UpsertUser, type Customer, type InsertCustomer, 
          type Product, type InsertProduct, type ProductVariant, type InsertProductVariant,
          type ProductScheme, type InsertProductScheme, type Invoice, type InsertInvoice,
          type InvoiceLineItem, type InsertInvoiceLineItem } from "@shared/schema";
@@ -8,7 +8,7 @@ export interface IStorage {
   // Users
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
@@ -70,24 +70,7 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    // Create default user only
-    const defaultUser: User = {
-      id: "user-1",
-      username: "demo",
-      password: "password",
-      email: "demo@example.com",
-      role: "primary_admin",
-      quickbooksCompanyId: null,
-      quickbooksCompanyName: null,
-      quickbooksAccessToken: null,
-      quickbooksRefreshToken: null,
-      quickbooksTokenExpiry: null,
-      createdAt: new Date(),
-    };
-    this.users.set(defaultUser.id, defaultUser);
-
-    // No demo data - start clean
-    // Users can add their own customers, products, and schemes
+    // No default user - users will be created via Replit Auth on first login
   }
 
   // Users
@@ -99,8 +82,19 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existing = this.users.get(userData.id);
+    
+    const user: User = {
+      ...(existing || {}),
+      ...userData,
+      role: existing?.role || "primary_admin", // Keep existing role or set as primary_admin for first user
+      createdAt: existing?.createdAt || new Date(),
+      updatedAt: new Date(),
+    } as User;
+    
+    this.users.set(userData.id, user);
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -108,12 +102,16 @@ export class MemStorage implements IStorage {
     const user: User = {
       ...insertUser,
       id,
+      firstName: null,
+      lastName: null,
+      profileImageUrl: null,
       quickbooksCompanyId: null,
       quickbooksCompanyName: null,
       quickbooksAccessToken: null,
       quickbooksRefreshToken: null,
       quickbooksTokenExpiry: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.users.set(id, user);
     return user;
