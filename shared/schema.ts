@@ -3,11 +3,19 @@ import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb } f
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session storage table for Replit Auth
+export const sessions = pgTable("sessions", {
+  sid: varchar("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire").notNull(),
+});
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email").notNull().unique(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
   role: text("role").notNull().default("view_print_only"), // primary_admin, admin, invoice_creation, view_print_only
   quickbooksCompanyId: text("quickbooks_company_id"),
   quickbooksCompanyName: text("quickbooks_company_name"),
@@ -15,6 +23,7 @@ export const users = pgTable("users", {
   quickbooksRefreshToken: text("quickbooks_refresh_token"),
   quickbooksTokenExpiry: timestamp("quickbooks_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const customers = pgTable("customers", {
@@ -118,11 +127,24 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
 });
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  quickbooksCompanyId: true,
+  quickbooksCompanyName: true,
+  quickbooksAccessToken: true,
+  quickbooksRefreshToken: true,
+  quickbooksTokenExpiry: true,
+});
+
+// UpsertUser schema for Replit Auth
+export const upsertUserSchema = createInsertSchema(users).pick({
+  id: true,
   email: true,
-  role: true,
+  firstName: true,
+  lastName: true,
+  profileImageUrl: true,
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
@@ -168,6 +190,7 @@ export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Product = typeof products.$inferSelect;
