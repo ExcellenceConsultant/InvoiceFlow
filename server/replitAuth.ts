@@ -102,9 +102,6 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    console.log("[Auth] Login attempt - hostname:", req.hostname);
-    console.log("[Auth] REPLIT_DOMAINS:", process.env.REPLIT_DOMAINS);
-    console.log("[Auth] Strategy name:", `replitauth:${req.hostname}`);
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
