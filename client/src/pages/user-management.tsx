@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Shield } from "lucide-react";
+import { Plus, Edit, Trash2, Shield, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -43,14 +43,14 @@ const roleOptions = [
 
 const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  mobile: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid mobile number (use format: +919033316252)"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["super_admin", "admin", "poster", "viewer"]),
 });
 
 const editUserFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Invalid email address"),
+  mobile: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid mobile number (use format: +919033316252)"),
   password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
   role: z.enum(["super_admin", "admin", "poster", "viewer"]),
 });
@@ -63,6 +63,8 @@ export default function UserManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["/api/users"],
@@ -72,7 +74,7 @@ export default function UserManagement() {
     resolver: zodResolver(userFormSchema),
     defaultValues: {
       username: "",
-      email: "",
+      mobile: "",
       password: "",
       role: "viewer",
     },
@@ -82,7 +84,7 @@ export default function UserManagement() {
     resolver: zodResolver(editUserFormSchema),
     defaultValues: {
       username: "",
-      email: "",
+      mobile: "",
       password: "",
       role: "viewer",
     },
@@ -93,7 +95,7 @@ export default function UserManagement() {
     if (editingUser) {
       editForm.reset({
         username: editingUser.username,
-        email: editingUser.email,
+        mobile: editingUser.mobile || "",
         password: "",
         role: editingUser.role,
       });
@@ -132,7 +134,7 @@ export default function UserManagement() {
       // Update basic info
       const updateData: any = {
         username: data.username,
-        email: data.email,
+        mobile: data.mobile,
         role: data.role,
       };
 
@@ -163,6 +165,7 @@ export default function UserManagement() {
       });
       setIsEditDialogOpen(false);
       setEditingUser(null);
+      setShowEditPassword(false);
       editForm.reset();
     },
     onError: (error: any) => {
@@ -262,16 +265,16 @@ export default function UserManagement() {
                 />
                 <FormField
                   control={form.control}
-                  name="email"
+                  name="mobile"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Mobile Number</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          type="email"
-                          placeholder="Enter email"
-                          data-testid="input-email"
+                          type="tel"
+                          placeholder="+919033316252"
+                          data-testid="input-mobile"
                         />
                       </FormControl>
                       <FormMessage />
@@ -285,12 +288,28 @@ export default function UserManagement() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input
-                          {...field}
-                          type="password"
-                          placeholder="Enter password"
-                          data-testid="input-password"
-                        />
+                        <div className="relative">
+                          <Input
+                            {...field}
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter password"
+                            data-testid="input-password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                            data-testid="button-toggle-password"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -377,8 +396,8 @@ export default function UserManagement() {
                       <h3 className="font-semibold" data-testid={`text-username-${user.id}`}>
                         {user.username}
                       </h3>
-                      <p className="text-sm text-muted-foreground" data-testid={`text-email-${user.id}`}>
-                        {user.email}
+                      <p className="text-sm text-muted-foreground" data-testid={`text-mobile-${user.id}`}>
+                        {user.mobile || "No mobile number"}
                       </p>
                     </div>
                   </div>
@@ -443,16 +462,16 @@ export default function UserManagement() {
               />
               <FormField
                 control={editForm.control}
-                name="email"
+                name="mobile"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Mobile Number</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
-                        type="email"
-                        placeholder="Enter email"
-                        data-testid="input-edit-email"
+                        type="tel"
+                        placeholder="+919033316252"
+                        data-testid="input-edit-mobile"
                       />
                     </FormControl>
                     <FormMessage />
@@ -466,12 +485,28 @@ export default function UserManagement() {
                   <FormItem>
                     <FormLabel>Password (leave empty to keep current)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        placeholder="Enter new password or leave empty"
-                        data-testid="input-edit-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          {...field}
+                          type={showEditPassword ? "text" : "password"}
+                          placeholder="Enter new password or leave empty"
+                          data-testid="input-edit-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          data-testid="button-toggle-edit-password"
+                        >
+                          {showEditPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

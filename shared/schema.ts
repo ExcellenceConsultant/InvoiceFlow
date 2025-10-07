@@ -6,7 +6,8 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: varchar("username").notNull().unique(),
-  email: varchar("email").notNull().unique(),
+  email: varchar("email"), // Optional now
+  mobile: varchar("mobile").notNull().unique(), // Required for password reset
   password: text("password").notNull(),
   role: text("role").notNull().default("viewer"), // super_admin, admin, poster, viewer
   quickbooksCompanyId: text("quickbooks_company_id"),

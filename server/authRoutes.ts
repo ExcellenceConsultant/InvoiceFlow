@@ -7,17 +7,19 @@ export function registerAuthRoutes(app: Express) {
   // Register new user (only super_admin can create users)
   app.post("/api/auth/register", isAuthenticated, requireRole(["super_admin"]), async (req, res) => {
     try {
-      const { username, email, password, role } = req.body;
+      const { username, mobile, password, role } = req.body;
 
-      // Check if username or email already exists
+      // Check if username or mobile already exists
       const existingUsername = await storage.getUserByUsername(username);
       if (existingUsername) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      const existingEmail = await storage.getUserByEmail(email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
+      // Check if mobile exists
+      const existingUsers = await storage.getUsers();
+      const existingMobile = existingUsers.find(u => u.mobile === mobile);
+      if (existingMobile) {
+        return res.status(400).json({ message: "Mobile number already exists" });
       }
 
       // Hash password
@@ -26,7 +28,7 @@ export function registerAuthRoutes(app: Express) {
       // Create user
       const user = await storage.createUser({
         username,
-        email,
+        mobile,
         password: hashedPassword,
         role: role || "viewer",
       });
@@ -34,7 +36,7 @@ export function registerAuthRoutes(app: Express) {
       res.json({
         id: user.id,
         username: user.username,
-        email: user.email,
+        mobile: user.mobile,
         role: user.role,
       });
     } catch (error) {
