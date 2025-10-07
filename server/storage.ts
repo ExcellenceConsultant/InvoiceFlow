@@ -85,26 +85,50 @@ export class MemStorage implements IStorage {
   async upsertUser(userData: UpsertUser): Promise<User> {
     const existing = this.users.get(userData.id);
     
-    const user: User = {
-      ...(existing || {}),
-      ...userData,
-      role: existing?.role || "primary_admin", // Keep existing role or set as primary_admin for first user
-      createdAt: existing?.createdAt || new Date(),
-      updatedAt: new Date(),
-    } as User;
-    
-    this.users.set(userData.id, user);
-    return user;
+    if (!existing) {
+      // New user - determine if they should be primary admin
+      const allUsers = await this.getUsers();
+      const isPrimaryAdmin = allUsers.length === 0;
+      
+      const newUser: User = {
+        ...userData,
+        role: isPrimaryAdmin ? "primary_admin" : "view_print_only",
+        quickbooksCompanyId: null,
+        quickbooksCompanyName: null,
+        quickbooksAccessToken: null,
+        quickbooksRefreshToken: null,
+        quickbooksTokenExpiry: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      this.users.set(userData.id, newUser);
+      return newUser;
+    } else {
+      // Existing user - update profile but preserve role and QuickBooks data
+      const updatedUser: User = {
+        ...existing,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        updatedAt: new Date(),
+      };
+      
+      this.users.set(userData.id, updatedUser);
+      return updatedUser;
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const user: User = {
-      ...insertUser,
       id,
-      firstName: null,
-      lastName: null,
-      profileImageUrl: null,
+      email: insertUser.email || null,
+      firstName: insertUser.firstName || null,
+      lastName: insertUser.lastName || null,
+      profileImageUrl: insertUser.profileImageUrl || null,
+      role: insertUser.role || "view_print_only",
       quickbooksCompanyId: null,
       quickbooksCompanyName: null,
       quickbooksAccessToken: null,

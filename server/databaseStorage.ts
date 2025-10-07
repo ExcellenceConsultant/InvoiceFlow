@@ -54,24 +54,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...userData,
-        role: "primary_admin", // First user becomes primary_admin
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
+    // Check if this is first user ever (new user)
+    const existingUser = await this.getUser(userData.id);
+    
+    if (!existingUser) {
+      // First time login - check if this should be primary admin
+      const allUsers = await this.getUsers();
+      const isPrimaryAdmin = allUsers.length === 0;
+      
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          ...userData,
+          role: isPrimaryAdmin ? "primary_admin" : "view_print_only",
+        })
+        .returning();
+      return newUser;
+    } else {
+      // Existing user - update profile info but preserve role and QuickBooks data
+      const [updatedUser] = await db
+        .update(users)
+        .set({
           email: userData.email,
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+        })
+        .where(eq(users.id, userData.id))
+        .returning();
+      return updatedUser;
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
