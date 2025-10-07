@@ -131,6 +131,8 @@ export default function UserManagement() {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: EditUserFormValues }) => {
+      let passwordChanged = false;
+      
       // Update basic info
       const updateData: any = {
         username: data.username,
@@ -146,6 +148,7 @@ export default function UserManagement() {
 
       // If password is provided, reset it
       if (data.password && data.password.trim() !== "") {
+        passwordChanged = true;
         const passwordResponse = await apiRequest("POST", `/api/auth/reset-password/${id}`, {
           newPassword: data.password,
         });
@@ -155,13 +158,15 @@ export default function UserManagement() {
         }
       }
 
-      return response.json();
+      return { user: await response.json(), passwordChanged };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "Success",
-        description: "User updated successfully",
+        description: result.passwordChanged 
+          ? "User and password updated successfully. The new password is now active." 
+          : "User updated successfully",
       });
       setIsEditDialogOpen(false);
       setEditingUser(null);
