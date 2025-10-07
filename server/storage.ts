@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type UpsertUser, type Customer, type InsertCustomer, 
+import { type User, type InsertUser, type Customer, type InsertCustomer, 
          type Product, type InsertProduct, type ProductVariant, type InsertProductVariant,
          type ProductScheme, type InsertProductScheme, type Invoice, type InsertInvoice,
          type InvoiceLineItem, type InsertInvoiceLineItem } from "@shared/schema";
@@ -8,9 +8,11 @@ export interface IStorage {
   // Users
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<boolean>;
   deleteUser(id: string): Promise<boolean>;
 
   // Customers
@@ -82,42 +84,12 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const existing = this.users.get(userData.id);
-    
-    if (!existing) {
-      // New user - determine if they should be primary admin
-      const allUsers = await this.getUsers();
-      const isPrimaryAdmin = allUsers.length === 0;
-      
-      const newUser: User = {
-        ...userData,
-        role: isPrimaryAdmin ? "primary_admin" : "view_print_only",
-        quickbooksCompanyId: null,
-        quickbooksCompanyName: null,
-        quickbooksAccessToken: null,
-        quickbooksRefreshToken: null,
-        quickbooksTokenExpiry: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      
-      this.users.set(userData.id, newUser);
-      return newUser;
-    } else {
-      // Existing user - update profile but preserve role and QuickBooks data
-      const updatedUser: User = {
-        ...existing,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
-        updatedAt: new Date(),
-      };
-      
-      this.users.set(userData.id, updatedUser);
-      return updatedUser;
-    }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.username === username);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.email === email);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -157,6 +129,15 @@ export class MemStorage implements IStorage {
     
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<boolean> {
+    const user = this.users.get(id);
+    if (!user) return false;
+    
+    const updatedUser = { ...user, password: hashedPassword, updatedAt: new Date() };
+    this.users.set(id, updatedUser);
+    return true;
   }
 
   async deleteUser(id: string): Promise<boolean> {

@@ -16,7 +16,6 @@ import {
   type Invoice,
   type InvoiceLineItem,
   type InsertUser,
-  type UpsertUser,
   type InsertCustomer,
   type InsertProduct,
   type InsertProductVariant,
@@ -53,38 +52,16 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    // Check if this is first user ever (new user)
-    const existingUser = await this.getUser(userData.id);
-    
-    if (!existingUser) {
-      // First time login - check if this should be primary admin
-      const allUsers = await this.getUsers();
-      const isPrimaryAdmin = allUsers.length === 0;
-      
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          ...userData,
-          role: isPrimaryAdmin ? "primary_admin" : "view_print_only",
-        })
-        .returning();
-      return newUser;
-    } else {
-      // Existing user - update profile info but preserve role and QuickBooks data
-      const [updatedUser] = await db
-        .update(users)
-        .set({
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userData.id))
-        .returning();
-      return updatedUser;
-    }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    await this.ensureInitialized();
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -129,6 +106,11 @@ export class DatabaseStorage implements IStorage {
     
     const [user] = await db.update(users).set(filteredUpdates).where(eq(users.id, id)).returning();
     return user;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<boolean> {
+    const result = await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   async deleteUser(id: string): Promise<boolean> {

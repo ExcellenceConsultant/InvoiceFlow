@@ -7,7 +7,8 @@ import { storage } from "./storage";
 import { quickBooksService } from "./services/quickbooks";
 import { insertCustomerSchema, insertProductSchema, insertProductVariantSchema, 
          insertProductSchemeSchema, insertInvoiceSchema, insertInvoiceLineItemSchema } from "@shared/schema";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { isAuthenticated } from "./auth";
+import { registerAuthRoutes } from "./authRoutes";
 
 // Configure multer for file uploads (memory storage) with limits
 const upload = multer({ 
@@ -34,20 +35,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup Replit Auth
-  await setupAuth(app);
-
-  // Auth route to get current user
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Setup JWT authentication routes
+  registerAuthRoutes(app);
 
   // User routes (protected)
   app.get("/api/users", isAuthenticated, async (req, res) => {
