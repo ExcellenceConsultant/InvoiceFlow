@@ -8,6 +8,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
+  role: text("role").notNull().default("view_print_only"), // primary_admin, admin, invoice_creation, view_print_only
   quickbooksCompanyId: text("quickbooks_company_id"),
   quickbooksCompanyName: text("quickbooks_company_name"),
   quickbooksAccessToken: text("quickbooks_access_token"),
@@ -121,6 +122,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
+  role: true,
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
