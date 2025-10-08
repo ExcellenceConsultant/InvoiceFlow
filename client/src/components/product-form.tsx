@@ -54,12 +54,20 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
     mutationFn: async (data: ProductFormData) => {
       const endpoint = product ? `/api/products/${product.id}` : '/api/products';
       const method = product ? 'PUT' : 'POST';
-      const response = await apiRequest(method, endpoint, {
+      
+      const payload = {
         ...data,
         basePrice: data.basePrice.toString(),
         grossWeight: data.grossWeight?.toString() || null,
         netWeight: data.netWeight?.toString() || null,
-      });
+      };
+      
+      // Only add date for new products
+      if (!product) {
+        (payload as any).date = new Date().toISOString();
+      }
+      
+      const response = await apiRequest(method, endpoint, payload);
       return response.json();
     },
     onSuccess: () => {
