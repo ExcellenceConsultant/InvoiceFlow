@@ -7,8 +7,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import CustomerVendorForm from "@/components/customer-vendor-form";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Accounts() {
+  const permissions = usePermissions();
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
@@ -349,7 +351,7 @@ export default function Accounts() {
             <Button 
               variant="secondary" 
               onClick={() => fileInputRef.current?.click()}
-              disabled={importMutation.isPending}
+              disabled={importMutation.isPending || !permissions.canManageCustomers}
               data-testid="button-import-accounts"
             >
               <Upload className="mr-2" size={16} />
@@ -365,7 +367,8 @@ export default function Accounts() {
             />
             <Button 
               variant="outline" 
-              onClick={() => setShowCustomerForm(true)} 
+              onClick={() => setShowCustomerForm(true)}
+              disabled={!permissions.canManageCustomers}
               data-testid="button-create-customer"
             >
               <User className="mr-2" size={16} />
@@ -373,7 +376,8 @@ export default function Accounts() {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => setShowVendorForm(true)} 
+              onClick={() => setShowVendorForm(true)}
+              disabled={!permissions.canManageCustomers}
               data-testid="button-create-vendor"
             >
               <Building className="mr-2" size={16} />
@@ -507,6 +511,7 @@ export default function Accounts() {
                                 size="sm" 
                                 className="h-8 w-8 p-0"
                                 onClick={() => handleEdit(customer)}
+                                disabled={!permissions.canManageCustomers}
                                 data-testid={`button-edit-customer-${customer.id}`}
                                 title="Edit"
                               >
@@ -519,7 +524,7 @@ export default function Accounts() {
                                   customer.isActive !== false ? "text-orange-600" : "text-green-600"
                                 }`}
                                 onClick={() => handleToggleActive(customer.id, customer.isActive !== false)}
-                                disabled={toggleActiveMutation.isPending}
+                                disabled={toggleActiveMutation.isPending || !permissions.canManageCustomers}
                                 data-testid={`button-toggle-active-customer-${customer.id}`}
                                 title={customer.isActive !== false ? "Mark as Inactive" : "Mark as Active"}
                               >
@@ -530,7 +535,7 @@ export default function Accounts() {
                                 size="sm" 
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(customer.id, customer.name)}
-                                disabled={deleteMutation.isPending}
+                                disabled={deleteMutation.isPending || !permissions.canManageCustomers}
                                 data-testid={`button-delete-customer-${customer.id}`}
                                 title="Delete"
                               >
@@ -738,6 +743,7 @@ export default function Accounts() {
                                 size="sm" 
                                 className="h-8 w-8 p-0"
                                 onClick={() => handleEdit(vendor)}
+                                disabled={!permissions.canManageCustomers}
                                 data-testid={`button-edit-vendor-${vendor.id}`}
                                 title="Edit"
                               >
@@ -750,7 +756,7 @@ export default function Accounts() {
                                   vendor.isActive !== false ? "text-orange-600" : "text-green-600"
                                 }`}
                                 onClick={() => handleToggleActive(vendor.id, vendor.isActive !== false)}
-                                disabled={toggleActiveMutation.isPending}
+                                disabled={toggleActiveMutation.isPending || !permissions.canManageCustomers}
                                 data-testid={`button-toggle-active-vendor-${vendor.id}`}
                                 title={vendor.isActive !== false ? "Mark as Inactive" : "Mark as Active"}
                               >
@@ -761,7 +767,7 @@ export default function Accounts() {
                                 size="sm" 
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(vendor.id, vendor.name)}
-                                disabled={deleteMutation.isPending}
+                                disabled={deleteMutation.isPending || !permissions.canManageCustomers}
                                 data-testid={`button-delete-vendor-${vendor.id}`}
                                 title="Delete"
                               >

@@ -33,6 +33,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const roleOptions = [
   { value: "super_admin", label: "Super Admin", color: "bg-purple-500" },
@@ -60,6 +61,7 @@ type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 export default function UserManagement() {
   const { toast } = useToast();
+  const permissions = usePermissions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -240,7 +242,10 @@ export default function UserManagement() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button data-testid="button-create-user">
+            <Button 
+              data-testid="button-create-user"
+              disabled={!permissions.canManageUsers}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Create User
             </Button>
@@ -417,6 +422,7 @@ export default function UserManagement() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEdit(user)}
+                      disabled={!permissions.canEditUsers}
                       data-testid={`button-edit-${user.id}`}
                     >
                       <Edit className="h-4 w-4" />
@@ -426,7 +432,7 @@ export default function UserManagement() {
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteUserMutation.mutate(user.id)}
-                        disabled={deleteUserMutation.isPending}
+                        disabled={deleteUserMutation.isPending || !permissions.canEditUsers}
                         data-testid={`button-delete-${user.id}`}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

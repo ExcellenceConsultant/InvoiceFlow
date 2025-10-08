@@ -11,8 +11,10 @@ import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
 import InvoiceForm from "@/components/invoice-form";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Invoices() {
+  const permissions = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -353,7 +355,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                   variant="destructive" 
                   size="sm"
                   onClick={handleBulkDelete}
-                  disabled={bulkDeleteMutation.isPending}
+                  disabled={bulkDeleteMutation.isPending || !permissions.canDeleteInvoice}
                   data-testid="button-bulk-delete"
                 >
                   <Trash2 className="mr-2" size={14} />
@@ -368,14 +370,18 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
             <Button 
               variant="outline" 
               onClick={handleBulkSync}
-              disabled={bulkSyncMutation.isPending}
+              disabled={bulkSyncMutation.isPending || !permissions.canPostToQuickBooks}
               data-testid="button-bulk-sync-quickbooks"
               title="Create journal entries in QuickBooks for all invoices (Debit AR, Credit Sales)"
             >
               <Upload className="mr-2" size={16} />
               {bulkSyncMutation.isPending ? "Creating Journal Entries..." : "Post Journal Entries to QB"}
             </Button>
-            <Button onClick={() => setShowInvoiceForm(true)} data-testid="button-create-invoice">
+            <Button 
+              onClick={() => setShowInvoiceForm(true)}
+              disabled={!permissions.canCreateInvoice}
+              data-testid="button-create-invoice"
+            >
               <Plus className="mr-2" size={16} />
               Create Invoice
             </Button>
@@ -546,6 +552,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               e.stopPropagation();
                               handleEditInvoice(invoice, e);
                             }}
+                            disabled={!permissions.canEditInvoice}
                             data-testid={`button-edit-invoice-${invoice.id}`}
                           >
                             <Edit size={14} />
@@ -564,7 +571,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                                 e.stopPropagation();
                                 handleMarkAsPaid(invoice.id, e);
                               }}
-                              disabled={markAsPaidMutation.isPending}
+                              disabled={markAsPaidMutation.isPending || !permissions.canEditInvoice}
                               data-testid={`button-mark-paid-${invoice.id}`}
                               title="Mark as Paid"
                             >
@@ -585,7 +592,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                                 e.stopPropagation();
                                 handleSyncToQuickBooks(invoice.id, e);
                               }}
-                              disabled={syncToQuickBooksMutation.isPending}
+                              disabled={syncToQuickBooksMutation.isPending || !permissions.canPostToQuickBooks}
                               data-testid={`button-sync-quickbooks-${invoice.id}`}
                               title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
                             >
@@ -605,7 +612,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               e.stopPropagation();
                               handleDeleteInvoice(invoice.id, e);
                             }}
-                            disabled={deleteInvoiceMutation.isPending}
+                            disabled={deleteInvoiceMutation.isPending || !permissions.canDeleteInvoice}
                             data-testid={`button-delete-invoice-${invoice.id}`}
                           >
                             <Trash2 size={14} />

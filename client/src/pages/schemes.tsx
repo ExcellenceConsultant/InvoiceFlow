@@ -10,8 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import SchemeModal from "@/components/scheme-modal";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Schemes() {
+  const permissions = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
@@ -132,6 +134,7 @@ export default function Schemes() {
             <Button 
               onClick={() => setShowSchemeModal(true)}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={!permissions.canManageSchemes}
               data-testid="button-create-scheme"
             >
               <Plus className="mr-2" size={16} />
@@ -325,6 +328,7 @@ export default function Schemes() {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 w-8 p-0"
+                          disabled={!permissions.canManageSchemes}
                           data-testid={`button-edit-scheme-${scheme.id}`}
                         >
                           <Edit size={14} />
@@ -334,7 +338,7 @@ export default function Schemes() {
                           size="sm" 
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           onClick={() => handleDeleteScheme(scheme.id)}
-                          disabled={deleteSchemeMutation.isPending}
+                          disabled={deleteSchemeMutation.isPending || !permissions.canManageSchemes}
                           data-testid={`button-delete-scheme-${scheme.id}`}
                         >
                           <Trash2 size={14} />
@@ -345,7 +349,7 @@ export default function Schemes() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleToggleScheme(scheme.id, scheme.isActive)}
-                        disabled={toggleSchemeMutation.isPending}
+                        disabled={toggleSchemeMutation.isPending || !permissions.canManageSchemes}
                         className={scheme.isActive ? "text-muted-foreground" : "text-accent"}
                         data-testid={`button-toggle-scheme-${scheme.id}`}
                       >

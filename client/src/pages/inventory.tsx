@@ -11,8 +11,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import { ProductForm } from "@/components/product-form";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Inventory() {
+  const permissions = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
@@ -458,7 +460,7 @@ export default function Inventory() {
             <Button 
               variant="secondary" 
               onClick={() => fileInputRef.current?.click()} 
-              disabled={importExcelMutation.isPending}
+              disabled={importExcelMutation.isPending || !permissions.canManageProducts}
               data-testid="button-import-excel"
             >
               <Upload className="mr-2" size={16} />
@@ -477,6 +479,7 @@ export default function Inventory() {
                 setEditingProduct(null);
                 setShowProductForm(true);
               }}
+              disabled={!permissions.canManageProducts}
               data-testid="button-add-product"
             >
               <Plus className="mr-2" size={16} />
@@ -746,6 +749,7 @@ export default function Inventory() {
                                 setEditingProduct(product);
                                 setShowProductForm(true);
                               }}
+                              disabled={!permissions.canManageProducts}
                               data-testid={`button-edit-product-${product.id}`}
                             >
                               <Edit size={14} />
@@ -755,6 +759,7 @@ export default function Inventory() {
                               size="sm" 
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                               onClick={() => handleDeleteProduct(product.id, product.name)}
+                              disabled={!permissions.canManageProducts}
                               data-testid={`button-delete-product-${product.id}`}
                             >
                               <Trash2 size={14} />
