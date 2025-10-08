@@ -11,6 +11,7 @@ import StatsCards from "@/components/stats-cards";
 import InvoiceForm from "@/components/invoice-form";
 import SchemeModal from "@/components/scheme-modal";
 import InventoryModal from "@/components/inventory-modal";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Dashboard() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const permissions = usePermissions();
 
   const { data: user } = useQuery({
     queryKey: ["/api/users", DEFAULT_USER_ID],
@@ -158,6 +160,7 @@ export default function Dashboard() {
                     className="text-destructive border-destructive hover:bg-destructive/10" 
                     data-testid="button-disconnect-quickbooks"
                     onClick={handleDisconnectQuickBooks}
+                    disabled={!permissions.canManageDashboard}
                   >
                     Disconnect
                   </Button>
@@ -166,6 +169,7 @@ export default function Dashboard() {
                     size="sm" 
                     data-testid="button-connect-quickbooks"
                     onClick={handleConnectQuickBooks}
+                    disabled={!permissions.canManageDashboard}
                   >
                     Connect
                   </Button>
@@ -195,7 +199,13 @@ export default function Dashboard() {
                   <History className="mr-2 text-primary" size={18} />
                   Recent Invoices
                 </CardTitle>
-                <Button variant="link" size="sm" data-testid="button-view-all-invoices">
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  data-testid="button-view-all-invoices"
+                  onClick={() => setLocation("/invoices")}
+                  disabled={!permissions.canManageDashboard}
+                >
                   View All
                 </Button>
               </div>
@@ -233,7 +243,12 @@ export default function Dashboard() {
                     <DollarSign className="mx-auto h-12 w-12 text-muted-foreground/50" />
                     <h3 className="mt-2 text-sm font-medium text-foreground">No invoices yet</h3>
                     <p className="mt-1 text-sm text-muted-foreground">Create your first invoice to get started.</p>
-                    <Button className="mt-4" onClick={() => setShowInvoiceForm(true)} data-testid="button-create-first-invoice">
+                    <Button 
+                      className="mt-4" 
+                      onClick={() => setShowInvoiceForm(true)} 
+                      disabled={!permissions.canCreateInvoice}
+                      data-testid="button-create-first-invoice"
+                    >
                       <Plus className="mr-2" size={16} />
                       Create Invoice
                     </Button>
