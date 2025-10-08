@@ -788,6 +788,7 @@ export default function Inventory() {
                   setEditingProduct(null);
                   setShowProductForm(true);
                 }}
+                disabled={!permissions.canManageProducts}
                 data-testid="button-add-first-product"
               >
                 <Plus className="mr-2" size={16} />
