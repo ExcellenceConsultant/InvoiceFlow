@@ -383,6 +383,7 @@ export default function Schemes() {
               <Button 
                 className="mt-4" 
                 onClick={() => setShowSchemeModal(true)}
+                disabled={!permissions.canManageSchemes}
                 data-testid="button-create-first-scheme"
               >
                 <Plus className="mr-2" size={16} />
