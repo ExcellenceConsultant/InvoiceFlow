@@ -54,19 +54,12 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
     mutationFn: async (data: ProductFormData) => {
       const endpoint = product ? `/api/products/${product.id}` : '/api/products';
       const method = product ? 'PUT' : 'POST';
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...data,
-          basePrice: data.basePrice.toString(),
-          grossWeight: data.grossWeight?.toString() || null,
-          netWeight: data.netWeight?.toString() || null,
-        }),
+      const response = await apiRequest(method, endpoint, {
+        ...data,
+        basePrice: data.basePrice.toString(),
+        grossWeight: data.grossWeight?.toString() || null,
+        netWeight: data.netWeight?.toString() || null,
       });
-      if (!response.ok) throw new Error('Failed to save product');
       return response.json();
     },
     onSuccess: () => {
