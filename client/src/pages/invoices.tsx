@@ -634,7 +634,12 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                   : "Create your first invoice to get started."
                 }
               </p>
-              <Button className="mt-4" onClick={() => setShowInvoiceForm(true)} data-testid="button-create-first-invoice">
+              <Button 
+                className="mt-4" 
+                onClick={() => setShowInvoiceForm(true)} 
+                disabled={!permissions.canCreateInvoice}
+                data-testid="button-create-first-invoice"
+              >
                 <Plus className="mr-2" size={16} />
                 Create Invoice
               </Button>
