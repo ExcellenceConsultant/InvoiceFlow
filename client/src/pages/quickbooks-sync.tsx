@@ -8,12 +8,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function QuickBooksSync() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAccounts, setShowAccounts] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const permissions = usePermissions();
 
   const { data: user } = useQuery({
     queryKey: ["/api/users", DEFAULT_USER_ID],
@@ -157,7 +159,7 @@ export default function QuickBooksSync() {
         <div className="flex gap-4 mt-4">
           <Button 
             onClick={() => checkAccountsMutation.mutate()}
-            disabled={checkAccountsMutation.isPending}
+            disabled={checkAccountsMutation.isPending || !permissions.canPostToQuickBooks}
             variant="outline"
             size="sm"
           >
@@ -169,6 +171,7 @@ export default function QuickBooksSync() {
               onClick={() => setShowAccounts(false)}
               variant="ghost"
               size="sm"
+              disabled={!permissions.canPostToQuickBooks}
             >
               Hide Accounts
             </Button>
@@ -288,7 +291,7 @@ export default function QuickBooksSync() {
                       <Button
                         size="sm"
                         onClick={() => syncCustomerMutation.mutate(customer.id)}
-                        disabled={syncCustomerMutation.isPending}
+                        disabled={syncCustomerMutation.isPending || !permissions.canPostToQuickBooks}
                       >
                         <Upload className="h-4 w-4 mr-1" />
                         Sync
@@ -340,7 +343,7 @@ export default function QuickBooksSync() {
                       <Button
                         size="sm"
                         onClick={() => syncProductMutation.mutate(product.id)}
-                        disabled={syncProductMutation.isPending}
+                        disabled={syncProductMutation.isPending || !permissions.canPostToQuickBooks}
                       >
                         <Upload className="h-4 w-4 mr-1" />
                         Sync
