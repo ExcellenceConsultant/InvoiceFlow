@@ -555,7 +555,12 @@ export default function Accounts() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     Create your first customer to get started.
                   </p>
-                  <Button className="mt-4" onClick={() => setShowCustomerForm(true)} data-testid="button-create-first-customer">
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => setShowCustomerForm(true)} 
+                    disabled={!permissions.canManageCustomers}
+                    data-testid="button-create-first-customer"
+                  >
                     <Plus className="mr-2" size={16} />
                     Add Customer
                   </Button>
@@ -787,7 +792,12 @@ export default function Accounts() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     Create your first vendor to get started.
                   </p>
-                  <Button className="mt-4" onClick={() => setShowVendorForm(true)} data-testid="button-create-first-vendor">
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => setShowVendorForm(true)} 
+                    disabled={!permissions.canManageCustomers}
+                    data-testid="button-create-first-vendor"
+                  >
                     <Plus className="mr-2" size={16} />
                     Add Vendor
                   </Button>
