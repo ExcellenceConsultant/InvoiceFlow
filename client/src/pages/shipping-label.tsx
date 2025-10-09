@@ -74,7 +74,7 @@ export default function ShippingLabel() {
           flex-shrink: 0;
         }
         .section-title {
-          font-size: 26px !important;
+          font-size: 36px !important;
           margin-bottom: 7mm !important;
         }
         .label-field {
@@ -109,7 +109,7 @@ export default function ShippingLabel() {
 
       .section-title {
         font-weight: bold;
-        font-size: 26px;
+        font-size: 36px;
         margin-bottom: 35px;
       }
 
@@ -122,13 +122,13 @@ export default function ShippingLabel() {
       .field-label {
         display: inline-block;
         width: 280px;
-        font-size: 34px;
+        font-size: 48px;
         flex-shrink: 0;
       }
 
       .field-value {
         display: inline-block;
-        font-size: 34px;
+        font-size: 48px;
       }
 
       .field-value-bold {
@@ -137,20 +137,29 @@ export default function ShippingLabel() {
         font-weight: bold;
       }
 
+      .customer-name {
+        font-size: 72px;
+        font-weight: bold;
+        margin-bottom: 20px;
+      }
+
       @media print {
+        .customer-name {
+          font-size: 72px !important;
+        }
         .field-label {
-          font-size: 34px !important;
+          font-size: 48px !important;
         }
         .field-value {
-          font-size: 34px !important;
+          font-size: 48px !important;
         }
         .field-value-bold {
-          font-size: 36px !important;
+          font-size: 48px !important;
         }
         input {
           border: none;
           background: white !important;
-          font-size: 34px !important;
+          font-size: 48px !important;
           outline: none;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -207,10 +216,7 @@ export default function ShippingLabel() {
         <div className="label-container">
           <div className="section-title">SHIP TO</div>
           
-          <div className="label-field">
-            <span className="field-label">Customer Name :</span>
-            <span className="field-value-bold">{shipToName}</span>
-          </div>
+          <div className="customer-name">{shipToName}</div>
 
           {shipAddress && (
             <>
@@ -222,20 +228,13 @@ export default function ShippingLabel() {
               )}
               
               <div className="label-field">
-                <span className="field-label">City, State, ZIP :</span>
+                <span className="field-label"></span>
                 <span className="field-value">
                   {shipAddress.city || ""}
                   {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
                   {shipAddress.zipCode || ""}
                 </span>
               </div>
-
-              {shipAddress.country && (
-                <div className="label-field">
-                  <span className="field-label">Country :</span>
-                  <span className="field-value">{shipAddress.country}</span>
-                </div>
-              )}
             </>
           )}
 
@@ -245,19 +244,19 @@ export default function ShippingLabel() {
           </div>
 
           <div className="label-field">
-            <span className="field-label">Total Pallets :</span>
+            <span className="field-label"></span>
             <input
               type="text"
               value={palletCount}
               onChange={(e) => setPalletCount(e.target.value)}
               className="field-value"
-              placeholder=""
+              placeholder="Total Pallets :"
               data-testid="input-pallet-count"
               style={{
                 border: "none",
                 outline: "none",
                 background: "transparent",
-                width: "200px",
+                width: "400px",
               }}
             />
           </div>
