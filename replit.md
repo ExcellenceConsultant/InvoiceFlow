@@ -6,7 +6,7 @@ InvoiceFlow is a comprehensive invoice management application built with a moder
 
 ## Current Status - All Systems Working ✅
 
-**Last Updated**: October 6, 2025
+**Last Updated**: October 9, 2025
 
 All major functionality is fully operational:
 
@@ -16,10 +16,11 @@ All major functionality is fully operational:
 - **AR Journal Entry Integration**: AR invoice journal entries with balanced accounting equation: AR Dr + Discount Dr = Sales Cr + Freight Cr
 - **QuickBooks Customer/Vendor Sync**: Automatic customer and vendor creation with proper field mapping
 - **Inventory Management**: Automatic stock quantity updates (AR invoices reduce, AP invoices increase inventory)
-- **Packing List Generation**: PDF generation with exact format matching and last 5-digit product codes
+- **Packing List Generation**: PDF generation with CARTOON BARCODE display (changed from Item Code)
+- **CARTOON BARCODE System**: Full barcode tracking from inventory import through invoice creation to packing list display
 - **Promotional Schemes**: Buy X get Y free functionality with automatic free item calculation
 - **Invoice Type Support**: Both receivable (AR) and payable (AP) invoice types with proper categorization
-- **Invoice PDF Export/Print**: Professional invoice printing with PDF generation capability
+- **Invoice PDF Export/Print**: Professional invoice printing with PDF generation capability (displays Item Code)
 - **Invoice Discount Feature**: Editable discount field with 2% automatic default, properly reflected in all calculations and journal entries
 
 ### 📄 Invoice PDF/Print Formatting (Latest Implementation)
@@ -136,6 +137,37 @@ if (pages.length === 1) {
 2. **Journal Entry Update Logic**: System now updates existing journal entries instead of creating duplicates
 3. **Discount Implementation**: Added editable discount field with 2% automatic default for new invoices
 4. **Total Calculation**: Invoice totals now correctly calculate as: Subtotal + Freight - Discount
+5. **Invoice Display Authentication**: Fixed invoice list query to use authenticated JWT tokens instead of custom fetch (October 9, 2025)
+6. **Packing List CARTOON BARCODE**: Changed packing list to display CARTOON BARCODE instead of Item Code (October 9, 2025)
+
+### 📦 CARTOON BARCODE System (October 9, 2025)
+
+The CARTOON BARCODE field provides complete barcode tracking throughout the system:
+
+#### Database Schema
+- **Products Table**: `cartoonBarcode` (varchar, optional) - Stores the cartoon barcode for each product
+- **Invoice Line Items Table**: `cartoonBarcode` (text, optional) - Captures barcode when invoice is created
+
+#### Data Flow
+1. **Import/Entry**: Cartoon barcode entered via Excel import (column 11) or manual product form
+2. **Invoice Creation**: Barcode automatically copied from product to invoice line items
+3. **Display**: 
+   - Invoice format displays **Item Code** (productCode)
+   - Packing list format displays **CARTOON BARCODE** (cartoonBarcode)
+
+#### Implementation Details
+- **Excel Import**: Column 11 (CARTOON BARCODE) in 11-column format
+- **Product Form**: Dedicated CARTOON BARCODE input field (data-testid="input-cartoon-barcode")
+- **Invoice Form**: Automatically includes cartoonBarcode when adding products to line items
+- **Packing List**: Table header "CARTOON BARCODE" displays full barcode value (or "—" if empty)
+- **Invoice View**: Table header "Product Code" displays itemCode for billing purposes
+
+#### Files Modified
+- `shared/schema.ts`: Added cartoonBarcode to products and invoiceLineItems tables
+- `client/src/pages/inventory.tsx`: Added column to table, Excel import/export
+- `client/src/components/product-form.tsx`: Added CARTOON BARCODE input field
+- `client/src/components/invoice-form.tsx`: Include cartoonBarcode in all line item operations
+- `client/src/pages/packing-list.tsx`: Display CARTOON BARCODE instead of Item Code
 
 ### 💾 Data Integrity
 - All database operations use consistent field naming

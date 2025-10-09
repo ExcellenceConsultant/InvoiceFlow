@@ -111,6 +111,7 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
   productCode: text("product_code"),
+  cartoonBarcode: text("cartoon_barcode"),
   packingSize: text("packing_size"),
   grossWeightKgs: decimal("gross_weight_kgs", { precision: 10, scale: 3 }),
   netWeightKgs: decimal("net_weight_kgs", { precision: 10, scale: 3 }),

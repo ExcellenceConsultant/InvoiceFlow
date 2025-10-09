@@ -9,6 +9,7 @@ import { Link } from "wouter";
 interface InvoiceLineItem {
   id: string;
   productCode: string;
+  cartoonBarcode: string;
   packingSize: string;
   description: string;
   quantity: number;
@@ -420,7 +421,7 @@ export default function PackingList() {
               <thead>
                 <tr>
                   <th style={{ width: "8%" }}>Sr No.</th>
-                  <th style={{ width: "15%" }}>Item Code</th>
+                  <th style={{ width: "15%" }}>CARTOON BARCODE</th>
                   <th style={{ width: "45%" }}>Product Description</th>
                   <th style={{ width: "17%" }}>Packing Size</th>
                   <th style={{ width: "15%" }}>Quantity (Carton)</th>
@@ -440,7 +441,7 @@ export default function PackingList() {
                     return (
                       <tr key={`item-${pageIndex}-${idx}`}>
                         <td className="text-center">{row.srNo}</td>
-                        <td>{row.item.productCode ? row.item.productCode.slice(-5) : "—"}</td>
+                        <td>{row.item.cartoonBarcode || "—"}</td>
                         <td>{row.item.description}</td>
                         <td>{row.item.packingSize ? row.item.packingSize.replace(/GM/g, 'G') : "—"}</td>
                         <td className="text-center">{row.item.quantity}</td>
