@@ -315,7 +315,7 @@ export default function PackingList() {
         {/* Ship To Header */}
         <div className="ship-to-header">SHIP TO</div>
 
-        {/* Customer Name Only (No Label) */}
+        {/* Customer Name - No Label */}
         <div className="customer-name-only">
           {invoice.shipToName || invoice.customer?.name || "—"}
         </div>
