@@ -83,12 +83,7 @@ export default function CustomerVendorForm({ onClose, onSuccess, type, customer 
 
   const updateCustomerMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch(`/api/customers/${customer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Update failed");
+      const response = await apiRequest("PATCH", `/api/customers/${customer.id}`, data);
       return response.json();
     },
     onSuccess: () => {
