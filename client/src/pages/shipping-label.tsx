@@ -179,19 +179,21 @@ export default function ShippingLabel() {
     return <div>Loading...</div>;
   }
 
-  const filteredLineItems = lineItems.filter(item => !item.isSchemeDescription);
+  const filteredLineItems = lineItems.filter(
+    (item) => !item.isSchemeDescription,
+  );
   const totalCartons = filteredLineItems.reduce(
     (sum, item) => sum + (item.quantity || 0),
-    0
+    0,
   );
 
   const shipAddress = invoice.shipAddress
-    ? (typeof invoice.shipAddress === "string"
-        ? JSON.parse(invoice.shipAddress)
-        : invoice.shipAddress)
-    : (typeof invoice.customer?.address === "string"
-        ? JSON.parse(invoice.customer.address)
-        : invoice.customer?.address);
+    ? typeof invoice.shipAddress === "string"
+      ? JSON.parse(invoice.shipAddress)
+      : invoice.shipAddress
+    : typeof invoice.customer?.address === "string"
+      ? JSON.parse(invoice.customer.address)
+      : invoice.customer?.address;
 
   const shipToName = invoice.shipToName || invoice.customer?.name || "";
 
@@ -215,7 +217,7 @@ export default function ShippingLabel() {
 
         <div className="label-container">
           <div className="section-title">SHIP TO</div>
-          
+
           <div className="customer-name">{shipToName}</div>
 
           {shipAddress && (
@@ -226,7 +228,7 @@ export default function ShippingLabel() {
                   <span className="field-value">{shipAddress.street}</span>
                 </div>
               )}
-              
+
               <div className="label-field">
                 <span className="field-label"></span>
                 <span className="field-value">
@@ -244,8 +246,10 @@ export default function ShippingLabel() {
           </div>
 
           <div className="label-field">
-            <span className="field-label">Total Pallets :</span>
-            <span className="field-value" data-testid="label-pallet-count">{palletCount || ""}</span>
+            <span className="field-label">Total Pallets:</span>
+            <span className="field-value" data-testid="label-pallet-count">
+              {palletCount || ""}
+            </span>
           </div>
         </div>
       </div>
