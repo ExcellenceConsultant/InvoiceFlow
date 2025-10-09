@@ -43,7 +43,7 @@ export default function ShippingLabel() {
       @media print {
         @page { 
           size: A4 landscape; 
-          margin: 12mm 15mm 0mm 15mm;
+          margin: 8mm 12mm 8mm 12mm;
           background: white;
         }
         body { margin: 0; padding: 0; background: white !important; }
@@ -64,21 +64,21 @@ export default function ShippingLabel() {
           justify-content: flex-start;
         }
         .shipping-label-title {
-          font-size: 36px !important;
-          margin-bottom: 5mm !important;
+          font-size: 32px !important;
+          margin-bottom: 3mm !important;
           flex-shrink: 0;
         }
         .label-container {
-          padding: 10mm 18mm !important;
-          border-width: 5px !important;
+          padding: 6mm 12mm !important;
+          border-width: 4px !important;
           flex-shrink: 0;
         }
         .section-title {
-          font-size: 36px !important;
-          margin-bottom: 7mm !important;
+          font-size: 32px !important;
+          margin-bottom: 4mm !important;
         }
         .label-field {
-          margin-bottom: 5mm !important;
+          margin-bottom: 3mm !important;
         }
         .print-hide { display: none !important; }
       }
@@ -145,16 +145,17 @@ export default function ShippingLabel() {
 
       @media print {
         .customer-name {
-          font-size: 72px !important;
+          font-size: 60px !important;
+          margin-bottom: 4mm !important;
         }
         .field-label {
-          font-size: 48px !important;
+          font-size: 36px !important;
         }
         .field-value {
-          font-size: 48px !important;
+          font-size: 36px !important;
         }
         .field-value-bold {
-          font-size: 48px !important;
+          font-size: 36px !important;
         }
         input {
           border: none;
