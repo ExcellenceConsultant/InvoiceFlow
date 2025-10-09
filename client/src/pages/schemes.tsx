@@ -18,6 +18,7 @@ export default function Schemes() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
   const [showSchemeModal, setShowSchemeModal] = useState(false);
+  const [editingScheme, setEditingScheme] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -92,7 +93,9 @@ export default function Schemes() {
     const matchesStatus = statusFilter === "all" || 
                          (statusFilter === "active" && scheme.isActive) ||
                          (statusFilter === "inactive" && !scheme.isActive);
-    const matchesProduct = productFilter === "all" || scheme.productId === productFilter;
+    const matchesProduct = productFilter === "all" || 
+                          scheme.productId === productFilter ||
+                          (scheme.productIds && scheme.productIds.includes(productFilter));
     
     return matchesSearch && matchesStatus && matchesProduct;
   }) || [];
@@ -132,7 +135,10 @@ export default function Schemes() {
               Bulk Actions
             </Button>
             <Button 
-              onClick={() => setShowSchemeModal(true)}
+              onClick={() => {
+                setEditingScheme(null);
+                setShowSchemeModal(true);
+              }}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
               disabled={!permissions.canManageSchemes}
               data-testid="button-create-scheme"
@@ -300,11 +306,25 @@ export default function Schemes() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg">
-                        <span className="text-sm text-muted-foreground">Product:</span>
-                        <span className="text-sm font-medium text-foreground" data-testid={`scheme-product-${scheme.id}`}>
-                          {getProductName(scheme.productId)}
-                        </span>
+                      <div className="p-3 bg-accent/5 rounded-lg">
+                        <span className="text-sm text-muted-foreground block mb-2">Products:</span>
+                        {scheme.productIds && scheme.productIds.length > 0 ? (
+                          <div className="flex flex-wrap gap-1" data-testid={`scheme-products-${scheme.id}`}>
+                            {scheme.productIds.map((productId: string) => (
+                              <Badge key={productId} variant="secondary" className="text-xs">
+                                {getProductName(productId)}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : scheme.productId ? (
+                          <span className="text-sm font-medium text-foreground" data-testid={`scheme-product-${scheme.id}`}>
+                            {getProductName(scheme.productId)}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic" data-testid={`scheme-product-${scheme.id}`}>
+                            All products
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
@@ -328,6 +348,10 @@ export default function Schemes() {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setEditingScheme(scheme);
+                            setShowSchemeModal(true);
+                          }}
                           disabled={!permissions.canManageSchemes}
                           data-testid={`button-edit-scheme-${scheme.id}`}
                         >
@@ -382,7 +406,10 @@ export default function Schemes() {
               </p>
               <Button 
                 className="mt-4" 
-                onClick={() => setShowSchemeModal(true)}
+                onClick={() => {
+                setEditingScheme(null);
+                setShowSchemeModal(true);
+              }}
                 disabled={!permissions.canManageSchemes}
                 data-testid="button-create-first-scheme"
               >
@@ -397,8 +424,15 @@ export default function Schemes() {
       {/* Scheme Modal */}
       {showSchemeModal && (
         <SchemeModal 
-          onClose={() => setShowSchemeModal(false)}
-          onSuccess={() => setShowSchemeModal(false)}
+          scheme={editingScheme}
+          onClose={() => {
+            setShowSchemeModal(false);
+            setEditingScheme(null);
+          }}
+          onSuccess={() => {
+            setShowSchemeModal(false);
+            setEditingScheme(null);
+          }}
         />
       )}
     </div>

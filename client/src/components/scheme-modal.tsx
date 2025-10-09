@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Gift } from "lucide-react";
+import { X, Gift, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,6 +25,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
 
 const schemeSchema = z.object({
   name: z.string().min(1, "Scheme name is required"),
@@ -35,19 +37,24 @@ const schemeSchema = z.object({
 interface Props {
   onClose: () => void;
   onSuccess: () => void;
+  scheme?: any;
 }
 
-export default function SchemeModal({ onClose, onSuccess }: Props) {
+export default function SchemeModal({ onClose, onSuccess, scheme }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedProducts, setSelectedProducts] = useState<string[]>(
+    scheme?.productIds ?? (scheme?.productId ? [scheme.productId] : [])
+  );
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
 
   const form = useForm<z.infer<typeof schemeSchema>>({
     resolver: zodResolver(schemeSchema),
     defaultValues: {
-      name: "",
-      description: "",
-      buyQuantity: 1,
-      freeQuantity: 1,
+      name: scheme?.name || "",
+      description: scheme?.description || "",
+      buyQuantity: scheme?.buyQuantity || 1,
+      freeQuantity: scheme?.freeQuantity || 1,
     },
   });
 
@@ -62,10 +69,13 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
 
   const createSchemeMutation = useMutation({
     mutationFn: async (data: z.infer<typeof schemeSchema>) => {
-      const response = await apiRequest("POST", "/api/schemes", {
+      const endpoint = scheme ? `/api/schemes/${scheme.id}` : "/api/schemes";
+      const method = scheme ? "PATCH" : "POST";
+      const response = await apiRequest(method, endpoint, {
         ...data,
+        productIds: selectedProducts,
         userId: DEFAULT_USER_ID,
-        isActive: true,
+        isActive: scheme?.isActive ?? true,
       });
       return response.json();
     },
@@ -73,14 +83,14 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
       queryClient.invalidateQueries({ queryKey: ["/api/schemes"] });
       toast({
         title: "Success",
-        description: "Product scheme created successfully",
+        description: `Product scheme ${scheme ? 'updated' : 'created'} successfully`,
       });
       onSuccess();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to create product scheme",
+        description: `Failed to ${scheme ? 'update' : 'create'} product scheme`,
         variant: "destructive",
       });
     },
@@ -88,6 +98,22 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
 
   const onSubmit = (data: z.infer<typeof schemeSchema>) => {
     createSchemeMutation.mutate(data);
+  };
+
+  const handleAddProduct = () => {
+    if (selectedProductId && !selectedProducts.includes(selectedProductId)) {
+      setSelectedProducts([...selectedProducts, selectedProductId]);
+      setSelectedProductId("");
+    }
+  };
+
+  const handleRemoveProduct = (productId: string) => {
+    setSelectedProducts(selectedProducts.filter(id => id !== productId));
+  };
+
+  const getProductName = (productId: string) => {
+    const product = products?.find((p: any) => p.id === productId);
+    return product?.name || productId;
   };
 
   return (
@@ -103,7 +129,7 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
               data-testid="scheme-modal-title"
             >
               <Gift className="mr-2 text-accent" size={20} />
-              Create Product Scheme
+              {scheme ? 'Edit Product Scheme' : 'Create Product Scheme'}
             </CardTitle>
             <Button
               variant="ghost"
@@ -201,6 +227,61 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                 />
               </div>
 
+              <div className="space-y-3">
+                <FormLabel>Products (Optional)</FormLabel>
+                <div className="flex gap-2">
+                  <Select
+                    value={selectedProductId}
+                    onValueChange={setSelectedProductId}
+                  >
+                    <SelectTrigger className="flex-1" data-testid="select-product">
+                      <SelectValue placeholder="Select a product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products?.map((product: any) => (
+                        <SelectItem 
+                          key={product.id} 
+                          value={product.id}
+                          data-testid={`product-option-${product.id}`}
+                        >
+                          {product.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    onClick={handleAddProduct}
+                    disabled={!selectedProductId}
+                    data-testid="button-add-product-to-scheme"
+                  >
+                    <Plus size={16} />
+                  </Button>
+                </div>
+                {selectedProducts.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProducts.map((productId) => (
+                      <Badge
+                        key={productId}
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                        data-testid={`selected-product-${productId}`}
+                      >
+                        {getProductName(productId)}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProduct(productId)}
+                          className="ml-1 hover:text-destructive"
+                          data-testid={`button-remove-product-${productId}`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex space-x-3 pt-4">
                 <Button
                   type="submit"
@@ -209,8 +290,8 @@ export default function SchemeModal({ onClose, onSuccess }: Props) {
                   data-testid="button-create-scheme"
                 >
                   {createSchemeMutation.isPending
-                    ? "Creating..."
-                    : "Create Scheme"}
+                    ? (scheme ? "Updating..." : "Creating...")
+                    : (scheme ? "Update Scheme" : "Create Scheme")}
                 </Button>
                 <Button
                   type="button"

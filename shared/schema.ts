@@ -73,6 +73,7 @@ export const productSchemes = pgTable("product_schemes", {
   name: text("name").notNull(),
   description: text("description"),
   productId: varchar("product_id").references(() => products.id), // Optional - schemes are now based on total qty
+  productIds: text("product_ids").array(), // Multiple products for the scheme
   buyQuantity: integer("buy_quantity").notNull(),
   freeQuantity: integer("free_quantity").notNull(),
   isActive: boolean("is_active").default(true),
