@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { DEFAULT_USER_ID } from "@/lib/constants";
 import { ProductForm } from "@/components/product-form";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -25,13 +24,8 @@ export default function Inventory() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: products, isLoading: productsLoading } = useQuery({
+  const { data: products, isLoading: productsLoading } = useQuery<any[]>({
     queryKey: ["/api/products"],
-    queryFn: async () => {
-      const response = await fetch(`/api/products?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      return response.json();
-    },
   });
 
   const isLoading = productsLoading;
@@ -89,7 +83,7 @@ export default function Inventory() {
       
       for (const product of products) {
         try {
-          const response = await apiRequest('POST', '/api/products', { ...product, userId: DEFAULT_USER_ID });
+          const response = await apiRequest('POST', '/api/products', product);
           const result = await response.json();
           results.push(result);
           successCount++;
