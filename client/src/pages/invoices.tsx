@@ -24,24 +24,14 @@ export default function Invoices() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  const { data: invoices, isLoading } = useQuery({
+  const { data: invoices, isLoading } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
-    queryFn: async () => {
-      const response = await fetch(`/api/invoices?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch invoices");
-      return response.json();
-    },
     refetchOnMount: "always",
     staleTime: 0,
   });
 
-  const { data: customers } = useQuery({
+  const { data: customers } = useQuery<any[]>({
     queryKey: ["/api/customers"],
-    queryFn: async () => {
-      const response = await fetch(`/api/customers?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch customers");
-      return response.json();
-    },
   });
 
   const syncToQuickBooksMutation = useMutation({
