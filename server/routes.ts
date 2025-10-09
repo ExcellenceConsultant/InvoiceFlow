@@ -267,17 +267,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import customers/vendors from Excel/CSV
-  app.post("/api/customers/import", upload.single("file"), async (req, res) => {
+  app.post("/api/customers/import", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
-      const userId = req.body.userId;
-      
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-
       if (!req.file) {
         return res.status(400).json({ message: "File is required" });
       }
+
+      const user = (req as any).user;
+      const userId = user.userId;
 
       // Parse Excel/CSV file
       const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
@@ -534,12 +531,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Invoice routes
   app.get("/api/invoices", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-      
-      const invoices = await storage.getInvoices(userId);
+      const user = (req as any).user;
+      const invoices = await storage.getInvoices(user.userId);
       res.json(invoices);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch invoices" });

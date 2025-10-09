@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { DEFAULT_USER_ID } from "@/lib/constants";
 import CustomerVendorForm from "@/components/customer-vendor-form";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -20,23 +19,13 @@ export default function Accounts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: customers, isLoading: customersLoading } = useQuery({
+  const { data: customers, isLoading: customersLoading } = useQuery<any[]>({
     queryKey: ["/api/customers"],
-    queryFn: async () => {
-      const response = await fetch(`/api/customers?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch customers");
-      return response.json();
-    },
     refetchOnMount: "always",
   });
 
-  const { data: invoices } = useQuery({
+  const { data: invoices } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
-    queryFn: async () => {
-      const response = await fetch(`/api/invoices?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch invoices");
-      return response.json();
-    },
   });
 
   // Fetch all line items for calculating quantities
@@ -98,7 +87,12 @@ export default function Accounts() {
   // Export handler
   const handleExport = async () => {
     try {
-      const response = await fetch(`/api/customers/export?userId=${DEFAULT_USER_ID}`);
+      const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch(`/api/customers/export`, { headers });
       if (!response.ok) throw new Error("Export failed");
       
       const blob = await response.blob();
@@ -129,10 +123,16 @@ export default function Accounts() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("userId", DEFAULT_USER_ID);
+      
+      const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       
       const response = await fetch("/api/customers/import", {
         method: "POST",
+        headers,
         body: formData,
       });
       
