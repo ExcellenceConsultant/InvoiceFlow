@@ -189,7 +189,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const validation = insertCustomerSchema.extend({
-        userId: z.string(),
         type: z.enum(["customer", "vendor"]).optional(),
       }).safeParse(req.body);
       
@@ -197,7 +196,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid customer data", errors: validation.error.errors });
       }
 
-      const customer = await storage.createCustomer(validation.data);
+      const user = (req as any).user;
+      const customerData = {
+        ...validation.data,
+        userId: user.userId,
+      };
+
+      const customer = await storage.createCustomer(customerData);
       res.json(customer);
     } catch (error) {
       res.status(500).json({ message: "Failed to create customer" });
@@ -231,13 +236,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Export customers/vendors to Excel
   app.get("/api/customers/export", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-
-      const customers = await storage.getCustomers(userId);
+      const user = (req as any).user;
+      const customers = await storage.getCustomers(user.userId);
 
       // Prepare data for Excel
       const excelData = customers.map(customer => ({
