@@ -204,6 +204,48 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Check if invoice can be edited based on 24-hour rule
+  const canEditInvoice = (invoice: any): boolean => {
+    // Super admin can always edit
+    if (permissions.role === "super_admin") {
+      return true;
+    }
+    
+    // If user doesn't have general edit permission, return false
+    if (!permissions.canEditInvoice) {
+      return false;
+    }
+    
+    // Check if invoice is within 24 hours of creation
+    const invoiceDate = new Date(invoice.invoiceDate);
+    const now = new Date();
+    const hoursDifference = (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
+    
+    // Admin can edit within 24 hours, super_admin can always edit
+    return hoursDifference <= 24;
+  };
+
+  // Check if invoice can be deleted based on 24-hour rule
+  const canDeleteInvoice = (invoice: any): boolean => {
+    // Super admin can always delete
+    if (permissions.role === "super_admin") {
+      return true;
+    }
+    
+    // If user doesn't have general delete permission, return false
+    if (!permissions.canDeleteInvoice) {
+      return false;
+    }
+    
+    // Check if invoice is within 24 hours of creation
+    const invoiceDate = new Date(invoice.invoiceDate);
+    const now = new Date();
+    const hoursDifference = (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
+    
+    // Admin can delete within 24 hours, super_admin can always delete
+    return hoursDifference <= 24;
+  };
+
   const handleMarkAsPaid = (invoiceId: string, event?: React.MouseEvent) => {
     if (event) {
       event.preventDefault();
@@ -542,7 +584,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               e.stopPropagation();
                               handleEditInvoice(invoice, e);
                             }}
-                            disabled={!permissions.canEditInvoice}
+                            disabled={!canEditInvoice(invoice)}
                             data-testid={`button-edit-invoice-${invoice.id}`}
                           >
                             <Edit size={14} />
