@@ -97,23 +97,19 @@ export default function PackingList() {
         color: #000;
       }
 
+      .customer-name-only {
+        font-size: 72px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        color: #000;
+        line-height: 1.2;
+      }
+
       .label-line {
         font-size: 48px;
         margin-bottom: 20px;
         color: #000;
         line-height: 1.3;
-      }
-
-      .customer-name-line {
-        font-size: 48px;
-        margin-bottom: 20px;
-        color: #000;
-        line-height: 1.3;
-      }
-
-      .customer-name-line .name-value {
-        font-size: 72px;
-        font-weight: bold;
       }
 
       .packing-table {
@@ -319,23 +315,18 @@ export default function PackingList() {
         {/* Ship To Header */}
         <div className="ship-to-header">SHIP TO</div>
 
-        {/* Customer Name Line */}
-        <div className="customer-name-line">
-          Customer Name : <span className="name-value">{invoice.shipToName || invoice.customer?.name || "—"}</span>
+        {/* Customer Name Only (No Label) */}
+        <div className="customer-name-only">
+          {invoice.shipToName || invoice.customer?.name || "—"}
         </div>
 
-        {/* City, State, ZIP Line */}
+        {/* Address Line */}
         <div className="label-line">
-          City, State, ZIP : {shipAddress && typeof shipAddress !== "string" && (
+          Address : {shipAddress && typeof shipAddress !== "string" && (
             <>
               {[shipAddress.city, shipAddress.state, shipAddress.zipCode].filter(Boolean).join(", ")}
             </>
           )}
-        </div>
-
-        {/* Country Line */}
-        <div className="label-line">
-          Country : {shipAddress && typeof shipAddress !== "string" && shipAddress.country ? shipAddress.country : (typeof shipAddress === "string" ? shipAddress : "USA")}
         </div>
 
         {/* Total Cartons Line */}
