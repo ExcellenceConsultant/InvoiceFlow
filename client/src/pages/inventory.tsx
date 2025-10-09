@@ -234,6 +234,7 @@ export default function Inventory() {
               grossWeight: cleanString(row[7]) || null, // Gross Weight (LBS)
               netWeight: cleanString(row[8]) || null, // Net Weight (LBS)
               schemeDescription: cleanString(row[9]) || null, // Scheme Description
+              cartoonBarcode: cleanString(row[10]) || null, // Cartoon Barcode
               description: 'Imported from Excel',
             };
             
@@ -326,7 +327,8 @@ export default function Inventory() {
         'Base Price': parseFloat(product.basePrice || 0).toFixed(2),
         'Gross Weight(LBS)': product.grossWeight || '',
         'Net Weight(LBS)': product.netWeight || '',
-        'Scheme Description': product.schemeDescription || ''
+        'Scheme Description': product.schemeDescription || '',
+        'CARTOON BARCODE': product.cartoonBarcode || ''
       }));
 
       // Create worksheet
@@ -679,6 +681,7 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight(LBS)</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight(LBS)</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Scheme Description</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">CARTOON BARCODE</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -732,6 +735,9 @@ export default function Inventory() {
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-scheme-description-${product.id}`}>
                           {product.schemeDescription || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`product-cartoon-barcode-${product.id}`}>
+                          {product.cartoonBarcode || '-'}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">

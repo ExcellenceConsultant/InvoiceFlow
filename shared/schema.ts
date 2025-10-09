@@ -51,6 +51,7 @@ export const products = pgTable("products", {
   netWeight: decimal("net_weight", { precision: 10, scale: 3 }), // Net Weight
   description: text("description"),
   schemeDescription: text("scheme_description"), // Scheme Description
+  cartoonBarcode: text("cartoon_barcode"), // Cartoon Barcode
   quickbooksItemId: text("quickbooks_item_id"),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

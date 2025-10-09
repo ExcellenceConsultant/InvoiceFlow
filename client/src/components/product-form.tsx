@@ -20,6 +20,7 @@ const productSchema = z.object({
   itemCode: z.string().optional(),
   packingSize: z.string().optional(),
   schemeDescription: z.string().optional(),
+  cartoonBarcode: z.string().optional(),
   grossWeight: z.number().min(0, "Gross weight must be positive").optional(),
   netWeight: z.number().min(0, "Net weight must be positive").optional(),
 });
@@ -45,6 +46,7 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
       itemCode: product?.itemCode || "",
       packingSize: product?.packingSize || "",
       schemeDescription: product?.schemeDescription || "",
+      cartoonBarcode: product?.cartoonBarcode || "",
       grossWeight: product?.grossWeight ? parseFloat(product.grossWeight) : 0,
       netWeight: product?.netWeight ? parseFloat(product.netWeight) : 0,
     },
@@ -167,6 +169,16 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
                   placeholder="Enter scheme description"
                   data-testid="input-scheme-description"
                   {...form.register("schemeDescription")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cartoonBarcode">CARTOON BARCODE</Label>
+                <Input
+                  id="cartoonBarcode"
+                  placeholder="Enter cartoon barcode"
+                  data-testid="input-cartoon-barcode"
+                  {...form.register("cartoonBarcode")}
                 />
               </div>
 
