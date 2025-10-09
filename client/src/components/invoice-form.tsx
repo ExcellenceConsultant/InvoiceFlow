@@ -76,6 +76,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       category: "", // added category field to initial state
       isSchemeDescription: false, // flag for scheme description line items
       schemeDescription: "", // text for scheme description
+      stockQuantity: 0, // stock quantity for display
     },
   ]);
   const [showSchemeItems, setShowSchemeItems] = useState<{
@@ -340,6 +341,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         category: "", // keep category empty initially
         isSchemeDescription: false,
         schemeDescription: "",
+        stockQuantity: 0,
       },
     ]);
   };
@@ -920,6 +922,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   lineTotal:
                                     updatedItems[index].quantity * unitPrice,
                                   isSchemeDescription: false,
+                                  stockQuantity: parseInt(product.stockQuantity) || 0,
                                 };
 
                                 // Check if product has scheme description and add it as next line item
@@ -945,6 +948,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                       category: product.category || "",
                                       isSchemeDescription: true,
                                       schemeDescription: product.schemeDescription,
+                                      stockQuantity: 0,
                                     };
                                     // Create new array with scheme description inserted
                                     updatedItems = [
@@ -1045,9 +1049,16 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         </div>
 
                         <div className="col-span-2">
-                          <label className="block text-xs text-muted-foreground mb-1">
-                            Qty
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs text-muted-foreground">
+                              Qty
+                            </label>
+                            {item.productId && (
+                              <span className="text-xs font-semibold text-green-600 dark:text-green-400" data-testid={`stock-quantity-${index}`}>
+                                Stock: {item.stockQuantity}
+                              </span>
+                            )}
+                          </div>
                           <Input
                             type="number"
                             value={item.quantity}
