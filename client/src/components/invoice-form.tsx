@@ -922,7 +922,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   lineTotal:
                                     updatedItems[index].quantity * unitPrice,
                                   isSchemeDescription: false,
-                                  stockQuantity: parseInt(product.stockQuantity) || 0,
+                                  stockQuantity: parseInt(product.qty) || 0,
                                 };
 
                                 // Check if product has scheme description and add it as next line item
