@@ -458,13 +458,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Product scheme routes
   app.get("/api/schemes", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
-      
-      const schemes = await storage.getProductSchemes(userId);
-      const usageCounts = await storage.getSchemeUsageCounts(userId);
+      const user = (req as any).user;
+      const schemes = await storage.getProductSchemes(user.userId);
+      const usageCounts = await storage.getSchemeUsageCounts(user.userId);
       
       const schemesWithCounts = schemes.map(scheme => ({
         ...scheme,
@@ -549,14 +545,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invoice and line items are required" });
       }
       
-      const invoiceValidation = insertInvoiceSchema.extend({
-        userId: z.string(),
-      }).safeParse(invoice);
+      const invoiceValidation = insertInvoiceSchema.safeParse(invoice);
       
       if (!invoiceValidation.success) {
         console.error("Invoice validation failed:", invoiceValidation.error.errors);
         return res.status(400).json({ message: "Invalid invoice data", errors: invoiceValidation.error.errors });
       }
+
+      const user = (req as any).user;
+      const invoiceData = {
+        ...invoiceValidation.data,
+        userId: user.userId,
+      };
 
       // Check inventory for AR invoices before creating
       if (invoice.invoiceType === 'receivable') {
@@ -584,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create invoice
-      const createdInvoice = await storage.createInvoice(invoiceValidation.data);
+      const createdInvoice = await storage.createInvoice(invoiceData);
       
       // Create line items with scheme application
       const createdLineItems = [];
@@ -608,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Check for applicable schemes only if no frontend free items exist
           if (item.productId && !hasFrontendFreeItems) {
-            const schemes = await storage.getProductSchemes(invoice.userId);
+            const schemes = await storage.getProductSchemes(user.userId);
             const applicableScheme = schemes.find(
               scheme => scheme.productId === item.productId && 
                        scheme.isActive && 

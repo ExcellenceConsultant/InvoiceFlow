@@ -25,7 +25,6 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { DEFAULT_USER_ID } from "@/lib/constants";
 
 const DEFAULT_NOTES = `1. All matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related here to shall be adjudicated exclusively in the state or federal courts located in  Pennsylvania.
 2. Overdue balances subject to finance charge of 2 %  per month.
@@ -129,37 +128,20 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     }
   }, [isEditMode, invoice, form]);
 
-  const { data: customers } = useQuery({
+  const { data: customers } = useQuery<any[]>({
     queryKey: ["/api/customers"],
-    queryFn: async () => {
-      const response = await fetch(`/api/customers?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch customers");
-      return response.json();
-    },
   });
 
   const {
     data: products,
     isLoading: productsLoading,
     error: productsError,
-  } = useQuery({
+  } = useQuery<any[]>({
     queryKey: ["/api/products"],
-    queryFn: async () => {
-      const response = await fetch(`/api/products?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      const data = await response.json();
-      console.log("Loaded products for invoice form:", data);
-      return data;
-    },
   });
 
-  const { data: schemes } = useQuery({
+  const { data: schemes } = useQuery<any[]>({
     queryKey: ["/api/schemes"],
-    queryFn: async () => {
-      const response = await fetch(`/api/schemes?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch schemes");
-      return response.json();
-    },
   });
 
   const { data: existingLineItems } = useQuery({
@@ -526,12 +508,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         ...data,
         subtotal: subtotal.toString(),
         freight: freight.toString(),
+        discount: discountPercent.toString(),
         total: total.toString(),
         status: isEditMode ? invoice.status : "draft",
         invoiceType: data.invoiceType,
         invoiceDate: data.invoiceDate,
         dueDate: dueDateString,
-        userId: DEFAULT_USER_ID,
       },
       lineItems: allLineItems,
     };
