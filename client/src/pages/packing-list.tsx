@@ -122,9 +122,23 @@ export default function PackingList() {
         margin-bottom: 2px;
       }
 
+      .info-company-large {
+        font-weight: bold;
+        font-size: 22px;
+        margin-bottom: 3px;
+        color: #000;
+        line-height: 1.2;
+      }
+
       .info-detail {
         color: #555;
         margin: 1px 0;
+      }
+
+      .info-detail-oneline {
+        color: #555;
+        margin: 2px 0;
+        font-size: 13px;
       }
 
       .packing-table {
@@ -363,30 +377,23 @@ export default function PackingList() {
 
             {/* Ship To */}
             <div className="info-section">
-              <div className="info-label">SHIP TO:</div>
-              <div className="info-company">
+              <div className="info-company-large">
                 {invoice.shipToName || invoice.customer?.name || "—"}
               </div>
               {shipAddress && (
                 <>
                   {typeof shipAddress === "string" ? (
-                    <div className="info-detail">{shipAddress}</div>
+                    <div className="info-detail-oneline">{shipAddress}</div>
                   ) : (
-                    <>
-                      {shipAddress.street && (
-                        <div className="info-detail">{shipAddress.street}</div>
-                      )}
-                      {shipAddress.city && (
-                        <div className="info-detail">
-                          {shipAddress.city}
-                          {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
-                          {shipAddress.zipCode || ""}
-                        </div>
-                      )}
-                      {shipAddress.country && (
-                        <div className="info-detail">{shipAddress.country}</div>
-                      )}
-                    </>
+                    <div className="info-detail-oneline">
+                      {[
+                        shipAddress.street,
+                        shipAddress.city,
+                        shipAddress.state,
+                        shipAddress.zipCode,
+                        shipAddress.country
+                      ].filter(Boolean).join(", ")}
+                    </div>
                   )}
                 </>
               )}
