@@ -43,13 +43,13 @@ export default function ShippingLabel() {
       @media print {
         @page { 
           size: A4 landscape; 
-          margin: 8mm 12mm 8mm 12mm;
+          margin: 6mm 10mm 6mm 10mm;
           background: white;
         }
-        body { margin: 0; padding: 0; background: white !important; }
-        html { background: white !important; }
+        body { margin: 0; padding: 0; background: white !important; height: 100%; }
+        html { background: white !important; height: 100%; }
         * { box-shadow: none !important; background-color: white !important; }
-        .container { background: white !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+        .container { background: white !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; height: 100%; }
         .shipping-label-page { 
           box-shadow: none; 
           border: none; 
@@ -61,24 +61,27 @@ export default function ShippingLabel() {
           background: white !important; 
           display: flex;
           flex-direction: column;
-          justify-content: flex-start;
+          justify-content: space-between;
         }
         .shipping-label-title {
-          font-size: 32px !important;
-          margin-bottom: 3mm !important;
+          font-size: 36px !important;
+          margin-bottom: 2mm !important;
           flex-shrink: 0;
         }
         .label-container {
-          padding: 6mm 12mm !important;
+          padding: 4mm 8mm !important;
           border-width: 4px !important;
-          flex-shrink: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-around;
         }
         .section-title {
-          font-size: 32px !important;
-          margin-bottom: 4mm !important;
+          font-size: 36px !important;
+          margin-bottom: 3mm !important;
         }
         .label-field {
-          margin-bottom: 3mm !important;
+          margin-bottom: 2mm !important;
         }
         .print-hide { display: none !important; }
       }
@@ -145,17 +148,18 @@ export default function ShippingLabel() {
 
       @media print {
         .customer-name {
-          font-size: 60px !important;
-          margin-bottom: 4mm !important;
+          font-size: 80px !important;
+          margin-bottom: 3mm !important;
+          line-height: 1.1 !important;
         }
         .field-label {
-          font-size: 36px !important;
+          font-size: 40px !important;
         }
         .field-value {
-          font-size: 36px !important;
+          font-size: 40px !important;
         }
         .field-value-bold {
-          font-size: 36px !important;
+          font-size: 40px !important;
         }
         input {
           border: none;
