@@ -244,21 +244,8 @@ export default function ShippingLabel() {
           </div>
 
           <div className="label-field">
-            <span className="field-label"></span>
-            <input
-              type="text"
-              value={palletCount}
-              onChange={(e) => setPalletCount(e.target.value)}
-              className="field-value"
-              placeholder="Total Pallets :"
-              data-testid="input-pallet-count"
-              style={{
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                width: "400px",
-              }}
-            />
+            <span className="field-label">Total Pallets :</span>
+            <span className="field-value" data-testid="label-pallet-count">{palletCount || ""}</span>
           </div>
         </div>
       </div>
