@@ -90,26 +90,41 @@ export default function PackingList() {
         position: relative;
       }
 
-      .ship-to-header {
-        font-size: 36px;
-        font-weight: bold;
-        margin-bottom: 30px;
-        color: #000;
-      }
-
-      .customer-name-only {
-        font-size: 72px;
+      .invoice-header {
+        text-align: center;
+        font-size: 28px;
         font-weight: bold;
         margin-bottom: 20px;
-        color: #000;
-        line-height: 1.2;
       }
 
-      .label-line {
-        font-size: 48px;
+      .invoice-info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
         margin-bottom: 20px;
-        color: #000;
-        line-height: 1.3;
+        font-size: 13px;
+      }
+
+      .info-section {
+        line-height: 1.6;
+      }
+
+      .info-label {
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        font-size: 13px;
+        color: #333;
+      }
+
+      .info-company {
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .info-detail {
+        color: #555;
+        margin: 1px 0;
       }
 
       .packing-table {
@@ -310,35 +325,146 @@ export default function PackingList() {
         </Button>
       </div>
 
-      {/* Shipping Label Content */}
-      <div className="packing-list-page">
-        {/* Ship To Header */}
-        <div className="ship-to-header">SHIP TO</div>
+      {/* Packing List Content - Multiple Pages */}
+      {pages.map((page, pageIndex) => (
+        <div 
+          key={pageIndex} 
+          className={`packing-list-page ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
+        >
+          {/* Header */}
+          <div className="invoice-header">PACKING SLIP</div>
 
-        {/* Customer Name - No Label */}
-        <div className="customer-name-only">
-          {invoice.shipToName || invoice.customer?.name || "—"}
-        </div>
+          {/* Info Grid */}
+          <div className="invoice-info-grid">
+            {/* Billed To */}
+            <div className="info-section">
+              <div className="info-label">BILLED TO:</div>
+              <div className="info-company">
+                {invoice.customer?.name || "—"}
+              </div>
+              {billAddress && (
+                <>
+                  {billAddress.street && (
+                    <div className="info-detail">{billAddress.street}</div>
+                  )}
+                  {billAddress.city && (
+                    <div className="info-detail">
+                      {billAddress.city}
+                      {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
+                      {billAddress.zipCode || ""}
+                    </div>
+                  )}
+                  {billAddress.country && (
+                    <div className="info-detail">{billAddress.country}</div>
+                  )}
+                </>
+              )}
+            </div>
 
-        {/* Address Line */}
-        <div className="label-line">
-          Address : {shipAddress && typeof shipAddress !== "string" && (
-            <>
-              {[shipAddress.city, shipAddress.state, shipAddress.zipCode].filter(Boolean).join(", ")}
-            </>
+            {/* Ship To */}
+            <div className="info-section">
+              <div className="info-label">SHIP TO:</div>
+              <div className="info-company">
+                {invoice.shipToName || invoice.customer?.name || "—"}
+              </div>
+              {shipAddress && (
+                <>
+                  {typeof shipAddress === "string" ? (
+                    <div className="info-detail">{shipAddress}</div>
+                  ) : (
+                    <>
+                      {shipAddress.street && (
+                        <div className="info-detail">{shipAddress.street}</div>
+                      )}
+                      {shipAddress.city && (
+                        <div className="info-detail">
+                          {shipAddress.city}
+                          {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                          {shipAddress.zipCode || ""}
+                        </div>
+                      )}
+                      {shipAddress.country && (
+                        <div className="info-detail">{shipAddress.country}</div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Invoice Details */}
+            <div className="info-section">
+              <div className="info-detail">
+                <strong>Invoice No.</strong> : {invoice.invoiceNumber}
+              </div>
+              <div className="info-detail">
+                <strong>Invoice Date</strong> :{" "}
+                {invoice.invoiceDate
+                  ? new Date(invoice.invoiceDate).toLocaleDateString()
+                  : "—"}
+              </div>
+              <div className="info-detail">
+                <strong>Shipping Info</strong> :{" "}
+                {invoice.purchaseOrderNo || "—"}
+              </div>
+              <div className="info-detail">
+                <strong>Shipping Date</strong> :{" "}
+                {invoice.shipDate
+                  ? new Date(invoice.shipDate).toLocaleDateString()
+                  : "—"}
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <table className="packing-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "8%" }}>Sr No.</th>
+                  <th style={{ width: "15%" }}>CARTOON BARCODE</th>
+                  <th style={{ width: "45%" }}>Product Description</th>
+                  <th style={{ width: "17%" }}>Packing Size</th>
+                  <th style={{ width: "15%" }}>Quantity (Carton)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.rows.map((row, idx) => {
+                  if (row.type === 'category') {
+                    return (
+                      <tr key={`cat-${pageIndex}-${idx}`} className="category-row">
+                        <td colSpan={5} className="category-header">
+                          {row.category}
+                        </td>
+                      </tr>
+                    );
+                  } else {
+                    return (
+                      <tr key={`item-${pageIndex}-${idx}`}>
+                        <td className="text-center">{row.srNo}</td>
+                        <td>{row.item.cartoonBarcode || "—"}</td>
+                        <td>{row.item.description}</td>
+                        <td>{row.item.packingSize ? row.item.packingSize.replace(/GM/g, 'G') : "—"}</td>
+                        <td className="text-center">{row.item.quantity}</td>
+                      </tr>
+                    );
+                  }
+                })}
+              </tbody>
+            </table>
+
+          {/* Total Summary - only show on pages with showSummary */}
+          {page.showSummary && (
+            <div className="text-right mt-4 space-y-1">
+              <div><strong>Total Carton: {totalCartons}</strong></div>
+            </div>
           )}
-        </div>
 
-        {/* Total Cartons Line */}
-        <div className="label-line">
-          Total Cartons : {totalCartons}
+          {/* Letter Head Footer - hidden during print */}
+          <div className="letter-footer print-hide-content">
+            <strong>Letter Head Footer</strong>
+          </div>
         </div>
-
-        {/* Total Pallets Line */}
-        <div className="label-line">
-          Total Pallets :
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
