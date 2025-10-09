@@ -93,35 +93,27 @@ export default function PackingList() {
       .ship-to-header {
         font-size: 36px;
         font-weight: bold;
-        margin-bottom: 20px;
+        margin-bottom: 30px;
         color: #000;
       }
 
-      .customer-name {
+      .label-line {
+        font-size: 48px;
+        margin-bottom: 20px;
+        color: #000;
+        line-height: 1.3;
+      }
+
+      .customer-name-line {
+        font-size: 48px;
+        margin-bottom: 20px;
+        color: #000;
+        line-height: 1.3;
+      }
+
+      .customer-name-line .name-value {
         font-size: 72px;
         font-weight: bold;
-        margin-bottom: 20px;
-        color: #000;
-        line-height: 1.1;
-      }
-
-      .address-line {
-        font-size: 48px;
-        margin-bottom: 15px;
-        color: #000;
-        line-height: 1.2;
-      }
-
-      .total-cartons {
-        font-size: 48px;
-        margin-bottom: 15px;
-        color: #000;
-      }
-
-      .total-pallets {
-        font-size: 48px;
-        margin-bottom: 15px;
-        color: #000;
       }
 
       .packing-table {
@@ -327,42 +319,33 @@ export default function PackingList() {
         {/* Ship To Header */}
         <div className="ship-to-header">SHIP TO</div>
 
-        {/* Customer Name */}
-        <div className="customer-name">
-          {invoice.shipToName || invoice.customer?.name || "—"}
+        {/* Customer Name Line */}
+        <div className="customer-name-line">
+          Customer Name : <span className="name-value">{invoice.shipToName || invoice.customer?.name || "—"}</span>
         </div>
 
-        {/* Address */}
-        <div className="address-line">
-          <strong>Address:</strong>
-          {shipAddress && (
+        {/* City, State, ZIP Line */}
+        <div className="label-line">
+          City, State, ZIP : {shipAddress && typeof shipAddress !== "string" && (
             <>
-              {typeof shipAddress === "string" ? (
-                <span> {shipAddress}</span>
-              ) : (
-                <span>
-                  {" "}
-                  {[
-                    shipAddress.street,
-                    shipAddress.city,
-                    shipAddress.state,
-                    shipAddress.zipCode,
-                    shipAddress.country
-                  ].filter(Boolean).join(", ")}
-                </span>
-              )}
+              {[shipAddress.city, shipAddress.state, shipAddress.zipCode].filter(Boolean).join(", ")}
             </>
           )}
         </div>
 
-        {/* Total Cartons */}
-        <div className="total-cartons">
-          <strong>Total Cartons :</strong>{totalCartons}
+        {/* Country Line */}
+        <div className="label-line">
+          Country : {shipAddress && typeof shipAddress !== "string" && shipAddress.country ? shipAddress.country : (typeof shipAddress === "string" ? shipAddress : "USA")}
         </div>
 
-        {/* Total Pallets */}
-        <div className="total-pallets">
-          <strong>Total Pallets :</strong>
+        {/* Total Cartons Line */}
+        <div className="label-line">
+          Total Cartons : {totalCartons}
+        </div>
+
+        {/* Total Pallets Line */}
+        <div className="label-line">
+          Total Pallets :
         </div>
       </div>
     </div>
