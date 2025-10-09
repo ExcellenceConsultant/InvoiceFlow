@@ -90,55 +90,38 @@ export default function PackingList() {
         position: relative;
       }
 
-      .invoice-header {
-        text-align: center;
-        font-size: 28px;
+      .ship-to-header {
+        font-size: 36px;
         font-weight: bold;
         margin-bottom: 20px;
+        color: #000;
       }
 
-      .invoice-info-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 20px;
+      .customer-name {
+        font-size: 72px;
+        font-weight: bold;
         margin-bottom: 20px;
-        font-size: 13px;
+        color: #000;
+        line-height: 1.1;
       }
 
-      .info-section {
-        line-height: 1.6;
-      }
-
-      .info-label {
-        font-weight: bold;
-        text-transform: uppercase;
-        margin-bottom: 5px;
-        font-size: 13px;
-        color: #333;
-      }
-
-      .info-company {
-        font-weight: 600;
-        margin-bottom: 2px;
-      }
-
-      .info-company-large {
-        font-weight: bold;
-        font-size: 22px;
-        margin-bottom: 3px;
+      .address-line {
+        font-size: 48px;
+        margin-bottom: 15px;
         color: #000;
         line-height: 1.2;
       }
 
-      .info-detail {
-        color: #555;
-        margin: 1px 0;
+      .total-cartons {
+        font-size: 48px;
+        margin-bottom: 15px;
+        color: #000;
       }
 
-      .info-detail-oneline {
-        color: #555;
-        margin: 2px 0;
-        font-size: 13px;
+      .total-pallets {
+        font-size: 48px;
+        margin-bottom: 15px;
+        color: #000;
       }
 
       .packing-table {
@@ -339,139 +322,49 @@ export default function PackingList() {
         </Button>
       </div>
 
-      {/* Packing List Content - Multiple Pages */}
-      {pages.map((page, pageIndex) => (
-        <div 
-          key={pageIndex} 
-          className={`packing-list-page ${pageIndex < pages.length - 1 ? 'page-break' : ''}`}
-        >
-          {/* Header */}
-          <div className="invoice-header">PACKING SLIP</div>
+      {/* Shipping Label Content */}
+      <div className="packing-list-page">
+        {/* Ship To Header */}
+        <div className="ship-to-header">SHIP TO</div>
 
-          {/* Info Grid */}
-          <div className="invoice-info-grid">
-            {/* Billed To */}
-            <div className="info-section">
-              <div className="info-label">BILLED TO:</div>
-              <div className="info-company">
-                {invoice.customer?.name || "—"}
-              </div>
-              {billAddress && (
-                <>
-                  {billAddress.street && (
-                    <div className="info-detail">{billAddress.street}</div>
-                  )}
-                  {billAddress.city && (
-                    <div className="info-detail">
-                      {billAddress.city}
-                      {billAddress.state ? `, ${billAddress.state}` : ""}{" "}
-                      {billAddress.zipCode || ""}
-                    </div>
-                  )}
-                  {billAddress.country && (
-                    <div className="info-detail">{billAddress.country}</div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Ship To */}
-            <div className="info-section">
-              <div className="info-company-large">
-                {invoice.shipToName || invoice.customer?.name || "—"}
-              </div>
-              {shipAddress && (
-                <>
-                  {typeof shipAddress === "string" ? (
-                    <div className="info-detail-oneline">{shipAddress}</div>
-                  ) : (
-                    <div className="info-detail-oneline">
-                      {[
-                        shipAddress.street,
-                        shipAddress.city,
-                        shipAddress.state,
-                        shipAddress.zipCode,
-                        shipAddress.country
-                      ].filter(Boolean).join(", ")}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Invoice Details */}
-            <div className="info-section">
-              <div className="info-detail">
-                <strong>Invoice No.</strong> : {invoice.invoiceNumber}
-              </div>
-              <div className="info-detail">
-                <strong>Invoice Date</strong> :{" "}
-                {invoice.invoiceDate
-                  ? new Date(invoice.invoiceDate).toLocaleDateString()
-                  : "—"}
-              </div>
-              <div className="info-detail">
-                <strong>Shipping Info</strong> :{" "}
-                {invoice.purchaseOrderNo || "—"}
-              </div>
-              <div className="info-detail">
-                <strong>Shipping Date</strong> :{" "}
-                {invoice.shipDate
-                  ? new Date(invoice.shipDate).toLocaleDateString()
-                  : "—"}
-              </div>
-            </div>
-          </div>
-
-          {/* Table */}
-          <table className="packing-table">
-              <thead>
-                <tr>
-                  <th style={{ width: "8%" }}>Sr No.</th>
-                  <th style={{ width: "15%" }}>CARTOON BARCODE</th>
-                  <th style={{ width: "45%" }}>Product Description</th>
-                  <th style={{ width: "17%" }}>Packing Size</th>
-                  <th style={{ width: "15%" }}>Quantity (Carton)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {page.rows.map((row, idx) => {
-                  if (row.type === 'category') {
-                    return (
-                      <tr key={`cat-${pageIndex}-${idx}`} className="category-row">
-                        <td colSpan={5} className="category-header">
-                          {row.category}
-                        </td>
-                      </tr>
-                    );
-                  } else {
-                    return (
-                      <tr key={`item-${pageIndex}-${idx}`}>
-                        <td className="text-center">{row.srNo}</td>
-                        <td>{row.item.cartoonBarcode || "—"}</td>
-                        <td>{row.item.description}</td>
-                        <td>{row.item.packingSize ? row.item.packingSize.replace(/GM/g, 'G') : "—"}</td>
-                        <td className="text-center">{row.item.quantity}</td>
-                      </tr>
-                    );
-                  }
-                })}
-              </tbody>
-            </table>
-
-          {/* Total Summary - only show on pages with showSummary */}
-          {page.showSummary && (
-            <div className="text-right mt-4 space-y-1">
-              <div><strong>Total Carton: {totalCartons}</strong></div>
-            </div>
-          )}
-
-          {/* Letter Head Footer - hidden during print */}
-          <div className="letter-footer print-hide-content">
-            <strong>Letter Head Footer</strong>
-          </div>
+        {/* Customer Name */}
+        <div className="customer-name">
+          {invoice.shipToName || invoice.customer?.name || "—"}
         </div>
-      ))}
+
+        {/* Address */}
+        <div className="address-line">
+          <strong>Address:</strong>
+          {shipAddress && (
+            <>
+              {typeof shipAddress === "string" ? (
+                <span> {shipAddress}</span>
+              ) : (
+                <span>
+                  {" "}
+                  {[
+                    shipAddress.street,
+                    shipAddress.city,
+                    shipAddress.state,
+                    shipAddress.zipCode,
+                    shipAddress.country
+                  ].filter(Boolean).join(", ")}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Total Cartons */}
+        <div className="total-cartons">
+          <strong>Total Cartons :</strong>{totalCartons}
+        </div>
+
+        {/* Total Pallets */}
+        <div className="total-pallets">
+          <strong>Total Pallets :</strong>
+        </div>
+      </div>
     </div>
   );
 }
