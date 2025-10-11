@@ -125,6 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = user.userId;
 
       const authUrl = quickBooksService.getAuthorizationUrl(userId);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.json({ authUrl });
     } catch (error) {
       res.status(500).json({ message: "Failed to generate auth URL" });

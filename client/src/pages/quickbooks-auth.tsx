@@ -29,6 +29,7 @@ export default function QuickBooksAuth() {
       window.location.href = data.authUrl;
     },
     onError: (error) => {
+      console.error("QuickBooks auth initialization error:", error);
       setAuthError("Failed to initialize QuickBooks authentication");
       setIsConnecting(false);
       toast({
