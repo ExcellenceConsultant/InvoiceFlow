@@ -146,7 +146,8 @@ export class MemStorage implements IStorage {
 
   // Customers
   async getCustomers(userId: string): Promise<Customer[]> {
-    return Array.from(this.customers.values()).filter(customer => customer.userId === userId);
+    // Return all customers globally (no user-specific filtering)
+    return Array.from(this.customers.values());
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
@@ -191,7 +192,8 @@ export class MemStorage implements IStorage {
 
   // Products
   async getProducts(userId: string): Promise<Product[]> {
-    return Array.from(this.products.values()).filter(product => product.userId === userId);
+    // Return all products globally (no user-specific filtering)
+    return Array.from(this.products.values());
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -231,8 +233,9 @@ export class MemStorage implements IStorage {
   }
 
   async deleteAllProducts(userId: string): Promise<boolean> {
-    const userProducts = Array.from(this.products.values()).filter(product => product.userId === userId);
-    for (const product of userProducts) {
+    // Delete all products globally (no user-specific filtering)
+    const allProducts = Array.from(this.products.values());
+    for (const product of allProducts) {
       this.products.delete(product.id);
     }
     return true;
@@ -274,14 +277,16 @@ export class MemStorage implements IStorage {
 
   // Product Schemes
   async getProductSchemes(userId: string): Promise<ProductScheme[]> {
-    return Array.from(this.productSchemes.values()).filter(scheme => scheme.userId === userId);
+    // Return all product schemes globally (no user-specific filtering)
+    return Array.from(this.productSchemes.values());
   }
 
   async getSchemeUsageCounts(userId: string): Promise<{ [key: string]: number }> {
     const counts: { [key: string]: number } = {};
-    const userInvoices = Array.from(this.invoices.values()).filter(inv => inv.userId === userId);
+    // Count scheme usage across all invoices globally (no user-specific filtering)
+    const allInvoices = Array.from(this.invoices.values());
     
-    for (const invoice of userInvoices) {
+    for (const invoice of allInvoices) {
       const lineItems = Array.from(this.invoiceLineItems.values()).filter(item => 
         item.invoiceId === invoice.id && item.schemeId && item.isFreeFromScheme
       );
@@ -331,7 +336,8 @@ export class MemStorage implements IStorage {
 
   // Invoices
   async getInvoices(userId: string): Promise<Invoice[]> {
-    return Array.from(this.invoices.values()).filter(invoice => invoice.userId === userId);
+    // Return all invoices globally (no user-specific filtering)
+    return Array.from(this.invoices.values());
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
