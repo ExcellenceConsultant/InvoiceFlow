@@ -121,24 +121,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // QuickBooks OAuth routes
   app.get("/api/auth/quickbooks", isAuthenticated, async (req, res) => {
     try {
-      const state = req.query.userId as string;
-      if (!state) {
-        return res.status(400).json({ message: "User ID required" });
-      }
+      const user = (req as any).user;
+      const userId = user.userId;
 
-      const authUrl = quickBooksService.getAuthorizationUrl(state);
+      const authUrl = quickBooksService.getAuthorizationUrl(userId);
       res.json({ authUrl });
     } catch (error) {
       res.status(500).json({ message: "Failed to generate auth URL" });
     }
   });
 
-  app.get("/api/auth/quickbooks/callback", isAuthenticated, async (req, res) => {
+  app.get("/api/auth/quickbooks/callback", async (req, res) => {
     try {
       const { code, realmId, state } = req.query;
       
       if (!code || !realmId || !state) {
-        return res.status(400).json({ message: "Missing required parameters" });
+        return res.redirect("/#/quickbooks/auth#error=missing_params");
       }
 
       const tokens = await quickBooksService.exchangeCodeForTokens(
@@ -168,10 +166,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      res.json({ success: true });
+      res.redirect("/#/quickbooks/auth#success=true");
     } catch (error) {
       console.error("QuickBooks callback error:", error);
-      res.status(500).json({ message: "Authentication failed" });
+      res.redirect("/#/quickbooks/auth#error=auth_failed");
+    }
+  });
+
+  app.post("/api/auth/quickbooks/disconnect", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userId = user.userId;
+
+      await storage.updateUser(userId, {
+        quickbooksAccessToken: null,
+        quickbooksRefreshToken: null,
+        quickbooksCompanyId: null,
+        quickbooksCompanyName: null,
+        quickbooksTokenExpiry: null,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("QuickBooks disconnect error:", error);
+      res.status(500).json({ message: "Failed to disconnect QuickBooks" });
     }
   });
 

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { DEFAULT_USER_ID } from "@/lib/constants";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function QuickBooksAuth() {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -17,21 +17,15 @@ export default function QuickBooksAuth() {
   const [, setLocation] = useLocation();
 
   const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/users", DEFAULT_USER_ID],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch user");
-      return response.json();
-    },
+    queryKey: ["/api/auth/user"],
   });
 
   const initializeAuthMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/auth/quickbooks?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to initialize auth");
-      return response.json();
+      const response = await apiRequest("GET", "/api/auth/quickbooks");
+      return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       window.location.href = data.authUrl;
     },
     onError: (error) => {
@@ -47,21 +41,10 @@ export default function QuickBooksAuth() {
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quickbooksAccessToken: null,
-          quickbooksRefreshToken: null,
-          quickbooksCompanyId: null,
-          quickbooksTokenExpiry: null,
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to disconnect");
-      return response.json();
+      return await apiRequest("POST", "/api/auth/quickbooks/disconnect");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users", DEFAULT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Success",
         description: "QuickBooks account disconnected successfully",
@@ -88,18 +71,22 @@ export default function QuickBooksAuth() {
     }
   };
 
-  const isConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
-  const tokenExpiry = user?.quickbooksTokenExpiry ? new Date(user.quickbooksTokenExpiry) : null;
+  const isConnected = (user as any)?.quickbooksAccessToken && (user as any)?.quickbooksCompanyId;
+  const tokenExpiry = (user as any)?.quickbooksTokenExpiry ? new Date((user as any).quickbooksTokenExpiry) : null;
   const isTokenExpired = tokenExpiry ? tokenExpiry < new Date() : false;
 
   // Handle OAuth callback
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.hash.substring(1)); // Remove the # and parse
+    // Parse hash parameters (format: /#/quickbooks/auth#success=true)
+    const hash = window.location.hash;
+    const hashParts = hash.split('#');
+    const params = hashParts.length > 2 ? hashParts[2] : ''; // Get the part after the second #
+    const urlParams = new URLSearchParams(params);
     const success = urlParams.get('success');
     const error = urlParams.get('error');
 
     if (success === 'true') {
-      queryClient.invalidateQueries({ queryKey: ["/api/users", DEFAULT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Success",
         description: "QuickBooks connected successfully!",
@@ -166,7 +153,7 @@ export default function QuickBooksAuth() {
                 </h3>
                 <p className="text-sm text-muted-foreground" data-testid="connection-status-description">
                   {isConnected 
-                    ? `Company ID: ${user.quickbooksCompanyId}` 
+                    ? `Company ID: ${(user as any).quickbooksCompanyId}` 
                     : "Not connected"
                   }
                 </p>
