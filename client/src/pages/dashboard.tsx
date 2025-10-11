@@ -153,7 +153,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-accent/5 rounded-lg">
                   <p className="text-2xl font-bold text-accent" data-testid="quickbooks-journal-entry-sync">
-                    {journalEntryCount !== undefined ? journalEntryCount : '...'}
+                    {journalEntryCount?.count !== undefined ? journalEntryCount.count : '...'}
                   </p>
                   <p className="text-sm text-muted-foreground">Journal Entry Sync</p>
                 </div>
