@@ -1565,36 +1565,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats
   app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
+      // Use authenticated user ID from JWT token (global data visibility)
+      const userId = (req as any).user?.userId;
 
+      // Fetch all global data (storage methods now return all data)
       const invoices = await storage.getInvoices(userId);
       const products = await storage.getProducts(userId);
       const schemes = await storage.getProductSchemes(userId);
       
-      // Calculate total revenue
+      // Calculate total revenue from all invoices
       const totalRevenue = invoices.reduce((sum, invoice) => 
         sum + parseFloat(invoice.total), 0
       );
 
-      // Count active invoices
+      // Count active invoices (sent or draft status)
       const activeInvoices = invoices.filter(invoice => 
         invoice.status === "sent" || invoice.status === "draft"
       ).length;
 
-      // Count products in stock
+      // Count products in stock using product.qty field
       let totalStock = 0;
       let lowStockCount = 0;
       
       for (const product of products) {
-        const variants = await storage.getProductVariants(product.id);
-        for (const variant of variants) {
-          totalStock += variant.stockQuantity || 0;
-          if ((variant.stockQuantity || 0) <= (variant.lowStockThreshold || 10)) {
-            lowStockCount++;
-          }
+        const qty = product.qty || 0;
+        totalStock += qty;
+        // Count as low stock if quantity is 10 or less
+        if (qty <= 10 && qty > 0) {
+          lowStockCount++;
         }
       }
 
@@ -1609,6 +1607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeSchemes,
       });
     } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });

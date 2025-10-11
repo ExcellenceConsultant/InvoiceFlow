@@ -1,16 +1,10 @@
 import { DollarSign, FileText, Package, Gift, TrendingUp, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { DEFAULT_USER_ID } from "@/lib/constants";
 
 export default function StatsCards() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
-    queryFn: async () => {
-      const response = await fetch(`/api/dashboard/stats?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch stats");
-      return response.json();
-    },
   });
 
   if (isLoading) {
@@ -43,7 +37,7 @@ export default function StatsCards() {
     {
       title: "Active Invoices",
       value: stats?.activeInvoices || 0,
-      change: stats?.lowStockCount ? `${stats.lowStockCount} pending payment` : "All up to date",
+      change: stats?.activeInvoices ? "All up to date" : "No active invoices",
       changeText: "",
       icon: FileText,
       iconBg: "bg-accent/10",
@@ -64,7 +58,7 @@ export default function StatsCards() {
     {
       title: "Active Schemes",
       value: stats?.activeSchemes || 0,
-      change: "3 new this week",
+      change: stats?.activeSchemes ? `${stats.activeSchemes} scheme${stats.activeSchemes === 1 ? '' : 's'} active` : "No active schemes",
       changeText: "",
       icon: Gift,
       iconBg: "bg-chart-4/10",
