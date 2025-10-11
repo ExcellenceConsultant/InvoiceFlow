@@ -120,7 +120,8 @@ export class DatabaseStorage implements IStorage {
 
   // Customers
   async getCustomers(userId: string): Promise<Customer[]> {
-    return await db.select().from(customers).where(eq(customers.userId, userId));
+    // Return all customers globally (no user-specific filtering)
+    return await db.select().from(customers);
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
@@ -145,7 +146,8 @@ export class DatabaseStorage implements IStorage {
 
   // Products
   async getProducts(userId: string): Promise<Product[]> {
-    return await db.select().from(products).where(eq(products.userId, userId));
+    // Return all products globally (no user-specific filtering)
+    return await db.select().from(products);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -212,10 +214,12 @@ export class DatabaseStorage implements IStorage {
 
   // Product Schemes
   async getProductSchemes(userId: string): Promise<ProductScheme[]> {
-    return await db.select().from(productSchemes).where(eq(productSchemes.userId, userId));
+    // Return all product schemes globally (no user-specific filtering)
+    return await db.select().from(productSchemes);
   }
 
   async getSchemeUsageCounts(userId: string): Promise<{ [key: string]: number }> {
+    // Count scheme usage across all invoices globally (no user-specific filtering)
     const counts = await db
       .select({
         schemeId: invoiceLineItems.schemeId,
@@ -225,7 +229,6 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(invoices, eq(invoiceLineItems.invoiceId, invoices.id))
       .where(
         and(
-          eq(invoices.userId, userId),
           isNotNull(invoiceLineItems.schemeId),
           eq(invoiceLineItems.isFreeFromScheme, true)
         )
@@ -285,7 +288,8 @@ export class DatabaseStorage implements IStorage {
 
   // Invoices
   async getInvoices(userId: string): Promise<Invoice[]> {
-    return await db.select().from(invoices).where(eq(invoices.userId, userId));
+    // Return all invoices globally (no user-specific filtering)
+    return await db.select().from(invoices);
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
