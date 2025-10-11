@@ -233,9 +233,9 @@ export class MemStorage implements IStorage {
   }
 
   async deleteAllProducts(userId: string): Promise<boolean> {
-    // Delete all products globally (no user-specific filtering)
-    const allProducts = Array.from(this.products.values());
-    for (const product of allProducts) {
+    // Keep scoped deletion for safety - only delete products for specific user
+    const userProducts = Array.from(this.products.values()).filter(product => product.userId === userId);
+    for (const product of userProducts) {
       this.products.delete(product.id);
     }
     return true;
