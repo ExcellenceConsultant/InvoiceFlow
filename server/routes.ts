@@ -136,14 +136,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code, realmId, state } = req.query;
       
+      // Get the frontend URL from request origin or environment
+      const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || `${req.protocol}://${req.get('host')}`;
+      
       if (!code || !realmId || !state) {
-        return res.redirect("/#/quickbooks/auth#error=missing_params");
+        console.log("QuickBooks callback missing params:", { code: !!code, realmId: !!realmId, state: !!state });
+        return res.redirect(`${origin}/#/quickbooks/auth#error=missing_params`);
       }
+
+      console.log("QuickBooks callback received:", { realmId, state });
 
       const tokens = await quickBooksService.exchangeCodeForTokens(
         code as string,
         realmId as string
       );
+
+      console.log("QuickBooks tokens exchanged successfully");
 
       // Fetch company information
       let companyName = null;
@@ -167,10 +175,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      res.redirect("/#/quickbooks/auth#success=true");
+      console.log("QuickBooks connection successful, redirecting to frontend");
+      res.redirect(`${origin}/#/quickbooks/auth#success=true`);
     } catch (error) {
       console.error("QuickBooks callback error:", error);
-      res.redirect("/#/quickbooks/auth#error=auth_failed");
+      const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || `${req.protocol}://${req.get('host')}`;
+      res.redirect(`${origin}/#/quickbooks/auth#error=auth_failed`);
     }
   });
 
