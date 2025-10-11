@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Bell, Bolt, LogOut } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import kitchenXpressLogo from "@assets/WhatsApp Image 2025-10-08 at 12.47.38 AM_1760212885421.jpeg";
 
 export default function Navbar() {
   const [location] = useLocation();
@@ -16,9 +17,7 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2" data-testid="link-home">
-              <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-lg flex items-center justify-center">
-                <Bolt className="text-white" size={16} />
-              </div>
+              <img src={kitchenXpressLogo} alt="Kitchen Xpress" className="h-10 w-auto object-contain" />
               <span className="text-xl font-bold text-foreground">InvoiceFlow</span>
             </Link>
             

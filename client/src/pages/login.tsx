@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Bolt } from "lucide-react";
+import kitchenXpressLogo from "@assets/WhatsApp Image 2025-10-08 at 12.47.38 AM_1760212885421.jpeg";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -63,9 +63,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-primary to-accent rounded-lg flex items-center justify-center">
-              <Bolt className="text-white" size={20} />
-            </div>
+            <img src={kitchenXpressLogo} alt="Kitchen Xpress" className="h-12 w-auto object-contain" />
             <span className="text-2xl font-bold">InvoiceFlow</span>
           </div>
           <div>
