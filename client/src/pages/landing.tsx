@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { FileText, Package, Users, TrendingUp } from "lucide-react";
 import { useLocation } from "wouter";
-import kitchenXpressLogo from "@assets/WhatsApp Image 2025-10-08 at 12.47.38 AM_1760212885421.jpeg";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -15,8 +14,7 @@ export default function Landing() {
       <nav className="bg-card/80 glass-effect border-b border-border backdrop-blur-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <img src={kitchenXpressLogo} alt="Kitchen Xpress" className="h-10 w-auto object-contain" />
+            <div className="flex items-center">
               <span className="text-xl font-bold text-foreground">InvoiceFlow</span>
             </div>
             <Button onClick={handleLogin} data-testid="button-login">
