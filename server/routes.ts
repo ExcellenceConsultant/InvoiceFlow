@@ -1615,10 +1615,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // QuickBooks journal entry count
   app.get("/api/quickbooks/journal-entry-count", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
-      }
+      // Use authenticated user ID from JWT token (global data visibility)
+      const userId = (req as any).user?.userId;
 
       const invoices = await storage.getInvoices(userId);
       

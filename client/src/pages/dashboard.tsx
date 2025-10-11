@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS } from "@/lib/constants";
+import { INVOICE_STATUS_COLORS } from "@/lib/constants";
+import { apiRequest } from "@/lib/queryClient";
 import StatsCards from "@/components/stats-cards";
 import InvoiceForm from "@/components/invoice-form";
 import SchemeModal from "@/components/scheme-modal";
@@ -22,73 +23,46 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const permissions = usePermissions();
 
+  // Use default queryFn which includes auth headers from queryClient
   const { data: user } = useQuery({
-    queryKey: ["/api/users", DEFAULT_USER_ID],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch user");
-      return response.json();
-    },
+    queryKey: ["/api/auth/user"],
   });
 
-  const { data: recentInvoices } = useQuery({
+  const { data: allInvoices } = useQuery({
     queryKey: ["/api/invoices"],
-    queryFn: async () => {
-      const response = await fetch(`/api/invoices?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch invoices");
-      const invoices = await response.json();
-      return invoices.slice(0, 3); // Get only the 3 most recent
-    },
   });
+
+  // Get only the 3 most recent invoices for dashboard display
+  const recentInvoices = allInvoices?.slice(0, 3);
 
   const { data: schemes } = useQuery({
     queryKey: ["/api/schemes"],
-    queryFn: async () => {
-      const response = await fetch(`/api/schemes?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch schemes");
-      return response.json();
-    },
   });
 
   const { data: products } = useQuery({
     queryKey: ["/api/products"],
-    queryFn: async () => {
-      const response = await fetch(`/api/products?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      return response.json();
-    },
   });
 
   const { data: journalEntryCount } = useQuery({
     queryKey: ["/api/quickbooks/journal-entry-count"],
-    queryFn: async () => {
-      const response = await fetch(`/api/quickbooks/journal-entry-count?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch journal entry count");
-      const data = await response.json();
-      return data.count;
-    },
   });
 
   const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quickbooksAccessToken: null,
-          quickbooksRefreshToken: null,
-          quickbooksCompanyId: null,
-          quickbooksCompanyName: null,
-          quickbooksTokenExpiry: null,
-        }),
+      if (!user?.id) throw new Error("User not authenticated");
+      
+      await apiRequest('PATCH', `/api/users/${user.id}`, {
+        quickbooksAccessToken: null,
+        quickbooksRefreshToken: null,
+        quickbooksCompanyId: null,
+        quickbooksCompanyName: null,
+        quickbooksTokenExpiry: null,
       });
-      if (!response.ok) throw new Error("Failed to disconnect");
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users", DEFAULT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Success",
         description: "QuickBooks account disconnected successfully",
