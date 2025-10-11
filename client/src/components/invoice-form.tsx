@@ -147,13 +147,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   });
 
   const { data: existingLineItems } = useQuery({
-    queryKey: ["/api/invoices", invoice?.id, "line-items"],
-    queryFn: async () => {
-      if (!invoice?.id) return [];
-      const response = await fetch(`/api/invoices/${invoice.id}/line-items`);
-      if (!response.ok) throw new Error("Failed to fetch line items");
-      return response.json();
-    },
+    queryKey: [`/api/invoices/${invoice?.id || 'placeholder'}/line-items`],
     enabled: isEditMode && !!invoice?.id,
   });
 
