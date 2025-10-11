@@ -59,7 +59,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20 flex flex-col items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-center space-x-2">
@@ -112,6 +112,7 @@ export default function Login() {
           </form>
         </CardContent>
       </Card>
+      <p className="text-sm text-muted-foreground mt-6">© 2025 Kitchen Xpress Overseas Inc. All rights reserved.</p>
     </div>
   );
 }
