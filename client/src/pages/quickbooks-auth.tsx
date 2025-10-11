@@ -78,38 +78,41 @@ export default function QuickBooksAuth() {
 
   // Handle OAuth callback
   useEffect(() => {
-    // Parse hash parameters (format: /#/quickbooks/auth#success=true)
+    // Parse hash parameters (format: #/auth/quickbooks#success=true)
     const hash = window.location.hash;
-    const hashParts = hash.split('#');
-    const params = hashParts.length > 2 ? hashParts[2] : ''; // Get the part after the second #
-    const urlParams = new URLSearchParams(params);
-    const success = urlParams.get('success');
-    const error = urlParams.get('error');
+    const lastHashIndex = hash.lastIndexOf('#');
+    
+    if (lastHashIndex > 0) {
+      const params = hash.substring(lastHashIndex + 1);
+      const urlParams = new URLSearchParams(params);
+      const success = urlParams.get('success');
+      const error = urlParams.get('error');
 
-    if (success === 'true') {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Success",
-        description: "QuickBooks connected successfully!",
-      });
-      setIsConnecting(false);
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
-
-    if (error) {
-      let errorMessage = "QuickBooks authentication failed";
-      if (error === 'missing_params') {
-        errorMessage = "Missing required parameters from QuickBooks";
-      } else if (error === 'auth_failed') {
-        errorMessage = "Failed to complete QuickBooks authentication";
+      if (success === 'true') {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        toast({
+          title: "Success",
+          description: "QuickBooks connected successfully!",
+        });
+        setIsConnecting(false);
+        // Clear the success parameter from hash
+        window.location.hash = '/auth/quickbooks';
+        return;
       }
-      setAuthError(errorMessage);
-      setIsConnecting(false);
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
+
+      if (error) {
+        let errorMessage = "QuickBooks authentication failed";
+        if (error === 'missing_params') {
+          errorMessage = "Missing required parameters from QuickBooks";
+        } else if (error === 'auth_failed') {
+          errorMessage = "Failed to complete QuickBooks authentication";
+        }
+        setAuthError(errorMessage);
+        setIsConnecting(false);
+        // Clear the error parameter from hash
+        window.location.hash = '/auth/quickbooks';
+        return;
+      }
     }
   }, [queryClient, toast]);
 
