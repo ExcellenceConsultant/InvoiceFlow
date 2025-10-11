@@ -139,8 +139,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the frontend URL from request origin or environment
       const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || `${req.protocol}://${req.get('host')}`;
       
+      // Check if this is a direct browser request (from QuickBooks) or an API call (from frontend)
+      const isApiCall = req.headers.accept?.includes('application/json') || req.headers['x-requested-with'];
+      
       if (!code || !realmId || !state) {
         console.log("QuickBooks callback missing params:", { code: !!code, realmId: !!realmId, state: !!state });
+        if (isApiCall) {
+          return res.status(400).json({ error: 'missing_params' });
+        }
         return res.redirect(`${origin}/#/quickbooks/auth#error=missing_params`);
       }
 
@@ -175,11 +181,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      console.log("QuickBooks connection successful, redirecting to frontend");
+      console.log("QuickBooks connection successful");
+      
+      if (isApiCall) {
+        return res.json({ success: true });
+      }
       res.redirect(`${origin}/#/quickbooks/auth#success=true`);
     } catch (error) {
       console.error("QuickBooks callback error:", error);
       const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || `${req.protocol}://${req.get('host')}`;
+      const isApiCall = req.headers.accept?.includes('application/json') || req.headers['x-requested-with'];
+      
+      if (isApiCall) {
+        return res.status(500).json({ error: 'auth_failed' });
+      }
       res.redirect(`${origin}/#/quickbooks/auth#error=auth_failed`);
     }
   });

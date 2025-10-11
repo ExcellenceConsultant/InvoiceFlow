@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { RefreshCw } from "lucide-react";
-import { DEFAULT_USER_ID } from "@/lib/constants";
 
 export default function QuickBooksCallback() {
   const [, setLocation] = useLocation();
@@ -14,23 +13,32 @@ export default function QuickBooksCallback() {
         const realmId = urlParams.get('realmId');
         const state = urlParams.get('state');
 
+        console.log("QuickBooks callback params:", { code: !!code, realmId: !!realmId, state: !!state });
+
         if (!code || !realmId || !state) {
-          setLocation("/auth/quickbooks?error=missing_params");
+          window.location.hash = "/auth/quickbooks#error=missing_params";
           return;
         }
 
+        const token = localStorage.getItem("token");
         const response = await fetch(
-          `/api/auth/quickbooks/callback?code=${code}&realmId=${realmId}&state=${state}`
+          `/api/auth/quickbooks/callback?code=${code}&realmId=${realmId}&state=${state}`,
+          {
+            headers: token ? { "Authorization": `Bearer ${token}` } : {},
+            credentials: "include",
+          }
         );
 
+        console.log("QuickBooks callback response:", response.status);
+
         if (response.ok) {
-          setLocation("/auth/quickbooks?success=true");
+          window.location.hash = "/auth/quickbooks#success=true";
         } else {
-          setLocation("/auth/quickbooks?error=auth_failed");
+          window.location.hash = "/auth/quickbooks#error=auth_failed";
         }
       } catch (error) {
         console.error("Callback error:", error);
-        setLocation("/auth/quickbooks?error=auth_failed");
+        window.location.hash = "/auth/quickbooks#error=auth_failed";
       }
     };
 
