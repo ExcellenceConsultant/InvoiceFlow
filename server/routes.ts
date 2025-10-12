@@ -251,8 +251,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ connected: true });
       }
       res.redirect(`${origin}/#/quickbooks/auth#success=true`);
-    } catch (error) {
-      console.error("QuickBooks callback error:", error);
+    } catch (error: any) {
+      console.error("QuickBooks callback error:", {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data,
+      });
       const origin =
         req.headers.origin ||
         req.headers.referer?.split("/").slice(0, 3).join("/") ||
@@ -261,10 +265,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.headers.accept?.includes("application/json") ||
         req.headers["x-requested-with"];
 
+      const errorMessage = error.message || "Authentication failed";
+      const errorType = error.message?.includes("invalid_grant") ? "invalid_grant" : "auth_failed";
       if (isApiCall) {
-        return res.status(500).json({ error: "auth_failed" });
+        return res.status(500).json({ 
+          error: errorType,
+          message: errorMessage,
+        });
       }
-      res.redirect(`${origin}/#/quickbooks/auth#error=auth_failed`);
+      const encodedMessage = encodeURIComponent(errorMessage);
+      res.redirect(`${origin}/#/quickbooks/auth#error=${errorType}&message=${encodedMessage}`);
     }
   });
 

@@ -47,6 +47,7 @@ export default function QuickBooksCallback() {
         const token = localStorage.getItem("token");
         const headers: Record<string, string> = {
           "Accept": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
         };
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
@@ -63,20 +64,27 @@ export default function QuickBooksCallback() {
         console.log("QuickBooks callback response:", response.status);
 
         if (response.ok) {
-          console.log("Redirecting to /quickbooks/sync");
-          setLocation("/quickbooks/sync");
+          const data = await response.json();
+          console.log("QuickBooks connection successful:", data);
+          setLocation("/auth/quickbooks#success=true");
         } else {
-          // Try to get error from response
+          // Get exact error from response (backend always returns JSON with Accept: application/json)
           let errorType = 'auth_failed';
+          let errorMessage = 'Unknown error';
           try {
             const errorData = await response.json();
             if (errorData.error) {
               errorType = errorData.error;
             }
+            if (errorData.message) {
+              errorMessage = errorData.message;
+            }
           } catch (e) {
-            // If can't parse JSON, use default error
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
           }
-          setLocation(`/auth/quickbooks#error=${errorType}`);
+          console.error("QuickBooks callback error:", { errorType, errorMessage });
+          const encodedMessage = encodeURIComponent(errorMessage);
+          setLocation(`/auth/quickbooks#error=${errorType}&message=${encodedMessage}`);
         }
       } catch (error) {
         console.error("Callback error:", error);

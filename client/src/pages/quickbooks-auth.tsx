@@ -87,6 +87,7 @@ export default function QuickBooksAuth() {
       const urlParams = new URLSearchParams(params);
       const success = urlParams.get('success');
       const error = urlParams.get('error');
+      const message = urlParams.get('message');
 
       if (success === 'true') {
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -101,16 +102,27 @@ export default function QuickBooksAuth() {
       }
 
       if (error) {
-        let errorMessage = "QuickBooks authentication failed";
-        if (error === 'missing_params') {
-          errorMessage = "Missing required parameters from QuickBooks";
-        } else if (error === 'auth_failed') {
-          errorMessage = "Failed to complete QuickBooks authentication";
-        } else if (error === 'user_not_found') {
-          errorMessage = "User account not found. Please log out and log in again.";
-        } else if (error === 'update_failed') {
-          errorMessage = "Failed to save QuickBooks connection. Please try again.";
+        // Use the exact message from backend if available
+        let errorMessage = message ? decodeURIComponent(message) : "QuickBooks authentication failed";
+        
+        // Fallback to friendly messages only if no backend message provided
+        if (!message) {
+          if (error === 'missing_params') {
+            errorMessage = "Missing required parameters from QuickBooks. The authorization may have been cancelled or the redirect URI doesn't match.";
+          } else if (error === 'auth_failed') {
+            errorMessage = "Failed to complete QuickBooks authentication. Check server logs for details.";
+          } else if (error === 'user_not_found') {
+            errorMessage = "User account not found. Please log out and log in again.";
+          } else if (error === 'update_failed') {
+            errorMessage = "Failed to save QuickBooks connection. Please try again.";
+          } else if (error === 'invalid_grant') {
+            errorMessage = "Invalid authorization code. The code may have expired or been used already. Please try connecting again.";
+          } else {
+            errorMessage = `QuickBooks authentication failed: ${error}`;
+          }
         }
+        
+        console.error("QuickBooks auth error:", { error, message: errorMessage });
         setAuthError(errorMessage);
         setIsConnecting(false);
         toast({

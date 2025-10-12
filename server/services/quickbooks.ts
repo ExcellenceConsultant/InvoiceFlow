@@ -68,6 +68,7 @@ export class QuickBooksService {
       response_type: 'code',
       access_type: 'offline',
       state,
+      prompt: 'login',
     });
 
     return `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
@@ -105,7 +106,12 @@ export class QuickBooksService {
         status: error.response?.status,
         redirectUri: this.redirectUri,
       });
-      throw new Error('Failed to exchange code for tokens');
+      
+      // Preserve the actual error from QuickBooks API
+      const qbError = error.response?.data?.error || error.response?.data?.error_description || error.message;
+      const enhancedError = new Error(qbError || 'Failed to exchange code for tokens');
+      (enhancedError as any).response = error.response;
+      throw enhancedError;
     }
   }
 
