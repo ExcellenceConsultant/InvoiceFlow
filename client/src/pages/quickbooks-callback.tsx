@@ -60,7 +60,7 @@ export default function QuickBooksCallback() {
         console.log("QuickBooks callback response:", response.status);
 
         if (response.ok) {
-          window.location.href = "#/auth/quickbooks#success=true";
+          window.location.href = "#/quickbooks/sync";
         } else {
           // Try to get error from response
           let errorType = 'auth_failed';
