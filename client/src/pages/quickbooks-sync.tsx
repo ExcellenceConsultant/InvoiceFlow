@@ -7,7 +7,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { DEFAULT_USER_ID } from "@/lib/constants";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export default function QuickBooksSync() {
@@ -18,39 +17,19 @@ export default function QuickBooksSync() {
   const permissions = usePermissions();
 
   const { data: user } = useQuery({
-    queryKey: ["/api/users", DEFAULT_USER_ID],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch user");
-      return response.json();
-    },
+    queryKey: ["/api/auth/user"],
   });
 
   const { data: customers } = useQuery({
     queryKey: ["/api/customers"],
-    queryFn: async () => {
-      const response = await fetch(`/api/customers?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch customers");
-      return response.json();
-    },
   });
 
   const { data: products } = useQuery({
     queryKey: ["/api/products"],
-    queryFn: async () => {
-      const response = await fetch(`/api/products?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      return response.json();
-    },
   });
 
   const { data: invoices } = useQuery({
     queryKey: ["/api/invoices"],
-    queryFn: async () => {
-      const response = await fetch(`/api/invoices?userId=${DEFAULT_USER_ID}`);
-      if (!response.ok) throw new Error("Failed to fetch invoices");
-      return response.json();
-    },
   });
 
   const syncCustomerMutation = useMutation({
@@ -103,21 +82,17 @@ export default function QuickBooksSync() {
     },
   });
 
-  const isConnected = user && user.quickbooksAccessToken && user.quickbooksCompanyId;
-  const syncedCustomers = customers?.filter((c: any) => c.quickbooksCustomerId) || [];
-  const syncedProducts = products?.filter((p: any) => p.quickbooksItemId) || [];
-  const syncedInvoices = invoices?.filter((i: any) => i.quickbooksInvoiceId) || [];
+  const isConnected = (user as any)?.quickbooksAccessToken && (user as any)?.quickbooksCompanyId;
+  const syncedCustomers = (customers as any[])?.filter((c: any) => c.quickbooksCustomerId) || [];
+  const syncedProducts = (products as any[])?.filter((p: any) => p.quickbooksItemId) || [];
+  const syncedInvoices = (invoices as any[])?.filter((i: any) => i.quickbooksInvoiceId) || [];
 
   const checkAccountsMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/quickbooks/accounts');
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch accounts");
-      }
-      return response.json();
+      const response = await apiRequest("GET", '/api/quickbooks/accounts');
+      return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setAccounts(data.accounts || []);
       setShowAccounts(true);
       toast({
@@ -223,7 +198,7 @@ export default function QuickBooksSync() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Customers Synced</p>
-                <p className="text-2xl font-bold">{syncedCustomers.length}/{customers?.length || 0}</p>
+                <p className="text-2xl font-bold">{syncedCustomers.length}/{(customers as any[])?.length || 0}</p>
               </div>
               <Users className="h-8 w-8 text-primary" />
             </div>
@@ -235,7 +210,7 @@ export default function QuickBooksSync() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Products Synced</p>
-                <p className="text-2xl font-bold">{syncedProducts.length}/{products?.length || 0}</p>
+                <p className="text-2xl font-bold">{syncedProducts.length}/{(products as any[])?.length || 0}</p>
               </div>
               <Package className="h-8 w-8 text-primary" />
             </div>
@@ -247,7 +222,7 @@ export default function QuickBooksSync() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Invoices Synced</p>
-                <p className="text-2xl font-bold">{syncedInvoices.length}/{invoices?.length || 0}</p>
+                <p className="text-2xl font-bold">{syncedInvoices.length}/{(invoices as any[])?.length || 0}</p>
               </div>
               <FileText className="h-8 w-8 text-primary" />
             </div>
@@ -271,7 +246,7 @@ export default function QuickBooksSync() {
               Before creating invoices in QuickBooks, you must sync all customers first.
             </p>
             <div className="space-y-2">
-              {customers?.map((customer: any) => (
+              {(customers as any[])?.map((customer: any) => (
                 <div key={customer.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     {customer.quickbooksCustomerId ? (
@@ -323,7 +298,7 @@ export default function QuickBooksSync() {
               After customers, sync all products before creating invoices.
             </p>
             <div className="space-y-2">
-              {products?.map((product: any) => (
+              {(products as any[])?.map((product: any) => (
                 <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     {product.quickbooksItemId ? (
