@@ -56,6 +56,11 @@ export interface IStorage {
   getInvoiceLineItems(invoiceId: string): Promise<InvoiceLineItem[]>;
   createLineItem(lineItem: InsertInvoiceLineItem): Promise<InvoiceLineItem>;
   deleteLineItem(id: string): Promise<boolean>;
+
+  // System Settings (for system-wide QuickBooks config)
+  getSystemSetting(key: string): Promise<any>;
+  setSystemSetting(key: string, value: any): Promise<void>;
+  deleteSystemSetting(key: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -421,6 +426,21 @@ export class MemStorage implements IStorage {
 
   async deleteLineItem(id: string): Promise<boolean> {
     return this.invoiceLineItems.delete(id);
+  }
+
+  // System Settings (for system-wide QuickBooks config)
+  private systemSettings: Map<string, any> = new Map();
+
+  async getSystemSetting(key: string): Promise<any> {
+    return this.systemSettings.get(key);
+  }
+
+  async setSystemSetting(key: string, value: any): Promise<void> {
+    this.systemSettings.set(key, value);
+  }
+
+  async deleteSystemSetting(key: string): Promise<boolean> {
+    return this.systemSettings.delete(key);
   }
 }
 

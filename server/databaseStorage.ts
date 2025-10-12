@@ -8,6 +8,7 @@ import {
   productSchemes,
   invoices,
   invoiceLineItems,
+  systemSettings,
   type User,
   type Customer,
   type Product,
@@ -370,6 +371,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteInvoiceLineItemsByInvoiceId(invoiceId: string): Promise<boolean> {
     const result = await db.delete(invoiceLineItems).where(eq(invoiceLineItems.invoiceId, invoiceId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // System Settings (for system-wide QuickBooks config)
+  async getSystemSetting(key: string): Promise<any> {
+    const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+    return setting?.value;
+  }
+
+  async setSystemSetting(key: string, value: any): Promise<void> {
+    const existing = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+    
+    if (existing.length > 0) {
+      await db.update(systemSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(systemSettings.key, key));
+    } else {
+      await db.insert(systemSettings).values({ key, value });
+    }
+  }
+
+  async deleteSystemSetting(key: string): Promise<boolean> {
+    const result = await db.delete(systemSettings).where(eq(systemSettings.key, key));
     return (result.rowCount || 0) > 0;
   }
 }

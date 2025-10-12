@@ -193,15 +193,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.redirect(`${origin}/#/quickbooks/auth#error=user_not_found`);
       }
 
-      // Clear old tokens before new auth
-      await storage.updateUser(state as string, {
-        quickbooksAccessToken: null,
-        quickbooksRefreshToken: null,
-        quickbooksCompanyId: null,
-        quickbooksCompanyName: null,
-        quickbooksTokenExpiry: null,
-      });
-
       const tokens = await quickBooksService.exchangeCodeForTokens(
         code as string,
         realmId as string,
@@ -223,24 +214,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Failed to fetch company info:", companyInfoError);
       }
 
-      // Update user with QuickBooks tokens and company name
-      const updatedUser = await storage.updateUser(state as string, {
-        quickbooksCompanyId: tokens.companyId,
-        quickbooksCompanyName: companyName,
-        quickbooksAccessToken: tokens.accessToken,
-        quickbooksRefreshToken: tokens.refreshToken,
-        quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
+      // Store QuickBooks config in system settings (system-wide, not per-user)
+      await storage.setSystemSetting("quickbooks_config", {
+        companyId: tokens.companyId,
+        companyName: companyName,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        tokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
-
-      if (!updatedUser) {
-        console.error("QuickBooks callback error: Failed to update user", {
-          userId: state,
-        });
-        if (isApiCall) {
-          return res.status(500).json({ error: "update_failed" });
-        }
-        return res.redirect(`${origin}/#/quickbooks/auth#error=update_failed`);
-      }
 
       console.log("QuickBooks connection successful for user:", {
         userId: state,
@@ -283,16 +264,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req, res) => {
       try {
-        const user = (req as any).user;
-        const userId = user.userId;
-
-        await storage.updateUser(userId, {
-          quickbooksAccessToken: null,
-          quickbooksRefreshToken: null,
-          quickbooksCompanyId: null,
-          quickbooksCompanyName: null,
-          quickbooksTokenExpiry: null,
-        });
+        // Delete system-wide QuickBooks config (affects all users)
+        await storage.deleteSystemSetting("quickbooks_config");
 
         res.json({ success: true });
       } catch (error) {
@@ -1229,13 +1202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Customer not found" });
         }
 
-        let user = await storage.getUser(customer.userId!);
-        if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        // Get system-wide QuickBooks config
+        const qbConfig = await storage.getSystemSetting("quickbooks_config");
+        if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
           return res.status(400).json({ message: "QuickBooks not connected" });
         }
 
         // Ensure tokens are valid and refresh if needed
-        user = await ensureValidTokens(user);
+        const validQbConfig = await ensureValidTokens();
 
         // Step 1: Try to find existing customer by DisplayName
         console.log(`Attempting to sync customer: "${customer.name}"`);
@@ -1243,8 +1217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let qbCustomer;
         try {
           qbCustomer = await quickBooksService.findCustomerByDisplayName(
-            user!.quickbooksAccessToken!,
-            user!.quickbooksCompanyId!,
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
             customer.name,
           );
 
@@ -1280,8 +1254,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           try {
             qbCustomer = await quickBooksService.createCustomer(
-              user!.quickbooksAccessToken!,
-              user!.quickbooksCompanyId!,
+              validQbConfig.accessToken,
+              validQbConfig.companyId,
               qbCustomerData,
             );
 
@@ -1349,13 +1323,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Product not found" });
         }
 
-        let user = await storage.getUser(product.userId!);
-        if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        // Get system-wide QuickBooks config
+        const qbConfig = await storage.getSystemSetting("quickbooks_config");
+        if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
           return res.status(400).json({ message: "QuickBooks not connected" });
         }
 
         // Ensure tokens are valid and refresh if needed
-        user = await ensureValidTokens(user);
+        const validQbConfig = await ensureValidTokens();
 
         // Create unique name to avoid conflicts
         const timestamp = Date.now();
@@ -1365,8 +1340,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
 
         const qbItem = await quickBooksService.createItem(
-          user!.quickbooksAccessToken!,
-          user!.quickbooksCompanyId!,
+          validQbConfig.accessToken,
+          validQbConfig.companyId,
           qbItemData,
         );
 
@@ -1390,17 +1365,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Helper function to ensure valid QuickBooks tokens
-  async function ensureValidTokens(user: any) {
-    if (!user.quickbooksRefreshToken) {
+  // Helper function to ensure valid QuickBooks tokens (system-wide)
+  async function ensureValidTokens() {
+    const qbConfig = await storage.getSystemSetting("quickbooks_config");
+    
+    if (!qbConfig || !qbConfig.refreshToken) {
       throw new Error(
         "No refresh token available. Please reconnect to QuickBooks.",
       );
     }
 
     // Check if token is expired (expires in 1 hour, refresh if less than 5 minutes left)
-    const tokenExpiry = user.quickbooksTokenExpiry
-      ? new Date(user.quickbooksTokenExpiry)
+    const tokenExpiry = qbConfig.tokenExpiry
+      ? new Date(qbConfig.tokenExpiry)
       : new Date(0);
     const now = new Date();
     const timeUntilExpiry = tokenExpiry.getTime() - now.getTime();
@@ -1410,24 +1387,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("QuickBooks token expired or expiring soon, refreshing...");
       try {
         const refreshedTokens = await quickBooksService.refreshAccessToken(
-          user.quickbooksRefreshToken,
+          qbConfig.refreshToken,
         );
 
-        // Update user with new tokens
+        // Update system settings with new tokens
         const expiryTime = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
-        await storage.updateUser(user.id, {
-          quickbooksAccessToken: refreshedTokens.accessToken,
-          quickbooksRefreshToken: refreshedTokens.refreshToken,
-          quickbooksTokenExpiry: expiryTime,
-        });
+        const updatedConfig = {
+          ...qbConfig,
+          accessToken: refreshedTokens.accessToken,
+          refreshToken: refreshedTokens.refreshToken,
+          tokenExpiry: expiryTime,
+        };
+        await storage.setSystemSetting("quickbooks_config", updatedConfig);
 
         console.log("QuickBooks tokens refreshed successfully");
-        return {
-          ...user,
-          quickbooksAccessToken: refreshedTokens.accessToken,
-          quickbooksRefreshToken: refreshedTokens.refreshToken,
-          quickbooksTokenExpiry: expiryTime,
-        };
+        return updatedConfig;
       } catch (tokenError) {
         console.error("Failed to refresh QuickBooks tokens:", tokenError);
         throw new Error(
@@ -1436,7 +1410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
-    return user;
+    return qbConfig;
   }
 
   app.post(
@@ -1449,13 +1423,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Invoice not found" });
         }
 
-        let user = await storage.getUser(invoice.userId!);
-        if (!user || !user.quickbooksAccessToken || !user.quickbooksCompanyId) {
+        // Get system-wide QuickBooks config
+        const qbConfig = await storage.getSystemSetting("quickbooks_config");
+        if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
           return res.status(400).json({ message: "QuickBooks not connected" });
         }
 
         // Ensure tokens are valid and refresh if needed
-        user = await ensureValidTokens(user);
+        const validQbConfig = await ensureValidTokens();
 
         // Check invoice type to determine if it's AR or AP
         const invoiceType = (invoice as any).invoiceType || "receivable"; // Default to receivable for backward compatibility
@@ -1463,10 +1438,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (invoiceType === "receivable") {
           // Handle Accounts Receivable (AR) Invoice
-          return await handleARInvoiceSync(invoice, user, storage, res);
+          return await handleARInvoiceSync(invoice, validQbConfig, storage, res);
         } else if (invoiceType === "payable") {
           // Handle Accounts Payable (AP) Invoice (Bill)
-          return await handleAPInvoiceSync(invoice, user, storage, res);
+          return await handleAPInvoiceSync(invoice, validQbConfig, storage, res);
         } else {
           return res
             .status(400)
@@ -1516,7 +1491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Handle AP Invoice Sync
   async function handleAPInvoiceSync(
     invoice: any,
-    user: any,
+    qbConfig: any,
     storage: any,
     res: any,
   ) {
@@ -1533,7 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const qbVendor = await findOrCreateVendor(
-      user,
+      qbConfig,
       customer.name,
       customer.id,
       storage,
@@ -1620,8 +1595,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Call QuickBooks API to create journal entry
     const qbJournalEntry = await quickBooksService.createJournalEntry(
-      user.quickbooksAccessToken!,
-      user.quickbooksCompanyId!,
+      qbConfig.accessToken,
+      qbConfig.companyId,
       journalEntryData,
     );
 
@@ -1643,7 +1618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function handleARInvoiceSync(
     invoice: any,
-    user: any,
+    qbConfig: any,
     storage: any,
     res: any,
   ) {
@@ -1661,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const qbCustomer = await findOrCreateCustomer(
-      user,
+      qbConfig,
       customer.name,
       customer.id,
       storage,
@@ -1777,8 +1752,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `Retrieving existing journal entry ${invoice.quickbooksInvoiceId} for update`,
       );
       const existingJE = await quickBooksService.getJournalEntry(
-        user.quickbooksAccessToken!,
-        user.quickbooksCompanyId!,
+        qbConfig.accessToken,
+        qbConfig.companyId,
         invoice.quickbooksInvoiceId,
       );
 
@@ -1796,8 +1771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       qbJournalEntry = await quickBooksService.updateJournalEntry(
-        user.quickbooksAccessToken!,
-        user.quickbooksCompanyId!,
+        qbConfig.accessToken,
+        qbConfig.companyId,
         journalEntryData,
       );
     } else {
@@ -1813,8 +1788,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       qbJournalEntry = await quickBooksService.createJournalEntry(
-        user.quickbooksAccessToken!,
-        user.quickbooksCompanyId!,
+        qbConfig.accessToken,
+        qbConfig.companyId,
         journalEntryData,
       );
 
@@ -1848,7 +1823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to find or create customer
   async function findOrCreateCustomer(
-    user: any,
+    qbConfig: any,
     customerName: string,
     customerId: string,
     storage: any,
@@ -1856,8 +1831,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let qbCustomer;
     try {
       qbCustomer = await quickBooksService.findCustomerByDisplayName(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
+        qbConfig.accessToken,
+        qbConfig.companyId,
         customerName,
       );
 
@@ -1882,8 +1857,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
 
     qbCustomer = await quickBooksService.createCustomer(
-      user.quickbooksAccessToken,
-      user.quickbooksCompanyId,
+      qbConfig.accessToken,
+      qbConfig.companyId,
       qbCustomerData,
     );
 
@@ -1896,7 +1871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function findOrCreateVendor(
-    user: any,
+    qbConfig: any,
     vendorName: string,
     customerId: string,
     storage: any,
@@ -1904,8 +1879,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let qbVendor;
     try {
       qbVendor = await quickBooksService.findVendorByDisplayName(
-        user.quickbooksAccessToken,
-        user.quickbooksCompanyId,
+        qbConfig.accessToken,
+        qbConfig.companyId,
         vendorName,
       );
 
@@ -1930,8 +1905,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
 
     qbVendor = await quickBooksService.createVendor(
-      user.quickbooksAccessToken,
-      user.quickbooksCompanyId,
+      qbConfig.accessToken,
+      qbConfig.companyId,
       qbVendorData,
     );
 
@@ -1946,22 +1921,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint to list QuickBooks accounts
   app.get("/api/quickbooks/accounts", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req as any).user.userId;
-      const fetchedUser = await storage.getUser(userId);
-      if (
-        !fetchedUser ||
-        !fetchedUser.quickbooksAccessToken ||
-        !fetchedUser.quickbooksCompanyId
-      ) {
+      // Get system-wide QuickBooks config
+      const qbConfig = await storage.getSystemSetting("quickbooks_config");
+      if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
         return res.status(400).json({ message: "QuickBooks not connected" });
       }
 
       // Ensure tokens are valid and refresh if needed
-      const user = await ensureValidTokens(fetchedUser);
+      const validQbConfig = await ensureValidTokens();
 
       const accounts = await quickBooksService.getAccounts(
-        user.quickbooksAccessToken!,
-        user.quickbooksCompanyId!,
+        validQbConfig.accessToken,
+        validQbConfig.companyId,
       );
 
       // Format accounts for easy reading

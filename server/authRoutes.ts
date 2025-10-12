@@ -98,14 +98,17 @@ export function registerAuthRoutes(app: Express) {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // Get system-wide QuickBooks config (shared across all users)
+      const qbConfig = await storage.getSystemSetting("quickbooks_config");
+
       res.json({
         id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
-        quickbooksCompanyId: user.quickbooksCompanyId,
-        quickbooksCompanyName: user.quickbooksCompanyName,
-        quickbooksTokenExpiry: user.quickbooksTokenExpiry,
+        quickbooksCompanyId: qbConfig?.companyId || null,
+        quickbooksCompanyName: qbConfig?.companyName || null,
+        quickbooksTokenExpiry: qbConfig?.tokenExpiry || null,
       });
     } catch (error) {
       console.error("Error fetching user:", error);
