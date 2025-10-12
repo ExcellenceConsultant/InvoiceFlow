@@ -106,9 +106,18 @@ export default function QuickBooksAuth() {
           errorMessage = "Missing required parameters from QuickBooks";
         } else if (error === 'auth_failed') {
           errorMessage = "Failed to complete QuickBooks authentication";
+        } else if (error === 'user_not_found') {
+          errorMessage = "User account not found. Please log out and log in again.";
+        } else if (error === 'update_failed') {
+          errorMessage = "Failed to save QuickBooks connection. Please try again.";
         }
         setAuthError(errorMessage);
         setIsConnecting(false);
+        toast({
+          title: "Connection Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
         // Clear the error parameter from hash
         window.location.hash = '/auth/quickbooks';
         return;

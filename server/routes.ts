@@ -152,6 +152,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("QuickBooks callback received:", { realmId, state });
 
+      // Verify user exists before proceeding
+      const user = await storage.getUser(state as string);
+      if (!user) {
+        console.error("QuickBooks callback error: User not found", { userId: state });
+        if (isApiCall) {
+          return res.status(404).json({ error: 'user_not_found' });
+        }
+        return res.redirect(`${origin}/#/quickbooks/auth#error=user_not_found`);
+      }
+
       const tokens = await quickBooksService.exchangeCodeForTokens(
         code as string,
         realmId as string
@@ -173,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update user with QuickBooks tokens and company name
-      await storage.updateUser(state as string, {
+      const updatedUser = await storage.updateUser(state as string, {
         quickbooksCompanyId: tokens.companyId,
         quickbooksCompanyName: companyName,
         quickbooksAccessToken: tokens.accessToken,
@@ -181,7 +191,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quickbooksTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
       });
 
-      console.log("QuickBooks connection successful");
+      if (!updatedUser) {
+        console.error("QuickBooks callback error: Failed to update user", { userId: state });
+        if (isApiCall) {
+          return res.status(500).json({ error: 'update_failed' });
+        }
+        return res.redirect(`${origin}/#/quickbooks/auth#error=update_failed`);
+      }
+
+      console.log("QuickBooks connection successful for user:", { userId: state, companyName });
       
       if (isApiCall) {
         return res.json({ success: true });

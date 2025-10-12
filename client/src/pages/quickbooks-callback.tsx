@@ -31,7 +31,17 @@ export default function QuickBooksCallback() {
         if (response.ok) {
           window.location.href = "#/auth/quickbooks#success=true";
         } else {
-          window.location.href = "#/auth/quickbooks#error=auth_failed";
+          // Try to get error from response
+          let errorType = 'auth_failed';
+          try {
+            const errorData = await response.json();
+            if (errorData.error) {
+              errorType = errorData.error;
+            }
+          } catch (e) {
+            // If can't parse JSON, use default error
+          }
+          window.location.href = `#/auth/quickbooks#error=${errorType}`;
         }
       } catch (error) {
         console.error("Callback error:", error);
