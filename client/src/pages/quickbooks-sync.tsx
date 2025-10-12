@@ -86,6 +86,10 @@ export default function QuickBooksSync() {
   const syncedCustomers = (customers as any[])?.filter((c: any) => c.quickbooksCustomerId) || [];
   const syncedProducts = (products as any[])?.filter((p: any) => p.quickbooksItemId) || [];
   const syncedInvoices = (invoices as any[])?.filter((i: any) => i.quickbooksInvoiceId) || [];
+  
+  const restrictedUsers = ["mananyadav", "sales"];
+  const isRestrictedUser = restrictedUsers.includes((user as any)?.username || "");
+  const canEditSync = !isRestrictedUser && permissions.canPostToQuickBooks;
 
   const checkAccountsMutation = useMutation({
     mutationFn: async () => {
@@ -130,13 +134,24 @@ export default function QuickBooksSync() {
           Sync your customers, products, and invoices to QuickBooks in the correct order.
         </p>
         
+        {/* Restricted User Notice */}
+        {isRestrictedUser && (
+          <Alert className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You have read-only access to this page. Contact an administrator to perform sync operations.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {/* Debug: Check QuickBooks Accounts */}
         <div className="flex gap-4 mt-4">
           <Button 
             onClick={() => checkAccountsMutation.mutate()}
-            disabled={checkAccountsMutation.isPending || !permissions.canPostToQuickBooks}
+            disabled={checkAccountsMutation.isPending || !canEditSync}
             variant="outline"
             size="sm"
+            data-testid="button-check-qb-accounts"
           >
             <Search className="mr-2 h-4 w-4" />
             {checkAccountsMutation.isPending ? "Loading..." : "Debug: Check QB Accounts"}
@@ -146,7 +161,8 @@ export default function QuickBooksSync() {
               onClick={() => setShowAccounts(false)}
               variant="ghost"
               size="sm"
-              disabled={!permissions.canPostToQuickBooks}
+              disabled={!canEditSync}
+              data-testid="button-hide-accounts"
             >
               Hide Accounts
             </Button>
@@ -266,7 +282,8 @@ export default function QuickBooksSync() {
                       <Button
                         size="sm"
                         onClick={() => syncCustomerMutation.mutate(customer.id)}
-                        disabled={syncCustomerMutation.isPending || !permissions.canPostToQuickBooks}
+                        disabled={syncCustomerMutation.isPending || !canEditSync}
+                        data-testid={`button-sync-customer-${customer.id}`}
                       >
                         <Upload className="h-4 w-4 mr-1" />
                         Sync
@@ -318,7 +335,8 @@ export default function QuickBooksSync() {
                       <Button
                         size="sm"
                         onClick={() => syncProductMutation.mutate(product.id)}
-                        disabled={syncProductMutation.isPending || !permissions.canPostToQuickBooks}
+                        disabled={syncProductMutation.isPending || !canEditSync}
+                        data-testid={`button-sync-product-${product.id}`}
                       >
                         <Upload className="h-4 w-4 mr-1" />
                         Sync
