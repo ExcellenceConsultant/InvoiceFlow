@@ -9,7 +9,7 @@ export default function Navbar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
-  const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
+  const isQuickBooksConnected = !!user?.quickbooksCompanyId;
 
   return (
     <nav className="bg-card/80 glass-effect border-b border-border backdrop-blur-lg sticky top-0 z-50" data-testid="navbar">

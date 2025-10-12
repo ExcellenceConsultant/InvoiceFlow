@@ -1946,7 +1946,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint to list QuickBooks accounts
   app.get("/api/quickbooks/accounts", isAuthenticated, async (req, res) => {
     try {
-      const fetchedUser = await storage.getUser("user-1");
+      const userId = (req as any).user.userId;
+      const fetchedUser = await storage.getUser(userId);
       if (
         !fetchedUser ||
         !fetchedUser.quickbooksAccessToken ||
