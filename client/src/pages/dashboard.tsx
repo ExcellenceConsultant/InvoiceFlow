@@ -47,7 +47,7 @@ export default function Dashboard() {
     queryKey: ["/api/quickbooks/journal-entry-count"],
   });
 
-  const isQuickBooksConnected = user?.quickbooksAccessToken && user?.quickbooksCompanyId;
+  const isQuickBooksConnected = !!user?.quickbooksCompanyId;
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {

@@ -72,7 +72,7 @@ export default function QuickBooksAuth() {
     }
   };
 
-  const isConnected = (user as any)?.quickbooksAccessToken && (user as any)?.quickbooksCompanyId;
+  const isConnected = !!(user as any)?.quickbooksCompanyId;
   const tokenExpiry = (user as any)?.quickbooksTokenExpiry ? new Date((user as any).quickbooksTokenExpiry) : null;
   const isTokenExpired = tokenExpiry ? tokenExpiry < new Date() : false;
 

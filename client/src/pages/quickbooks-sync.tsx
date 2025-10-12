@@ -82,7 +82,7 @@ export default function QuickBooksSync() {
     },
   });
 
-  const isConnected = (user as any)?.quickbooksAccessToken && (user as any)?.quickbooksCompanyId;
+  const isConnected = !!(user as any)?.quickbooksCompanyId;
   const syncedCustomers = (customers as any[])?.filter((c: any) => c.quickbooksCustomerId) || [];
   const syncedProducts = (products as any[])?.filter((p: any) => p.quickbooksItemId) || [];
   const syncedInvoices = (invoices as any[])?.filter((i: any) => i.quickbooksInvoiceId) || [];

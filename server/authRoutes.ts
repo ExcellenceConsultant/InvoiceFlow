@@ -103,6 +103,9 @@ export function registerAuthRoutes(app: Express) {
         username: user.username,
         email: user.email,
         role: user.role,
+        quickbooksCompanyId: user.quickbooksCompanyId,
+        quickbooksCompanyName: user.quickbooksCompanyName,
+        quickbooksTokenExpiry: user.quickbooksTokenExpiry,
       });
     } catch (error) {
       console.error("Error fetching user:", error);
