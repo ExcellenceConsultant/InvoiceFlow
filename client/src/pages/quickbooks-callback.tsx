@@ -18,10 +18,17 @@ export default function QuickBooksCallback() {
         }
 
         const token = localStorage.getItem("token");
+        const headers: Record<string, string> = {
+          "Accept": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        
         const response = await fetch(
           `/api/auth/quickbooks/callback?code=${code}&realmId=${realmId}&state=${state}`,
           {
-            headers: token ? { "Authorization": `Bearer ${token}` } : {},
+            headers,
             credentials: "include",
           }
         );
