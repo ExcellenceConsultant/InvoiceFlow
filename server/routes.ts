@@ -537,17 +537,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/schemes", isAuthenticated, async (req, res) => {
     try {
-      const validation = insertProductSchemeSchema.extend({
-        userId: z.string(),
-      }).safeParse(req.body);
+      const user = (req as any).user;
+      const validation = insertProductSchemeSchema.safeParse(req.body);
       
       if (!validation.success) {
         return res.status(400).json({ message: "Invalid scheme data", errors: validation.error.errors });
       }
 
-      const scheme = await storage.createScheme(validation.data);
+      const scheme = await storage.createScheme({
+        ...validation.data,
+        userId: user.userId,
+      });
       res.json(scheme);
     } catch (error) {
+      console.error("Error creating scheme:", error);
       res.status(500).json({ message: "Failed to create scheme" });
     }
   });

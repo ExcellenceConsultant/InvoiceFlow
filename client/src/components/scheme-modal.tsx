@@ -74,7 +74,6 @@ export default function SchemeModal({ onClose, onSuccess, scheme }: Props) {
       const response = await apiRequest(method, endpoint, {
         ...data,
         productIds: selectedProducts,
-        userId: DEFAULT_USER_ID,
         isActive: scheme?.isActive ?? true,
       });
       return response.json();
