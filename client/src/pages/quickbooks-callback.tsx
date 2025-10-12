@@ -1,7 +1,10 @@
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { RefreshCw } from "lucide-react";
 
 export default function QuickBooksCallback() {
+  const [, setLocation] = useLocation();
+
   useEffect(() => {
     const handleCallback = async () => {
       try {
@@ -37,7 +40,7 @@ export default function QuickBooksCallback() {
         console.log("=================================");
 
         if (!code || !realmId || !state) {
-          window.location.href = "#/auth/quickbooks#error=missing_params";
+          setLocation("/auth/quickbooks#error=missing_params");
           return;
         }
 
@@ -60,7 +63,8 @@ export default function QuickBooksCallback() {
         console.log("QuickBooks callback response:", response.status);
 
         if (response.ok) {
-          window.location.href = "#/quickbooks/sync";
+          console.log("Redirecting to /quickbooks/sync");
+          setLocation("/quickbooks/sync");
         } else {
           // Try to get error from response
           let errorType = 'auth_failed';
@@ -72,16 +76,16 @@ export default function QuickBooksCallback() {
           } catch (e) {
             // If can't parse JSON, use default error
           }
-          window.location.href = `#/auth/quickbooks#error=${errorType}`;
+          setLocation(`/auth/quickbooks#error=${errorType}`);
         }
       } catch (error) {
         console.error("Callback error:", error);
-        window.location.href = "#/auth/quickbooks#error=auth_failed";
+        setLocation("/auth/quickbooks#error=auth_failed");
       }
     };
 
     handleCallback();
-  }, []);
+  }, [setLocation]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">
