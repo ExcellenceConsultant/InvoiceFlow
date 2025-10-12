@@ -1281,14 +1281,23 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                         <SelectValue placeholder="Select Product" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {products?.map((product: any) => (
-                                          <SelectItem
-                                            key={product.id}
-                                            value={product.id}
-                                          >
-                                            {product.name}
-                                          </SelectItem>
-                                        ))}
+                                        {products
+                                          ?.filter((product: any) => {
+                                            // If scheme has specific products, only show those
+                                            if (scheme.productIds && scheme.productIds.length > 0) {
+                                              return scheme.productIds.includes(product.id);
+                                            }
+                                            // Otherwise show all products
+                                            return true;
+                                          })
+                                          ?.map((product: any) => (
+                                            <SelectItem
+                                              key={product.id}
+                                              value={product.id}
+                                            >
+                                              {product.name}
+                                            </SelectItem>
+                                          ))}
                                       </SelectContent>
                                     </Select>
                                   </div>
