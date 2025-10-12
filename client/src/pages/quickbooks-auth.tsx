@@ -262,6 +262,40 @@ export default function QuickBooksAuth() {
         </CardContent>
       </Card>
 
+      {/* Configuration Guide */}
+      <Card className="mb-8" data-testid="configuration-guide-card">
+        <CardHeader>
+          <CardTitle>Configuration Requirements</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Important:</strong> The Redirect URI in your Intuit Developer account must match exactly:
+              <code className="block mt-2 p-2 bg-muted rounded text-sm">
+                {window.location.origin}/callback
+              </code>
+              <p className="mt-2 text-xs">
+                Case-sensitive. No trailing slash. Must use {window.location.protocol}//
+              </p>
+            </AlertDescription>
+          </Alert>
+          
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              To configure your QuickBooks app:
+            </p>
+            <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-2">
+              <li>Go to <a href="https://developer.intuit.com/app/developer/myapps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Intuit Developer Dashboard</a></li>
+              <li>Select your app and go to Keys & OAuth</li>
+              <li>Add the Redirect URI shown above to your app's settings</li>
+              <li>Make sure the environment (Production/Sandbox) matches: <strong>{import.meta.env.QUICKBOOKS_ENVIRONMENT || 'production'}</strong></li>
+              <li>Save changes and try connecting again</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* How It Works */}
       <Card className="mb-8" data-testid="how-it-works-card">
         <CardHeader>
