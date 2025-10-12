@@ -153,6 +153,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code, realmId, state } = req.query;
 
+      // Log request query params (excluding sensitive code)
+      console.log("QuickBooks callback params:", { realmId, state, hasCode: !!code });
+
       // Get the frontend URL from request origin or environment
       const origin =
         req.headers.origin ||
@@ -189,6 +192,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         return res.redirect(`${origin}/#/quickbooks/auth#error=user_not_found`);
       }
+
+      // Clear old tokens before new auth
+      await storage.updateUser(state as string, {
+        quickbooksAccessToken: null,
+        quickbooksRefreshToken: null,
+        quickbooksCompanyId: null,
+        quickbooksCompanyName: null,
+        quickbooksTokenExpiry: null,
+      });
 
       const tokens = await quickBooksService.exchangeCodeForTokens(
         code as string,
@@ -236,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (isApiCall) {
-        return res.json({ success: true });
+        return res.json({ connected: true });
       }
       res.redirect(`${origin}/#/quickbooks/auth#success=true`);
     } catch (error) {

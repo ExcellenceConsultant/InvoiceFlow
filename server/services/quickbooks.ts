@@ -98,8 +98,13 @@ export class QuickBooksService {
         expiresIn: response.data.expires_in,
         companyId: realmId,
       };
-    } catch (error) {
-      console.error('QuickBooks token exchange failed:', error);
+    } catch (error: any) {
+      console.error('QuickBooks token exchange failed:', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        redirectUri: this.redirectUri,
+      });
       throw new Error('Failed to exchange code for tokens');
     }
   }
