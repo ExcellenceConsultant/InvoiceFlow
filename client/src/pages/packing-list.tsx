@@ -266,45 +266,69 @@ export default function PackingList() {
     });
   });
 
-  // Dynamic Pagination: Optimized for A4 with 10mm margins - fit maximum rows per page
-  const ROWS_PER_PAGE = 35; // Increased from 21 to utilize full A4 page with new margins
-  const MAX_ROWS_WITH_SUMMARY = 32; // If <= 32 rows, fit everything on one page with summary
+  // Dynamic Pagination: Optimized for A4 with 10mm margins
+  // Set rows per page to 25 for optimal viewing and printing (prevents overflow)
+  const ROWS_PER_PAGE = 25;
+  const MAX_ROWS_SINGLE_PAGE = 25; // Max rows that fit on one page with summary
   const totalRows = allRows.length;
   
   const pages: { rows: PackingRow[]; emptyCount: number; showSummary: boolean }[] = [];
   
   // If total rows fit on one page with summary, create single page
-  if (totalRows <= MAX_ROWS_WITH_SUMMARY) {
+  if (totalRows <= MAX_ROWS_SINGLE_PAGE) {
     pages.push({ rows: allRows, emptyCount: 0, showSummary: true });
   } else {
-    // Otherwise, paginate with 35 rows per page
-    let currentPageRows: PackingRow[] = [];
-    let rowCountOnCurrentPage = 0;
-
-    allRows.forEach((row) => {
-      currentPageRows.push(row);
-      rowCountOnCurrentPage++;
-
-      // If we've reached 35 total rows, create a page
-      if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
-        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
-        currentPageRows = [];
-        rowCountOnCurrentPage = 0;
+    // Smart pagination: keep category headers with their items across pages
+    let currentIndex = 0;
+    let currentCategory: string | null = null;
+    
+    while (currentIndex < totalRows) {
+      let pageEndIndex = Math.min(currentIndex + ROWS_PER_PAGE, totalRows);
+      let pageRows: PackingRow[] = [];
+      
+      // Check if the last row on this page would be a category header
+      // If so, move it to the next page to keep it with its items
+      if (pageEndIndex < totalRows && allRows[pageEndIndex - 1].type === 'category') {
+        pageEndIndex--;
       }
-    });
-
-    // Add remaining items as last page with summary
-    if (currentPageRows.length > 0) {
-      pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: true });
-    }
-
-    // If no remaining items, add a page just for summary
-    if (currentPageRows.length === 0 && pages.length > 0) {
-      pages.push({ rows: [], emptyCount: 0, showSummary: true });
+      
+      // Get the slice for this page
+      const slicedRows = allRows.slice(currentIndex, pageEndIndex);
+      
+      // Check if we're starting mid-category (first row is an item, not a category)
+      if (slicedRows.length > 0 && slicedRows[0].type === 'item' && currentCategory) {
+        // Prepend the current category header to maintain context
+        pageRows.push({ type: 'category', category: currentCategory });
+      }
+      
+      // Add all rows from the slice
+      pageRows.push(...slicedRows);
+      
+      // Update current category by finding the last category header on this page
+      for (let i = pageRows.length - 1; i >= 0; i--) {
+        const row = pageRows[i];
+        if (row.type === 'category') {
+          currentCategory = row.category;
+          break;
+        }
+      }
+      
+      const isLastPage = pageEndIndex >= totalRows;
+      
+      // Only add page if it has rows
+      if (pageRows.length > 0) {
+        pages.push({ 
+          rows: pageRows, 
+          emptyCount: 0, 
+          showSummary: isLastPage 
+        });
+      }
+      
+      currentIndex = pageEndIndex;
     }
   }
 
-  // If no items at all, create one page with summary
+  // Ensure we always have at least one page
   if (pages.length === 0) {
     pages.push({ rows: [], emptyCount: 0, showSummary: true });
   }
