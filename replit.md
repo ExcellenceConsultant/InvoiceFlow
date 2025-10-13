@@ -6,7 +6,7 @@ InvoiceFlow is a comprehensive invoice management application built with a moder
 
 ## Current Status - All Systems Working ✅
 
-**Last Updated**: October 9, 2025
+**Last Updated**: October 13, 2025
 
 All major functionality is fully operational:
 
@@ -22,6 +22,9 @@ All major functionality is fully operational:
 - **Invoice Type Support**: Both receivable (AR) and payable (AP) invoice types with proper categorization
 - **Invoice PDF Export/Print**: Professional invoice printing with PDF generation capability (displays Item Code)
 - **Invoice Discount Feature**: Editable discount field with 2% automatic default, properly reflected in all calculations and journal entries
+- **Dashboard AR/AP Split**: Separate Total Revenue (AR invoices) and Total Purchase (AP invoices) cards with proper calculations
+- **Packing List Smart Pagination**: 25 rows per page with category header duplication across pages for context
+- **Role-Based Account Management**: Delete and inactive operations restricted to super_admin and admin roles only
 
 ### 📄 Invoice PDF/Print Formatting (Latest Implementation)
 
