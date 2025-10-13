@@ -13,7 +13,7 @@ import {
   insertInvoiceSchema,
   insertInvoiceLineItemSchema,
 } from "@shared/schema";
-import { isAuthenticated } from "./auth";
+import { isAuthenticated, requireRole } from "./auth";
 import { registerAuthRoutes } from "./authRoutes";
 
 // Configure multer for file uploads (memory storage) with limits
@@ -316,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/customers/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/customers/:id", isAuthenticated, requireRole(['super_admin', 'admin']), async (req, res) => {
     try {
       const customer = await storage.updateCustomer(req.params.id, req.body);
       if (!customer) {
@@ -328,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customers/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/customers/:id", isAuthenticated, requireRole(['super_admin', 'admin']), async (req, res) => {
     try {
       const success = await storage.deleteCustomer(req.params.id);
       if (!success) {

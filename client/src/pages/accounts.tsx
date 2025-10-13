@@ -177,10 +177,19 @@ export default function Accounts() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const response = await fetch(`/api/customers/${id}`, {
         method: "DELETE",
+        headers,
       });
-      if (!response.ok) throw new Error("Delete failed");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Delete failed" }));
+        throw new Error(error.message || "Delete failed");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -190,10 +199,12 @@ export default function Accounts() {
         description: "Account deleted successfully",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to delete account",
+        description: error.message === "Forbidden" 
+          ? "You don't have permission to delete accounts" 
+          : error.message || "Failed to delete account",
         variant: "destructive",
       });
     },
@@ -202,12 +213,22 @@ export default function Accounts() {
   // Toggle active mutation
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const response = await fetch(`/api/customers/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ isActive: !isActive }),
       });
-      if (!response.ok) throw new Error("Update failed");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Update failed" }));
+        throw new Error(error.message || "Update failed");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -217,10 +238,12 @@ export default function Accounts() {
         description: "Account status updated successfully",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update account status",
+        description: error.message === "Forbidden" 
+          ? "You don't have permission to update account status" 
+          : error.message || "Failed to update account status",
         variant: "destructive",
       });
     },
@@ -251,13 +274,29 @@ export default function Accounts() {
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
+      const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const promises = ids.map(id => 
-        fetch(`/api/customers/${id}`, { method: "DELETE" })
+        fetch(`/api/customers/${id}`, { method: "DELETE", headers })
+          .then(async res => {
+            if (!res.ok) {
+              const error = await res.json().catch(() => ({ message: "Delete failed" }));
+              throw new Error(error.message || "Delete failed");
+            }
+            return res.json();
+          })
       );
       const results = await Promise.allSettled(promises);
-      const failed = results.filter(r => r.status === "rejected").length;
-      if (failed > 0) {
-        throw new Error(`Failed to delete ${failed} account(s)`);
+      const failed = results.filter(r => r.status === "rejected");
+      if (failed.length > 0) {
+        const firstError = failed[0].status === "rejected" ? (failed[0].reason as Error).message : "Unknown error";
+        if (firstError === "Forbidden") {
+          throw new Error("You don't have permission to delete accounts");
+        }
+        throw new Error(`Failed to delete ${failed.length} account(s)`);
       }
       return results;
     },
