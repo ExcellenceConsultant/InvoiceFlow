@@ -1,4 +1,4 @@
-import { DollarSign, FileText, Package, Gift, TrendingUp, AlertTriangle } from "lucide-react";
+import { DollarSign, FileText, Package, Gift, TrendingUp, AlertTriangle, ShoppingCart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,8 +9,8 @@ export default function StatsCards() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        {[1, 2, 3, 4, 5].map((i) => (
           <Card key={i} className="stats-card animate-pulse" data-testid={`stats-card-skeleton-${i}`}>
             <CardContent className="p-6">
               <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
@@ -27,12 +27,22 @@ export default function StatsCards() {
     {
       title: "Total Revenue",
       value: `$${stats?.totalRevenue || "0.00"}`,
-      change: "+12.5%",
-      changeText: "from last month",
+      change: "AR Invoices",
+      changeText: "",
       icon: DollarSign,
       iconBg: "bg-primary/10",
       iconColor: "text-primary",
       testId: "stats-revenue",
+    },
+    {
+      title: "Total Purchase",
+      value: `$${stats?.totalPurchase || "0.00"}`,
+      change: "AP Invoices",
+      changeText: "",
+      icon: ShoppingCart,
+      iconBg: "bg-orange-500/10",
+      iconColor: "text-orange-500",
+      testId: "stats-purchase",
     },
     {
       title: "Active Invoices",
@@ -68,7 +78,7 @@ export default function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
       {statsData.map((stat, index) => (
         <Card 
           key={stat.testId} 
