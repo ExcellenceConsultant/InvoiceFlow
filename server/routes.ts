@@ -1968,14 +1968,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schemes = await storage.getProductSchemes(userId);
 
       // Calculate total revenue from AR (receivable) invoices only
-      const totalRevenue = invoices
-        .filter((invoice) => invoice.invoiceType === "receivable")
-        .reduce((sum, invoice) => sum + parseFloat(invoice.total), 0);
+      const receivableInvoices = invoices.filter((invoice) => invoice.invoiceType === "receivable");
+      const totalRevenue = receivableInvoices.reduce((sum, invoice) => sum + parseFloat(invoice.total), 0);
+      console.log(`[STATS] AR Invoices: ${receivableInvoices.length}, Total Revenue: $${totalRevenue.toFixed(2)}`);
 
       // Calculate total purchase from AP (payable) invoices only
-      const totalPurchase = invoices
-        .filter((invoice) => invoice.invoiceType === "payable")
-        .reduce((sum, invoice) => sum + parseFloat(invoice.total), 0);
+      const payableInvoices = invoices.filter((invoice) => invoice.invoiceType === "payable");
+      const totalPurchase = payableInvoices.reduce((sum, invoice) => sum + parseFloat(invoice.total), 0);
+      console.log(`[STATS] AP Invoices: ${payableInvoices.length}, Total Purchase: $${totalPurchase.toFixed(2)}`);
 
       // Count active invoices (sent or draft status)
       const activeInvoices = invoices.filter(
