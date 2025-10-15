@@ -844,9 +844,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`,
                 );
+                
+                // Update Base Price if the rate is different from current Base Price
+                const newRate = parseFloat(item.unitPrice);
+                const currentBasePrice = parseFloat(currentProduct.basePrice);
+                
+                if (newRate !== currentBasePrice) {
+                  console.log(
+                    `Updating Base Price for product ${currentProduct.name}: $${currentBasePrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    basePrice: item.unitPrice 
+                  });
+                } else {
+                  // Base Price unchanged, only update quantity
+                  await storage.updateProduct(item.productId, { qty: newQty });
+                }
+                continue; // Skip the default update below
               }
 
-              // Update the product quantity
+              // Update the product quantity (for AR invoices)
               await storage.updateProduct(item.productId, { qty: newQty });
             }
           } catch (inventoryError) {
@@ -1146,7 +1164,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`,
                 );
-                await storage.updateProduct(item.productId, { qty: newQty });
+                
+                // Update Base Price if the rate is different from current Base Price
+                const newRate = parseFloat(item.unitPrice);
+                const currentBasePrice = parseFloat(currentProduct.basePrice);
+                
+                if (newRate !== currentBasePrice) {
+                  console.log(
+                    `Updating Base Price for product ${currentProduct.name}: $${currentBasePrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    basePrice: item.unitPrice 
+                  });
+                } else {
+                  // Base Price unchanged, only update quantity
+                  await storage.updateProduct(item.productId, { qty: newQty });
+                }
               }
             } catch (inventoryError) {
               console.error(
