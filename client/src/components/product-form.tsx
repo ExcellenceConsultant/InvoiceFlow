@@ -16,6 +16,7 @@ const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().optional(),
   basePrice: z.number().min(0, "Price must be positive"),
+  salesPrice: z.number().min(0, "Sales price must be positive").optional(),
   category: z.string().optional(),
   itemCode: z.string().optional(),
   packingSize: z.string().optional(),
@@ -42,6 +43,7 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
       name: product?.name || "",
       description: product?.description || "",
       basePrice: product ? parseFloat(product.basePrice) : 0,
+      salesPrice: product?.salesPrice ? parseFloat(product.salesPrice) : 0,
       category: product?.category || "",
       itemCode: product?.itemCode || "",
       packingSize: product?.packingSize || "",
@@ -60,6 +62,7 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
       const payload = {
         ...data,
         basePrice: data.basePrice.toString(),
+        salesPrice: data.salesPrice?.toString() || null,
         grossWeight: data.grossWeight?.toString() || null,
         netWeight: data.netWeight?.toString() || null,
       };
@@ -146,20 +149,38 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="basePrice">Base Price (USD) *</Label>
-                <Input
-                  id="basePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  data-testid="input-product-price"
-                  {...form.register("basePrice", { valueAsNumber: true })}
-                />
-                {form.formState.errors.basePrice && (
-                  <p className="text-sm text-red-500">{form.formState.errors.basePrice.message}</p>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="basePrice">Base Price (USD) *</Label>
+                  <Input
+                    id="basePrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    data-testid="input-product-price"
+                    {...form.register("basePrice", { valueAsNumber: true })}
+                  />
+                  {form.formState.errors.basePrice && (
+                    <p className="text-sm text-red-500">{form.formState.errors.basePrice.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="salesPrice">Sales Price (USD)</Label>
+                  <Input
+                    id="salesPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    data-testid="input-sales-price"
+                    {...form.register("salesPrice", { valueAsNumber: true })}
+                  />
+                  {form.formState.errors.salesPrice && (
+                    <p className="text-sm text-red-500">{form.formState.errors.salesPrice.message}</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">

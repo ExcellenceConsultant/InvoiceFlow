@@ -231,10 +231,11 @@ export default function Inventory() {
               category: cleanString(row[4]) || 'Imported', // Category
               qty: cleanInteger(row[5]), // Qty (as integer)
               basePrice: cleanNumber(row[6]), // Base Price
-              grossWeight: cleanString(row[7]) || null, // Gross Weight (LBS)
-              netWeight: cleanString(row[8]) || null, // Net Weight (LBS)
-              schemeDescription: cleanString(row[9]) || null, // Scheme Description
-              cartoonBarcode: cleanString(row[10]) || null, // Cartoon Barcode
+              salesPrice: cleanNumber(row[7]), // Sales Price
+              grossWeight: cleanString(row[8]) || null, // Gross Weight (LBS)
+              netWeight: cleanString(row[9]) || null, // Net Weight (LBS)
+              schemeDescription: cleanString(row[10]) || null, // Scheme Description
+              cartoonBarcode: cleanString(row[11]) || null, // Cartoon Barcode
               description: 'Imported from Excel',
             };
             
@@ -272,7 +273,7 @@ export default function Inventory() {
         } else {
           toast({
             title: "No Valid Data",
-            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Gross Weight(LBS), Net Weight(LBS), Scheme Description`,
+            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Sales Price, Gross Weight(LBS), Net Weight(LBS), Scheme Description, CARTOON BARCODE`,
             variant: "destructive",
           });
         }
@@ -325,6 +326,7 @@ export default function Inventory() {
         'Category': product.category || '',
         'Qty': product.qty || 0,
         'Base Price': parseFloat(product.basePrice || 0).toFixed(2),
+        'Sales Price': parseFloat(product.salesPrice || 0).toFixed(2),
         'Gross Weight(LBS)': product.grossWeight || '',
         'Net Weight(LBS)': product.netWeight || '',
         'Scheme Description': product.schemeDescription || '',
@@ -678,6 +680,7 @@ export default function Inventory() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Qty</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Base Price</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Sales Price</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight(LBS)</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Net Weight(LBS)</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Scheme Description</th>
@@ -726,6 +729,9 @@ export default function Inventory() {
                         </td>
                         <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-price-${product.id}`}>
                           ${parseFloat(product.basePrice || 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground" data-testid={`product-sales-price-${product.id}`}>
+                          ${parseFloat(product.salesPrice || 0).toFixed(2)}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-gross-weight-${product.id}`}>
                           {product.grossWeight || '-'}
