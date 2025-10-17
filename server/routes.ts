@@ -837,6 +837,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`,
                 );
+                
+                // Update Sales Price if the rate is different from current Sales Price
+                const newRate = parseFloat(item.unitPrice);
+                const currentSalesPrice = parseFloat(currentProduct.salesPrice || "0");
+                
+                if (newRate !== currentSalesPrice) {
+                  console.log(
+                    `Updating Sales Price for product ${currentProduct.name}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    salesPrice: item.unitPrice 
+                  });
+                } else {
+                  // Sales Price unchanged, only update quantity
+                  await storage.updateProduct(item.productId, { qty: newQty });
+                }
+                continue; // Skip the default update below
               }
               // AP Invoice (payable): Increase inventory (buying from supplier)
               else if (invoice.invoiceType === "payable") {
@@ -864,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue; // Skip the default update below
               }
 
-              // Update the product quantity (for AR invoices)
+              // This should not be reached due to continue statements above
               await storage.updateProduct(item.productId, { qty: newQty });
             }
           } catch (inventoryError) {
@@ -1204,7 +1222,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
                 );
-                await storage.updateProduct(item.productId, { qty: newQty });
+                
+                // Update Sales Price if the rate is different from current Sales Price
+                const newRate = parseFloat(item.unitPrice);
+                const currentSalesPrice = parseFloat(currentProduct.salesPrice || "0");
+                
+                if (newRate !== currentSalesPrice) {
+                  console.log(
+                    `Updating Sales Price for product ${currentProduct.name}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    salesPrice: item.unitPrice 
+                  });
+                } else {
+                  // Sales Price unchanged, only update quantity
+                  await storage.updateProduct(item.productId, { qty: newQty });
+                }
               }
             } catch (inventoryError) {
               console.error(
@@ -2071,6 +2105,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res
           .status(500)
           .json({ message: "Failed to fetch journal entry count" });
+      }
+    },
+  );
+
+  // Migration endpoint: Update Sales Price from existing AR invoices
+  app.post(
+    "/api/migrate/sales-price-from-ar-invoices",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        
+        console.log("Starting Sales Price migration from existing AR invoices...");
+        
+        // Get all AR invoices
+        const allInvoices = await storage.getInvoices(userId);
+        const arInvoices = allInvoices.filter((invoice) => invoice.invoiceType === "receivable");
+        
+        console.log(`Found ${arInvoices.length} AR invoices to process`);
+        
+        let updatedProductsCount = 0;
+        const productUpdates = new Map<string, { productId: string; salesPrice: string; productName: string }>();
+        
+        // Process each AR invoice
+        for (const invoice of arInvoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+          
+          for (const item of lineItems) {
+            if (item.productId && item.productId.trim() !== "") {
+              const product = await storage.getProduct(item.productId);
+              
+              if (product) {
+                const newRate = parseFloat(item.unitPrice);
+                const currentSalesPrice = parseFloat(product.salesPrice || "0");
+                
+                // Track the latest rate for each product (last invoice wins)
+                if (newRate !== currentSalesPrice) {
+                  productUpdates.set(item.productId, {
+                    productId: item.productId,
+                    salesPrice: item.unitPrice,
+                    productName: product.name,
+                  });
+                }
+              }
+            }
+          }
+        }
+        
+        // Apply all updates
+        for (const update of Array.from(productUpdates.values())) {
+          const product = await storage.getProduct(update.productId);
+          if (product) {
+            const currentSalesPrice = parseFloat(product.salesPrice || "0");
+            const newRate = parseFloat(update.salesPrice);
+            
+            console.log(
+              `Updating Sales Price for product ${update.productName}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+            );
+            
+            await storage.updateProduct(update.productId, {
+              salesPrice: update.salesPrice,
+            });
+            
+            updatedProductsCount++;
+          }
+        }
+        
+        console.log(`Migration complete: Updated Sales Price for ${updatedProductsCount} products`);
+        
+        res.json({
+          success: true,
+          message: `Successfully updated Sales Price for ${updatedProductsCount} products from existing AR invoices`,
+          updatedCount: updatedProductsCount,
+        });
+      } catch (error) {
+        console.error("Sales Price migration error:", error);
+        const err = error as any;
+        res
+          .status(500)
+          .json({ message: "Failed to migrate Sales Price", error: err.message });
       }
     },
   );
