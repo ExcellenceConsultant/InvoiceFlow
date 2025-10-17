@@ -1,275 +1,65 @@
 # InvoiceFlow - Invoice Management System
 
 ## Overview
-
-InvoiceFlow is a comprehensive invoice management application built with a modern tech stack. The system provides businesses with tools to manage customers, products, invoices, and promotional schemes while integrating with QuickBooks for seamless accounting workflows. The application features a React frontend with shadcn/ui components and an Express.js backend using Drizzle ORM for database operations.
-
-## Current Status - All Systems Working ✅
-
-**Last Updated**: October 13, 2025
-
-All major functionality is fully operational:
-
-### ✅ Completed Features
-- **Excel Inventory Reporting**: Generate comprehensive inventory reports with Amount calculations (Qty × Base Price)
-- **AP Journal Entry Integration**: Full AP invoice journal entries with COGS dr (173) → Account Payable cr (1150040005) 
-- **AR Journal Entry Integration**: AR invoice journal entries with balanced accounting equation: AR Dr + Discount Dr = Sales Cr + Freight Cr
-- **QuickBooks Customer/Vendor Sync**: Automatic customer and vendor creation with proper field mapping
-- **Inventory Management**: Automatic stock quantity updates (AR invoices reduce, AP invoices increase inventory)
-- **Packing List Generation**: PDF generation with CARTOON BARCODE display (changed from Item Code)
-- **CARTOON BARCODE System**: Full barcode tracking from inventory import through invoice creation to packing list display
-- **Promotional Schemes**: Buy X get Y free functionality with automatic free item calculation
-- **Invoice Type Support**: Both receivable (AR) and payable (AP) invoice types with proper categorization
-- **Invoice PDF Export/Print**: Professional invoice printing with PDF generation capability (displays Item Code)
-- **Invoice Discount Feature**: Editable discount field with 2% automatic default, properly reflected in all calculations and journal entries
-- **Dashboard AR/AP Split**: Separate Total Revenue (AR invoices) and Total Purchase (AP invoices) cards with proper calculations
-- **Packing List Smart Pagination**: 25 rows per page with category header duplication across pages for context
-- **Role-Based Account Management**: Delete and inactive operations restricted to super_admin and admin roles only
-
-### 📄 Invoice PDF/Print Formatting (Latest Implementation)
-
-#### Pagination Rules
-- **13 line items per page** with specific pagination logic:
-  - Page 1: Shows up to 13 line items (filled with empty rows if fewer items)
-  - Page 2+: Shows actual line items only (no empty row padding)
-  - Minimum 2 pages always created (page 2 for summary even if ≤13 items)
-
-#### Page Layout Structure
-**Page 1:**
-- Invoice header (company info, logo, invoice details)
-- Customer shipping address and invoice details
-- Line items table with headers (Sr. No., Product Code, Packing Size, Product Description, Qty (Carton), Rate per Carton, Total Amount)
-- Up to 13 rows (with empty rows to fill if needed)
-- NO summary, notes, or footer sections
-
-**Page 2 (Always Present):**
-- Invoice header (repeated on each page)
-- Table headers (ONLY if there are product items on page 2, i.e., invoice has >13 items)
-- Remaining product line items (if invoice has >13 items)
-- Summary section with:
-  - Total Carton count
-  - Net Weight LBS
-  - Gross Weight LBS
-  - Amount in words (formatted with proper capitalization)
-  - Subtotal, Discount, Grand Total
-- Notes section
-- Footer section with "Received By:" and "Total Pallets:" fields
-- Company name at bottom
-
-#### PDF Print Styling
-- **A4 page size** with margins: 50mm top, 10mm sides, 40mm bottom
-- **White backgrounds** throughout (no grey borders):
-  - @page, html, body, container, invoice-page all set to white background
-  - Notes section: transparent/white background, no borders in print mode
-- **Page breaks**: Automatic page breaks between pages using `.page-break` class
-- **Print-only elements**: Footer and summary appear only in print/PDF output
-- **Hidden in print**: Navigation buttons and UI controls
-
-#### Technical Implementation Details
-- File: `client/src/pages/invoice-view.tsx`
-- Conditional table rendering: Table headers only show on page 2 if product items exist
-- Summary always renders on page 2 (pageIndex === 1)
-- Print trigger: `window.print()` for native browser print dialog
-- Category headers included in row count for pagination
-- Empty rows use `&nbsp;` for proper spacing
-- Currency formatting with proper decimal handling
-
-#### Key Code Implementation (October 2, 2025)
-```typescript
-// Pagination logic - 13 rows per page
-const ROWS_PER_PAGE = 13;
-const pages = [];
-
-// First page fills with empty rows, subsequent pages show actual items only
-for (let i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
-  const pageRows = allRows.slice(i, i + ROWS_PER_PAGE);
-  const pageIndex = pages.length;
-  const emptyCount = pageIndex === 0 ? ROWS_PER_PAGE - pageRows.length : 0;
-  pages.push({ rows: pageRows, emptyCount });
-}
-
-// Always ensure at least 2 pages (page 2 for summary/notes)
-if (pages.length === 1) {
-  pages.push({ rows: [], emptyCount: 0 });
-}
-
-// Conditional table rendering (page 1 always, page 2 only if items exist)
-{(pageIndex === 0 || page.rows.length > 0 || page.emptyCount > 0) && (
-  <table className="invoice-table">
-    {/* Table content */}
-  </table>
-)}
-
-// Summary always on page 2
-{pageIndex === 1 && (
-  <>
-    {/* Summary Section */}
-    {/* Notes Section */}
-    {/* Footer Section */}
-  </>
-)}
-```
-
-#### Print CSS Specifications
-```css
-@media print {
-  @page {
-    size: A4;
-    margin: 50mm 10mm 40mm 10mm;
-  }
-  
-  html, body, .container, .invoice-page {
-    background-color: white !important;
-  }
-  
-  .notes-box {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    min-height: 0 !important;
-  }
-  
-  .page-break {
-    page-break-after: always;
-  }
-}
-```
-
-### 🔧 Recent Critical Fixes Applied
-1. **QuickBooks Journal Entry Balancing**: Fixed accounting equation to ensure debits equal credits (AR Dr + Discount Dr = Sales Cr + Freight Cr)
-2. **Journal Entry Update Logic**: System now updates existing journal entries instead of creating duplicates
-3. **Discount Implementation**: Added editable discount field with 2% automatic default for new invoices
-4. **Total Calculation**: Invoice totals now correctly calculate as: Subtotal + Freight - Discount
-5. **Invoice Display Authentication**: Fixed invoice list query to use authenticated JWT tokens instead of custom fetch (October 9, 2025)
-6. **Packing List CARTOON BARCODE**: Changed packing list to display CARTOON BARCODE instead of Item Code (October 9, 2025)
-
-### 📦 CARTOON BARCODE System (October 9, 2025)
-
-The CARTOON BARCODE field provides complete barcode tracking throughout the system:
-
-#### Database Schema
-- **Products Table**: `cartoonBarcode` (varchar, optional) - Stores the cartoon barcode for each product
-- **Invoice Line Items Table**: `cartoonBarcode` (text, optional) - Captures barcode when invoice is created
-
-#### Data Flow
-1. **Import/Entry**: Cartoon barcode entered via Excel import (column 11) or manual product form
-2. **Invoice Creation**: Barcode automatically copied from product to invoice line items
-3. **Display**: 
-   - Invoice format displays **Item Code** (productCode)
-   - Packing list format displays **CARTOON BARCODE** (cartoonBarcode)
-
-#### Implementation Details
-- **Excel Import**: Column 11 (CARTOON BARCODE) in 11-column format
-- **Product Form**: Dedicated CARTOON BARCODE input field (data-testid="input-cartoon-barcode")
-- **Invoice Form**: Automatically includes cartoonBarcode when adding products to line items
-- **Packing List**: Table header "CARTOON BARCODE" displays full barcode value (or "—" if empty)
-- **Invoice View**: Table header "Product Code" displays itemCode for billing purposes
-
-#### Files Modified
-- `shared/schema.ts`: Added cartoonBarcode to products and invoiceLineItems tables
-- `client/src/pages/inventory.tsx`: Added column to table, Excel import/export
-- `client/src/components/product-form.tsx`: Added CARTOON BARCODE input field
-- `client/src/components/invoice-form.tsx`: Include cartoonBarcode in all line item operations
-- `client/src/pages/packing-list.tsx`: Display CARTOON BARCODE instead of Item Code
-
-### 💾 Data Integrity
-- All database operations use consistent field naming
-- QuickBooks integration uses only validated API properties
-- Inventory tracking maintains accuracy across all invoice types
-- Journal entries properly reference customer/vendor entities
+InvoiceFlow is a comprehensive invoice management application designed for businesses to manage customers, products, invoices (both AR and AP), and promotional schemes. It integrates seamlessly with QuickBooks for accounting workflows and features automatic price updates based on invoice rates. The system supports detailed inventory reporting, journal entry integration, and a full CARTOON BARCODE tracking system from inventory import to packing list display. It aims to streamline invoicing, inventory, and accounting processes, providing robust data integrity and efficient operations.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
 ### Frontend Architecture
-The frontend is built using React with TypeScript and follows a component-based architecture:
-
-- **Framework**: React 18 with TypeScript for type safety
-- **Routing**: Wouter for lightweight client-side routing
-- **UI Components**: shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom design tokens and CSS variables
-- **State Management**: TanStack Query (React Query) for server state management
-- **Form Handling**: React Hook Form with Zod validation
-- **Build Tool**: Vite for fast development and optimized builds
-
-The application uses a modular structure with clear separation between pages, components, and utilities. The UI follows a consistent design system with support for light/dark themes.
+Built with React 18 and TypeScript, using Wouter for routing, shadcn/ui (on Radix UI) for components, and Tailwind CSS for styling. State management is handled by TanStack Query, and forms use React Hook Form with Zod validation. Vite is used for fast development and optimized builds, maintaining a modular, component-based structure.
 
 ### Backend Architecture
-The backend follows a RESTful API design pattern:
-
-- **Framework**: Express.js with TypeScript
-- **Database**: PostgreSQL with Drizzle ORM for type-safe database operations
-- **Authentication**: Session-based authentication with QuickBooks OAuth integration
-- **File Structure**: Modular route handlers with separation of concerns
-- **Middleware**: Custom logging, error handling, and request parsing
-
-The server implements a clean separation between route handlers, business logic, and data access layers.
+A RESTful API built with Express.js and TypeScript. It uses PostgreSQL as the database with Drizzle ORM for type-safe operations. Authentication is session-based with QuickBooks OAuth integration. The server employs a modular structure with clear separation of concerns for route handlers, business logic, and data access layers.
 
 ### Database Design
-The database schema supports multi-tenant functionality with user-scoped data:
-
-- **Users**: Core user accounts with QuickBooks integration tokens
-- **Customers**: Customer information with address data stored as JSONB
-- **Products**: Product catalog with categories and pricing
-- **Product Variants**: SKU-based inventory tracking with stock quantities
-- **Product Schemes**: Promotional offers (buy X get Y free)
-- **Invoices**: Invoice management with status tracking
-- **Invoice Line Items**: Detailed line items with product references
-
-All tables use UUID primary keys and include audit timestamps.
+The PostgreSQL database supports multi-tenant functionality with user-scoped data. Key tables include Users, Customers (with JSONB address data), Products (with categories, pricing, and `cartoonBarcode`), Product Variants (SKU-based tracking), Product Schemes, Invoices, and Invoice Line Items (detailed product references, including `cartoonBarcode`). All tables use UUID primary keys and audit timestamps.
 
 ### Authentication & Authorization
-The system implements OAuth 2.0 integration with QuickBooks:
+Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including secure storage and automatic refresh of access tokens. User accounts are linked to specific QuickBooks company IDs, and session management uses Express sessions with PostgreSQL storage.
 
-- **QuickBooks OAuth**: Complete authorization flow for accessing QuickBooks APIs
-- **Token Management**: Secure storage and automatic refresh of access tokens
-- **Company Integration**: Links user accounts to specific QuickBooks company IDs
-- **Session Management**: Express sessions with PostgreSQL storage
-
-### Development Environment
-The project uses modern development tooling:
-
-- **Package Management**: npm with lockfile for dependency consistency
-- **Build Process**: Dual build system for client (Vite) and server (esbuild)
-- **Database Migrations**: Drizzle Kit for schema management
-- **Development Server**: Hot reload with Vite middleware integration
-- **Type Safety**: Shared TypeScript types between client and server
+### Core Features and Implementations
+- **Invoice Management**: Supports both AR (receivable) and AP (payable) invoice types with status tracking, detailed line items, editable discount fields (2% default), and automated total calculations (Subtotal + Freight - Discount).
+- **Invoice PDF/Print**: A4-sized PDF generation with specific pagination logic (13 items per page, minimum 2 pages for summary), white backgrounds, and print-only elements for summary and footer. Displays Item Code on invoices.
+- **Inventory Management**: Automatic stock quantity updates based on AR (reduces) and AP (increases) invoices.
+- **CARTOON BARCODE System**: Full barcode tracking from Excel import/manual entry to invoice line items. Displays `CARTOON BARCODE` on packing lists and `Item Code` on invoices.
+- **Automatic Price Updates**: AP invoices update product Base Prices; AR invoices update product Sales Prices.
+- **Journal Entry Integration**: Full AP and AR invoice journal entries, ensuring balanced accounting equations and updating existing entries to prevent duplicates.
+- **QuickBooks Sync**: Automatic customer and vendor creation/sync.
+- **Reporting**: Excel inventory reporting with amount calculations.
+- **Packing List Generation**: PDF generation displaying CARTOON BARCODE, with smart pagination (25 rows per page, category headers duplicated).
+- **Promotional Schemes**: Buy X get Y free functionality.
+- **Role-Based Account Management**: Restrictions on delete and inactive operations for `super_admin` and `admin` roles.
 
 ## External Dependencies
 
-### Core Dependencies
-- **@neondatabase/serverless**: PostgreSQL database driver optimized for serverless environments
-- **drizzle-orm**: Type-safe ORM with PostgreSQL support
-- **@tanstack/react-query**: Server state management and caching
-- **axios**: HTTP client for API requests
+### Core Libraries
+- **@neondatabase/serverless**: PostgreSQL database driver
+- **drizzle-orm**: Type-safe ORM for PostgreSQL
+- **@tanstack/react-query**: Server state management
+- **axios**: HTTP client
 - **wouter**: Lightweight React router
 
-### UI Framework
-- **@radix-ui/***: Comprehensive set of unstyled, accessible UI primitives
+### UI/Styling
+- **@radix-ui/***: Unstyled, accessible UI primitives
 - **tailwindcss**: Utility-first CSS framework
 - **class-variance-authority**: Component variant management
 - **clsx**: Conditional className utility
 
-### Form Management
-- **react-hook-form**: Performant forms with minimal re-renders
-- **@hookform/resolvers**: Integration with validation libraries
+### Form Handling
+- **react-hook-form**: Performant forms
+- **@hookform/resolvers**: Validation library integration
 - **zod**: TypeScript-first schema validation
 
 ### QuickBooks Integration
 - **QuickBooks OAuth API**: Authentication and authorization
-- **QuickBooks Accounting API**: Data synchronization for customers, items, and invoices
+- **QuickBooks Accounting API**: Data synchronization
 
 ### Development Tools
 - **vite**: Build tool and development server
-- **esbuild**: Fast JavaScript bundler for server builds
+- **esbuild**: Fast JavaScript bundler
 - **typescript**: Static type checking
-- **drizzle-kit**: Database schema management and migrations
-
-### Database
-- **PostgreSQL**: Primary database with JSONB support for flexible data structures
+- **drizzle-kit**: Database schema management
 - **connect-pg-simple**: PostgreSQL session store for Express
-
-The application is designed to be deployed on platforms that support Node.js applications with PostgreSQL databases, with particular optimization for Replit's environment.
