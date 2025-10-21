@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
 import InvoiceForm from "@/components/invoice-form";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -200,9 +201,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     return customer?.name || "Unknown Customer";
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
 
   // Check if invoice can be edited based on 24-hour rule
   const canEditInvoice = (invoice: any): boolean => {
@@ -536,7 +534,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                         {getCustomerName(invoice.customerId)}
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`invoice-date-${invoice.id}`}>
-                        {formatDate(invoice.invoiceDate)}
+                        {formatDateWithoutTimezone(invoice.invoiceDate)}
                       </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`invoice-amount-${invoice.id}`}>
                         ${parseFloat(invoice.total).toFixed(2)}

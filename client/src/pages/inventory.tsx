@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { ProductForm } from "@/components/product-form";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -320,7 +321,7 @@ export default function Inventory() {
       // Prepare report data
       const reportData = products.map((product: any) => ({
         'Product Name': product.name || '',
-        'Date': product.date ? new Date(product.date).toLocaleDateString() : '',
+        'Date': product.date ? formatDateWithoutTimezone(product.date) : '',
         'Item Code': product.itemCode || '',
         'Packing Size': product.packingSize || '',
         'Category': product.category || '',
@@ -713,7 +714,7 @@ export default function Inventory() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-date-${product.id}`}>
-                          {product.date ? new Date(product.date).toLocaleDateString() : '-'}
+                          {product.date ? formatDateWithoutTimezone(product.date) : '-'}
                         </td>
                         <td className="py-3 px-4 text-sm font-mono text-muted-foreground" data-testid={`product-item-code-${product.id}`}>
                           {product.itemCode || '-'}

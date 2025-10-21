@@ -7,6 +7,7 @@ import { Invoice, InvoiceLineItem, Customer } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Package, Tag } from "lucide-react";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 
 function formatCurrency(num: number) {
   if (Number.isNaN(num) || num === null || num === undefined) return "$0.00";
@@ -693,7 +694,7 @@ function InvoiceView() {
               <div className="info-detail">
                 <strong>Invoice Date</strong> :{" "}
                 {invoice.invoiceDate
-                  ? new Date(invoice.invoiceDate).toLocaleDateString()
+                  ? formatDateWithoutTimezone(invoice.invoiceDate)
                   : "—"}
               </div>
               <div className="info-detail">
@@ -703,7 +704,7 @@ function InvoiceView() {
               <div className="info-detail">
                 <strong>Due Date</strong> :{" "}
                 {invoice.dueDate
-                  ? new Date(invoice.dueDate).toLocaleDateString()
+                  ? formatDateWithoutTimezone(invoice.dueDate)
                   : "—"}
               </div>
             </div>

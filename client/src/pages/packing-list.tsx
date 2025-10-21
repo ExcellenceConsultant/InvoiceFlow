@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
 import { Link } from "wouter";
+import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 
 interface InvoiceLineItem {
   id: string;
@@ -424,7 +425,7 @@ export default function PackingList() {
               <div className="info-detail">
                 <strong>Invoice Date</strong> :{" "}
                 {invoice.invoiceDate
-                  ? new Date(invoice.invoiceDate).toLocaleDateString()
+                  ? formatDateWithoutTimezone(invoice.invoiceDate)
                   : "—"}
               </div>
               <div className="info-detail">
@@ -434,7 +435,7 @@ export default function PackingList() {
               <div className="info-detail">
                 <strong>Shipping Date</strong> :{" "}
                 {invoice.shipDate
-                  ? new Date(invoice.shipDate).toLocaleDateString()
+                  ? formatDateWithoutTimezone(invoice.shipDate)
                   : "—"}
               </div>
             </div>
