@@ -111,7 +111,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       paymentTerms: 30,
       invoiceType: "receivable",
       freight: 0,
-      discount: 2,
+      discount: 0,
       notes: DEFAULT_NOTES,
     },
   });
