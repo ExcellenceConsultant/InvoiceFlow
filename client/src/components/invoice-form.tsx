@@ -340,6 +340,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         stockQuantity: 0,
       },
     ]);
+    setProductSearchTerm(""); // Clear search input when adding new item
   };
 
   const removeLineItem = (index: number) => {
