@@ -806,47 +806,35 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   <label className="text-sm font-medium text-foreground">
                     Invoice Items
                   </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground">
-                        Filter by Category:
-                      </label>
-                      <Select
-                        value={categoryFilter}
-                        onValueChange={setCategoryFilter}
-                      >
-                        <SelectTrigger
-                          className="w-32 h-8"
-                          data-testid="select-category-filter"
-                        >
-                          <SelectValue placeholder="All" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          {Array.from(
-                            new Set(
-                              products
-                                ?.map((p: any) => p.category)
-                                .filter(Boolean),
-                            ),
-                          ).map((category) => (
-                            <SelectItem key={category as string} value={category as string}>
-                              {category as string}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addLineItem}
-                      data-testid="button-add-line-item"
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">
+                      Filter by Category:
+                    </label>
+                    <Select
+                      value={categoryFilter}
+                      onValueChange={setCategoryFilter}
                     >
-                      <Plus className="mr-1" size={14} />
-                      Add Item
-                    </Button>
+                      <SelectTrigger
+                        className="w-32 h-8"
+                        data-testid="select-category-filter"
+                      >
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {Array.from(
+                          new Set(
+                            products
+                              ?.map((p: any) => p.category)
+                              .filter(Boolean),
+                          ),
+                        ).map((category) => (
+                          <SelectItem key={category as string} value={category as string}>
+                            {category as string}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -1213,6 +1201,20 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       )}
                     </div>
                   ))}
+                </div>
+
+                {/* Add Item Button */}
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addLineItem}
+                    data-testid="button-add-line-item"
+                  >
+                    <Plus className="mr-1" size={14} />
+                    Add Item
+                  </Button>
                 </div>
 
                 {/* Scheme Summary */}
