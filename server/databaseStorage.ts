@@ -1,4 +1,4 @@
-import { eq, and, sql, isNotNull } from "drizzle-orm";
+import { eq, and, sql, isNotNull, asc } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -289,8 +289,8 @@ export class DatabaseStorage implements IStorage {
 
   // Invoices
   async getInvoices(userId: string): Promise<Invoice[]> {
-    // Return all invoices globally (no user-specific filtering)
-    return await db.select().from(invoices);
+    // Return all invoices globally (no user-specific filtering), sorted by invoice number
+    return await db.select().from(invoices).orderBy(asc(invoices.invoiceNumber));
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
