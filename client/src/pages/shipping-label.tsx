@@ -136,7 +136,7 @@ export default function ShippingLabel() {
 
       .field-value-bold {
         display: inline-block;
-        font-size: 36px;
+        font-size: 48px;
         font-weight: bold;
       }
 
@@ -247,7 +247,7 @@ export default function ShippingLabel() {
 
           <div className="label-field">
             <span className="field-label">Total Cartons :</span>
-            <span className="field-value">{totalCartons}</span>
+            <span className="field-value-bold">{totalCartons}</span>
           </div>
 
           <div className="label-field">
