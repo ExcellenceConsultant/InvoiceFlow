@@ -21,7 +21,7 @@ The PostgreSQL database supports multi-tenant functionality with user-scoped dat
 Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including secure storage and automatic refresh of access tokens. User accounts are linked to specific QuickBooks company IDs, and session management uses Express sessions with PostgreSQL storage.
 
 ### Core Features and Implementations
-- **Invoice Management**: Supports both AR (receivable) and AP (payable) invoice types with status tracking, detailed line items, editable discount fields (2% default), and automated total calculations (Subtotal + Freight - Discount).
+- **Invoice Management**: Supports both AR (receivable) and AP (payable) invoice types with status tracking, detailed line items, editable discount fields (0% default), and automated total calculations (Subtotal + Freight - Discount). Invoices are displayed in sequential order sorted by invoice number.
 - **Invoice PDF/Print**: A4-sized PDF generation with specific pagination logic (13 items per page, minimum 2 pages for summary), white backgrounds, and print-only elements for summary and footer. Displays Item Code on invoices.
 - **Inventory Management**: Automatic stock quantity updates based on AR (reduces) and AP (increases) invoices.
 - **CARTOON BARCODE System**: Full barcode tracking from Excel import/manual entry to invoice line items. Displays `CARTOON BARCODE` on packing lists and `Item Code` on invoices.
