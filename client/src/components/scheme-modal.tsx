@@ -47,6 +47,7 @@ export default function SchemeModal({ onClose, onSuccess, scheme }: Props) {
     scheme?.productIds ?? (scheme?.productId ? [scheme.productId] : [])
   );
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [productSearchTerm, setProductSearchTerm] = useState<string>("");
 
   const form = useForm<z.infer<typeof schemeSchema>>({
     resolver: zodResolver(schemeSchema),
@@ -237,15 +238,31 @@ export default function SchemeModal({ onClose, onSuccess, scheme }: Props) {
                       <SelectValue placeholder="Select a product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {products?.map((product: any) => (
-                        <SelectItem 
-                          key={product.id} 
-                          value={product.id}
-                          data-testid={`product-option-${product.id}`}
-                        >
-                          {product.name}
-                        </SelectItem>
-                      ))}
+                      <div className="px-2 pb-2">
+                        <Input
+                          placeholder="Search product..."
+                          value={productSearchTerm}
+                          onChange={(e) => setProductSearchTerm(e.target.value)}
+                          className="h-8"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      {products
+                        ?.filter((product: any) =>
+                          product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                          (product.itemCode ?? "").toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                          (product.category ?? "").toLowerCase().includes(productSearchTerm.toLowerCase())
+                        )
+                        .map((product: any) => (
+                          <SelectItem 
+                            key={product.id} 
+                            value={product.id}
+                            data-testid={`product-option-${product.id}`}
+                          >
+                            {product.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <Button

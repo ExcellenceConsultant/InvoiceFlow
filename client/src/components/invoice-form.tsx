@@ -87,6 +87,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const [schemePendingSelections, setSchemePendingSelections] = useState<{
     [schemeId: string]: { productId: string; quantity: number };
   }>({});
+  const [productSearchTerm, setProductSearchTerm] = useState<string>("");
+  const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -628,15 +630,29 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {customers?.map((customer: any) => (
-                            <SelectItem
-                              key={customer.id}
-                              value={customer.id}
-                              data-testid={`option-customer-${customer.id}`}
-                            >
-                              {customer.name}
-                            </SelectItem>
-                          ))}
+                          <div className="px-2 pb-2">
+                            <Input
+                              placeholder="Search customer..."
+                              value={customerSearchTerm}
+                              onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                              className="h-8"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          {customers
+                            ?.filter((customer: any) =>
+                              customer.name.toLowerCase().includes(customerSearchTerm.toLowerCase())
+                            )
+                            .map((customer: any) => (
+                              <SelectItem
+                                key={customer.id}
+                                value={customer.id}
+                                data-testid={`option-customer-${customer.id}`}
+                              >
+                                {customer.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -968,20 +984,37 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                               <SelectValue placeholder="Select Product" />
                             </SelectTrigger>
                             <SelectContent>
+                              <div className="px-2 pb-2">
+                                <Input
+                                  placeholder="Search product..."
+                                  value={productSearchTerm}
+                                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                                  className="h-8"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
                               {productsLoading ? (
                                 <SelectItem value="loading" disabled>
                                   Loading products...
                                 </SelectItem>
                               ) : (
                                 (() => {
-                                  // normal filtered list based on global categoryFilter
-                                  const filteredProducts =
+                                  // Filter by category
+                                  const categoryFiltered =
                                     categoryFilter === "all"
                                       ? products
                                       : products?.filter(
                                           (product: any) =>
                                             product.category === categoryFilter,
                                         );
+
+                                  // Filter by search term (case-insensitive substring match)
+                                  const filteredProducts = categoryFiltered?.filter((product: any) =>
+                                    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                                    (product.itemCode ?? "").toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                                    (product.category ?? "").toLowerCase().includes(productSearchTerm.toLowerCase())
+                                  );
 
                                   // always include the currently selected product if not in filtered list
                                   const currentProduct =
