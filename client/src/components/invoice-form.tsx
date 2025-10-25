@@ -899,8 +899,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
                               if (product) {
                                 let updatedItems = [...lineItems];
-                                const unitPrice =
-                                  parseFloat(product.basePrice) || 0;
+                                // Use salesPrice for AR (receivable) invoices, basePrice for AP (payable) invoices
+                                const invoiceType = form.getValues("invoiceType");
+                                const unitPrice = invoiceType === "receivable" 
+                                  ? (parseFloat(product.salesPrice) || 0)
+                                  : (parseFloat(product.basePrice) || 0);
                                 updatedItems[index] = {
                                   ...updatedItems[index],
                                   productId: value,
