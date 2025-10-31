@@ -838,17 +838,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   `Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`,
                 );
                 
-                // Always update Sales Price from AR invoice rate
+                // Update Sales Price from AR invoice rate
+                // Skip if: free item, scheme description, or zero price
                 const newRate = parseFloat(item.unitPrice);
-                const currentSalesPrice = parseFloat(currentProduct.salesPrice || "0");
+                const shouldUpdatePrice = 
+                  !item.isFreeFromScheme && 
+                  !item.isSchemeDescription && 
+                  newRate > 0;
                 
-                console.log(
-                  `Updating Sales Price for product ${currentProduct.name}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
-                );
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty,
-                  salesPrice: item.unitPrice 
-                });
+                if (shouldUpdatePrice) {
+                  const currentSalesPrice = parseFloat(currentProduct.salesPrice || "0");
+                  console.log(
+                    `Updating Sales Price for product ${currentProduct.name}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    salesPrice: item.unitPrice 
+                  });
+                } else {
+                  console.log(
+                    `Skipping Sales Price update for product ${currentProduct.name} (free item or zero price)`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty
+                  });
+                }
                 continue; // Skip the default update below
               }
               // AP Invoice (payable): Increase inventory (buying from supplier)
@@ -858,17 +872,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   `Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`,
                 );
                 
-                // Always update Base Price from AP invoice rate
+                // Update Base Price from AP invoice rate
+                // Skip if: free item, scheme description, or zero price
                 const newRate = parseFloat(item.unitPrice);
-                const currentBasePrice = parseFloat(currentProduct.basePrice);
+                const shouldUpdatePrice = 
+                  !item.isFreeFromScheme && 
+                  !item.isSchemeDescription && 
+                  newRate > 0;
                 
-                console.log(
-                  `Updating Base Price for product ${currentProduct.name}: $${currentBasePrice.toFixed(2)} → $${newRate.toFixed(2)}`,
-                );
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty,
-                  basePrice: item.unitPrice 
-                });
+                if (shouldUpdatePrice) {
+                  const currentBasePrice = parseFloat(currentProduct.basePrice);
+                  console.log(
+                    `Updating Base Price for product ${currentProduct.name}: $${currentBasePrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    basePrice: item.unitPrice 
+                  });
+                } else {
+                  console.log(
+                    `Skipping Base Price update for product ${currentProduct.name} (free item or zero price)`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty
+                  });
+                }
                 continue; // Skip the default update below
               }
 
@@ -1271,17 +1299,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   `Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`,
                 );
                 
-                // Always update Base Price from AP invoice rate
+                // Update Base Price from AP invoice rate
+                // Skip if: free item, scheme description, or zero price
                 const newRate = parseFloat(item.unitPrice);
-                const currentBasePrice = parseFloat(currentProduct.basePrice);
+                const shouldUpdatePrice = 
+                  !item.isFreeFromScheme && 
+                  !item.isSchemeDescription && 
+                  newRate > 0;
                 
-                console.log(
-                  `Updating Base Price for product ${currentProduct.name}: $${currentBasePrice.toFixed(2)} → $${newRate.toFixed(2)}`,
-                );
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty,
-                  basePrice: item.unitPrice 
-                });
+                if (shouldUpdatePrice) {
+                  const currentBasePrice = parseFloat(currentProduct.basePrice);
+                  console.log(
+                    `Updating Base Price for product ${currentProduct.name}: $${currentBasePrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    basePrice: item.unitPrice 
+                  });
+                } else {
+                  console.log(
+                    `Skipping Base Price update for product ${currentProduct.name} (free item or zero price)`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty
+                  });
+                }
               }
             } catch (inventoryError) {
               console.error(
@@ -1306,17 +1348,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   `Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
                 );
                 
-                // Always update Sales Price from AR invoice rate
+                // Update Sales Price from AR invoice rate
+                // Skip if: free item, scheme description, or zero price
                 const newRate = parseFloat(item.unitPrice);
-                const currentSalesPrice = parseFloat(currentProduct.salesPrice || "0");
+                const shouldUpdatePrice = 
+                  !item.isFreeFromScheme && 
+                  !item.isSchemeDescription && 
+                  newRate > 0;
                 
-                console.log(
-                  `Updating Sales Price for product ${currentProduct.name}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
-                );
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty,
-                  salesPrice: item.unitPrice 
-                });
+                if (shouldUpdatePrice) {
+                  const currentSalesPrice = parseFloat(currentProduct.salesPrice || "0");
+                  console.log(
+                    `Updating Sales Price for product ${currentProduct.name}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty,
+                    salesPrice: item.unitPrice 
+                  });
+                } else {
+                  console.log(
+                    `Skipping Sales Price update for product ${currentProduct.name} (free item or zero price)`,
+                  );
+                  await storage.updateProduct(item.productId, { 
+                    qty: newQty
+                  });
+                }
               }
             } catch (inventoryError) {
               console.error(

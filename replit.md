@@ -25,7 +25,7 @@ Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including s
 - **Invoice PDF/Print**: A4-sized PDF generation with specific pagination logic (13 items per page, minimum 2 pages for summary), white backgrounds, and print-only elements for summary and footer. Displays Item Code on invoices.
 - **Inventory Management**: Automatic stock quantity updates based on AR (reduces) and AP (increases) invoices.
 - **CARTOON BARCODE System**: Full barcode tracking from Excel import/manual entry to invoice line items. Displays `CARTOON BARCODE` on packing lists and `Item Code` on invoices.
-- **Automatic Price Updates**: AP invoices update product Base Prices; AR invoices update product Sales Prices. When invoices are deleted, prices are reset to the most recent invoice rate or $0.00 if no other invoices exist.
+- **Automatic Price Updates**: AP invoices update product Base Prices; AR invoices update product Sales Prices. Price updates skip free items, scheme descriptions, and zero-price items to prevent incorrect price resets. When invoices are deleted, prices are reset to the most recent invoice rate or $0.00 if no other invoices exist.
 - **Journal Entry Integration**: Full AP and AR invoice journal entries, ensuring balanced accounting equations and updating existing entries to prevent duplicates.
 - **QuickBooks Sync**: Automatic customer and vendor creation/sync.
 - **Reporting**: Excel inventory reporting with amount calculations.
