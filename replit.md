@@ -28,7 +28,7 @@ Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including s
 - **Manual Price Control**: Product prices (Base Price and Sales Price) are manually set in the inventory and are NOT automatically updated by invoices. This ensures price stability and allows complete control over pricing in the inventory management system.
 - **Journal Entry Integration**: Full AP and AR invoice journal entries, ensuring balanced accounting equations and updating existing entries to prevent duplicates.
 - **QuickBooks Sync**: Automatic customer and vendor creation/sync.
-- **Reporting**: Excel inventory reporting with amount calculations.
+- **Reporting**: Excel reporting for both inventory and invoices. Invoice reports include two sheets: Invoice Summary (invoice details, totals, status, journal entry info) and Line Items (detailed product information for each invoice).
 - **Packing List Generation**: PDF generation displaying CARTOON BARCODE, with smart pagination (25 rows per page, category headers duplicated).
 - **Promotional Schemes**: Buy X get Y free functionality.
 - **Role-Based Account Management**: Restrictions on delete and inactive operations for `super_admin` and `admin` roles.

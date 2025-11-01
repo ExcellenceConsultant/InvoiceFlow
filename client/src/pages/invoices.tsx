@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload, Check, X } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -355,6 +356,92 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     }
   };
 
+  // Generate Excel Report Function
+  const handleExportInvoices = () => {
+    if (!invoices || invoices.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No invoices available to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Prepare summary data
+      const summaryData = invoices.map((invoice: any) => {
+        const customer = customers?.find((c: any) => c.id === invoice.customerId);
+        const displayStatus = getDisplayStatus(invoice);
+        
+        return {
+          'Invoice #': invoice.invoiceNumber || '',
+          'Type': invoice.invoiceType === 'receivable' ? 'AR' : 'AP',
+          'Customer/Vendor': customer?.name || 'Unknown',
+          'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
+          'Subtotal': parseFloat(invoice.subtotal || 0).toFixed(2),
+          'Freight': parseFloat(invoice.freight || 0).toFixed(2),
+          'Discount': parseFloat(invoice.discount || 0).toFixed(2),
+          'Total Amount': parseFloat(invoice.totalAmount || 0).toFixed(2),
+          'Status': displayStatus,
+          'Journal Entry': invoice.quickbooksInvoiceId ? 'Posted' : 'Not Posted',
+          'QB Journal Entry ID': invoice.quickbooksInvoiceId || '',
+        };
+      });
+
+      // Prepare line items data
+      const lineItemsData: any[] = [];
+      invoices.forEach((invoice: any) => {
+        if (invoice.lineItems && invoice.lineItems.length > 0) {
+          invoice.lineItems.forEach((item: any) => {
+            lineItemsData.push({
+              'Invoice #': invoice.invoiceNumber || '',
+              'Product Name': item.productName || '',
+              'Item Code': item.itemCode || '',
+              'CARTOON BARCODE': item.cartoonBarcode || '',
+              'Quantity': item.quantity || 0,
+              'Unit Price': parseFloat(item.unitPrice || 0).toFixed(2),
+              'Total': parseFloat(item.total || 0).toFixed(2),
+              'Free From Scheme': item.isFreeFromScheme ? 'Yes' : 'No',
+              'Scheme Description': item.isSchemeDescription ? 'Yes' : 'No',
+            });
+          });
+        }
+      });
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // Add summary sheet
+      const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Invoice Summary');
+      
+      // Add line items sheet if there are any
+      if (lineItemsData.length > 0) {
+        const lineItemsWorksheet = XLSX.utils.json_to_sheet(lineItemsData);
+        XLSX.utils.book_append_sheet(workbook, lineItemsWorksheet, 'Line Items');
+      }
+      
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      const filename = `Invoices_Report_${currentDate}.xlsx`;
+      
+      // Save file
+      XLSX.writeFile(workbook, filename);
+      
+      toast({
+        title: "Report Generated",
+        description: `Invoice report exported successfully as ${filename}`,
+      });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate invoice report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -393,7 +480,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 </Button>
               </div>
             )}
-            <Button variant="secondary" data-testid="button-export-invoices">
+            <Button 
+              variant="secondary" 
+              onClick={handleExportInvoices}
+              data-testid="button-export-invoices"
+            >
               <Download className="mr-2" size={16} />
               Export
             </Button>
