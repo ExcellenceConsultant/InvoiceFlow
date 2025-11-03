@@ -43,13 +43,13 @@ const invoiceSchema = z.object({
   discount: z.number().min(0, "Discount must be non-negative").default(0),
   notes: z.string().optional(),
 }).refine((data) => {
-  // For AP invoices, invoice number is required
-  if (data.invoiceType === "payable" && (!data.invoiceNumber || data.invoiceNumber.trim() === "")) {
+  // Invoice number is required for both AR and AP invoices
+  if (!data.invoiceNumber || data.invoiceNumber.trim() === "") {
     return false;
   }
   return true;
 }, {
-  message: "Invoice number is required for AP invoices",
+  message: "Invoice number is required",
   path: ["invoiceNumber"],
 });
 
@@ -801,7 +801,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   render={({ field }) => {
                     const invoiceType = form.watch("invoiceType");
                     const isARInvoice = invoiceType === "receivable";
-                    const isReadOnly = !isEditMode && isARInvoice; // Read-only for new AR invoices
                     
                     return (
                       <FormItem>
@@ -809,21 +808,19 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           Invoice Number
                           {!isEditMode && isARInvoice && (
                             <span className="text-xs text-muted-foreground ml-2">
-                              (Auto-generated)
+                              (Auto-generated, editable)
                             </span>
                           )}
                           {!isEditMode && !isARInvoice && (
                             <span className="text-xs text-muted-foreground ml-2">
-                              (Manual entry)
+                              (Required)
                             </span>
                           )}
                         </FormLabel>
                         <FormControl>
                           <Input
                             {...field}
-                            readOnly={isReadOnly}
                             placeholder={!isEditMode && !isARInvoice ? "Enter invoice number" : ""}
-                            className={isReadOnly ? "bg-muted cursor-not-allowed" : ""}
                             data-testid="input-invoice-number"
                           />
                         </FormControl>
