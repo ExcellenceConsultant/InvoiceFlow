@@ -33,7 +33,7 @@ const DEFAULT_NOTES = `1. All matters related to this invoice or the goods shall
 
 const invoiceSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
-  invoiceNumber: z.string().min(1, "Invoice number is required"),
+  invoiceNumber: z.string(),
   invoiceDate: z.string().min(1, "Invoice date is required"),
   paymentTerms: z.number().min(0, "Payment terms must be non-negative").default(30),
   invoiceType: z.enum(["receivable", "payable"], {
@@ -42,6 +42,15 @@ const invoiceSchema = z.object({
   freight: z.number().min(0, "Freight must be non-negative").default(0),
   discount: z.number().min(0, "Discount must be non-negative").default(0),
   notes: z.string().optional(),
+}).refine((data) => {
+  // For AP invoices, invoice number is required
+  if (data.invoiceType === "payable" && (!data.invoiceNumber || data.invoiceNumber.trim() === "")) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Invoice number is required for AP invoices",
+  path: ["invoiceNumber"],
 });
 
 const lineItemSchema = z.object({
@@ -106,7 +115,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       notes: invoice.notes || DEFAULT_NOTES,
     } : {
       customerId: "",
-      invoiceNumber: `INV-${Date.now()}`,
+      invoiceNumber: "", // Will be set by useEffect for AR invoices
       invoiceDate: new Date().toISOString().split("T")[0],
       paymentTerms: 30,
       invoiceType: "receivable",
@@ -152,6 +161,42 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     queryKey: [`/api/invoices/${invoice?.id || 'placeholder'}/line-items`],
     enabled: isEditMode && !!invoice?.id,
   });
+
+  // Fetch next AR invoice number (only when creating new AR invoice)
+  const { data: nextInvoiceNumberData } = useQuery<{ nextNumber: string }>({
+    queryKey: ["/api/invoices/next-number"],
+    enabled: !isEditMode, // Only fetch when creating new invoice
+  });
+
+  // Set invoice number based on invoice type (only for new invoices)
+  useEffect(() => {
+    if (!isEditMode) {
+      const invoiceType = form.watch("invoiceType");
+      if (invoiceType === "receivable" && nextInvoiceNumberData?.nextNumber) {
+        // Auto-populate with next sequential number for AR invoices
+        form.setValue("invoiceNumber", nextInvoiceNumberData.nextNumber);
+      } else if (invoiceType === "payable") {
+        // Clear invoice number for AP invoices (manual entry)
+        form.setValue("invoiceNumber", "");
+      }
+    }
+  }, [isEditMode, nextInvoiceNumberData, form]);
+
+  // Watch invoice type changes to update invoice number accordingly
+  useEffect(() => {
+    if (!isEditMode) {
+      const subscription = form.watch((value, { name }) => {
+        if (name === "invoiceType") {
+          if (value.invoiceType === "receivable" && nextInvoiceNumberData?.nextNumber) {
+            form.setValue("invoiceNumber", nextInvoiceNumberData.nextNumber);
+          } else if (value.invoiceType === "payable") {
+            form.setValue("invoiceNumber", "");
+          }
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, [isEditMode, nextInvoiceNumberData, form]);
 
   // Load existing line items when editing
   useEffect(() => {
@@ -753,15 +798,39 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 <FormField
                   control={form.control}
                   name="invoiceNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Invoice Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-invoice-number" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const invoiceType = form.watch("invoiceType");
+                    const isARInvoice = invoiceType === "receivable";
+                    const isReadOnly = !isEditMode && isARInvoice; // Read-only for new AR invoices
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel>
+                          Invoice Number
+                          {!isEditMode && isARInvoice && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (Auto-generated)
+                            </span>
+                          )}
+                          {!isEditMode && !isARInvoice && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (Manual entry)
+                            </span>
+                          )}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            readOnly={isReadOnly}
+                            placeholder={!isEditMode && !isARInvoice ? "Enter invoice number" : ""}
+                            className={isReadOnly ? "bg-muted cursor-not-allowed" : ""}
+                            data-testid="input-invoice-number"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
