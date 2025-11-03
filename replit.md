@@ -30,7 +30,7 @@ Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including s
 - **QuickBooks Sync**: Automatic customer and vendor creation/sync.
 - **Reporting**: Excel reporting for both inventory and invoices. Invoice reports include two sheets: Invoice Summary (invoice details, totals, status, journal entry info) and Line Items (detailed product information for each invoice).
 - **Packing List Generation**: PDF generation displaying CARTOON BARCODE, with smart pagination (25 rows per page, category headers duplicated).
-- **Promotional Schemes**: Buy X get Y free functionality.
+- **Promotional Schemes**: Buy X get Y free functionality with intelligent edit-mode preservation. When editing invoices, promotional free items remain exactly where they were saved. Free items are automatically removed if main product quantity falls below scheme threshold (e.g., changing from 20 to 19 items). Users can manually change or remove free items at any time.
 - **Role-Based Account Management**: Restrictions on delete and inactive operations for `super_admin` and `admin` roles.
 
 ## External Dependencies

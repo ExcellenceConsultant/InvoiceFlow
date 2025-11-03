@@ -155,27 +155,73 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
   // Load existing line items when editing
   useEffect(() => {
-    if (isEditMode && existingLineItems && existingLineItems.length > 0) {
-      const formattedItems = existingLineItems.map((item: any) => ({
-        id: item.id,
-        productId: item.productId || "",
-        variantId: item.variantId || "",
-        description: item.description || "",
-        quantity: item.quantity || 0,
-        unitPrice: parseFloat(item.unitPrice) || 0,
-        lineTotal: parseFloat(item.lineTotal) || 0,
-        productCode: item.productCode || "",
-        cartoonBarcode: item.cartoonBarcode || "",
-        packingSize: item.packingSize || "",
-        grossWeightKgs: parseFloat(item.grossWeightKgs) || 0,
-        netWeightKgs: parseFloat(item.netWeightKgs) || 0,
-        category: item.category || "",
-        isFreeFromScheme: item.isFreeFromScheme || false,
-        isSchemeDescription: item.isSchemeDescription || false,
-        schemeDescription: item.description || "",
-        schemeId: item.schemeId || "",
-      }));
-      setLineItems(formattedItems);
+    if (isEditMode && Array.isArray(existingLineItems) && existingLineItems.length > 0) {
+      const regularItems: any[] = [];
+      const schemeItemsMap: { [key: number]: any[] } = {};
+      const manualFreeItemsList: any[] = [];
+      
+      let currentRegularIndex = -1;
+      
+      existingLineItems.forEach((item: any, idx: number) => {
+        // Format the item
+        const formattedItem = {
+          id: item.id,
+          productId: item.productId || "",
+          variantId: item.variantId || "",
+          description: item.description || "",
+          quantity: item.quantity || 0,
+          unitPrice: parseFloat(item.unitPrice) || 0,
+          lineTotal: parseFloat(item.lineTotal) || 0,
+          productCode: item.productCode || "",
+          cartoonBarcode: item.cartoonBarcode || "",
+          packingSize: item.packingSize || "",
+          grossWeightKgs: parseFloat(item.grossWeightKgs) || 0,
+          netWeightKgs: parseFloat(item.netWeightKgs) || 0,
+          category: item.category || "",
+          isFreeFromScheme: item.isFreeFromScheme || false,
+          isSchemeDescription: item.isSchemeDescription || false,
+          schemeDescription: item.description || "",
+          schemeId: item.schemeId || "",
+        };
+        
+        // Check if this is a scheme description line
+        if (item.isSchemeDescription) {
+          regularItems.push(formattedItem);
+          currentRegularIndex++;
+        }
+        // Check if this is a free item from a product-specific scheme
+        else if (item.isFreeFromScheme && item.schemeId) {
+          // Check if this belongs to a product-specific scheme (associated with the previous regular item)
+          const prevItem = existingLineItems[idx - 1];
+          if (prevItem && !prevItem.isFreeFromScheme && !prevItem.isSchemeDescription && prevItem.productId === item.productId) {
+            // This is a product-specific scheme free item - add to showSchemeItems
+            if (!schemeItemsMap[currentRegularIndex]) {
+              schemeItemsMap[currentRegularIndex] = [];
+            }
+            schemeItemsMap[currentRegularIndex].push({
+              description: formattedItem.description,
+              quantity: formattedItem.quantity,
+              unitPrice: formattedItem.unitPrice,
+              lineTotal: formattedItem.lineTotal,
+              isFreeFromScheme: true,
+              schemeId: formattedItem.schemeId,
+              category: formattedItem.category,
+            });
+          } else {
+            // This is a manual/total-quantity-based free item
+            manualFreeItemsList.push(formattedItem);
+          }
+        }
+        // Regular line item
+        else {
+          regularItems.push(formattedItem);
+          currentRegularIndex++;
+        }
+      });
+      
+      setLineItems(regularItems);
+      setShowSchemeItems(schemeItemsMap);
+      setManualFreeItems(manualFreeItemsList);
     }
   }, [isEditMode, existingLineItems]);
 
@@ -289,11 +335,19 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           quantity >= scheme.buyQuantity,
       );
 
+      // If in edit mode and scheme items already exist for this line
+      const hasExistingSchemeItems = showSchemeItems[index] && showSchemeItems[index].length > 0;
+
       if (applicableScheme) {
         const freeQuantity =
           Math.floor(quantity / applicableScheme.buyQuantity) *
           applicableScheme.freeQuantity;
-        if (freeQuantity > 0) {
+        
+        // Only update scheme items if:
+        // 1. No existing scheme items (creating new), OR
+        // 2. Quantity changed and needs recalculation
+        if (!hasExistingSchemeItems && freeQuantity > 0) {
+          // Create new scheme items
           setShowSchemeItems({
             ...showSchemeItems,
             [index]: [
@@ -308,11 +362,26 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
               },
             ],
           });
+        } else if (hasExistingSchemeItems && freeQuantity > 0) {
+          // Update existing scheme item quantity if it changed
+          const updatedSchemeItems = { ...showSchemeItems };
+          if (updatedSchemeItems[index] && updatedSchemeItems[index][0]) {
+            updatedSchemeItems[index][0].quantity = freeQuantity;
+          }
+          setShowSchemeItems(updatedSchemeItems);
+        } else if (hasExistingSchemeItems && freeQuantity === 0) {
+          // Remove scheme items if quantity dropped below threshold
+          const updatedSchemeItems = { ...showSchemeItems };
+          delete updatedSchemeItems[index];
+          setShowSchemeItems(updatedSchemeItems);
         }
       } else {
-        const updatedSchemeItems = { ...showSchemeItems };
-        delete updatedSchemeItems[index];
-        setShowSchemeItems(updatedSchemeItems);
+        // No applicable scheme - remove any existing scheme items
+        if (hasExistingSchemeItems) {
+          const updatedSchemeItems = { ...showSchemeItems };
+          delete updatedSchemeItems[index];
+          setShowSchemeItems(updatedSchemeItems);
+        }
       }
     }
 
