@@ -14,6 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
+  brand: z.string().optional(),
   description: z.string().optional(),
   basePrice: z.number().min(0, "Price must be positive"),
   salesPrice: z.number().min(0, "Sales price must be positive").optional(),
@@ -41,6 +42,7 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: product?.name || "",
+      brand: product?.brand || "",
       description: product?.description || "",
       basePrice: product ? parseFloat(product.basePrice) : 0,
       salesPrice: product?.salesPrice ? parseFloat(product.salesPrice) : 0,
@@ -128,6 +130,18 @@ export function ProductForm({ onClose, product }: ProductFormProps) {
                   )}
                 </div>
                 
+                <div className="space-y-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Input
+                    id="brand"
+                    placeholder="Enter brand"
+                    data-testid="input-product-brand"
+                    {...form.register("brand")}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Input
