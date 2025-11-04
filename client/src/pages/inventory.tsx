@@ -477,26 +477,28 @@ export default function Inventory() {
               variant="secondary" 
               onClick={async () => {
                 try {
-                  // Fetch invoices to get movement data
-                  const invoicesResponse = await fetch('/api/invoices', {
-                    credentials: 'include',
-                  });
-                  
-                  if (!invoicesResponse.ok) {
-                    throw new Error('Failed to fetch invoices');
+                  if (!products || products.length === 0) {
+                    toast({
+                      title: "No Data",
+                      description: "No products available",
+                      variant: "destructive",
+                    });
+                    return;
                   }
-                  
-                  const invoices = await invoicesResponse.json();
+
+                  // Fetch invoices using queryClient
+                  const invoices = await queryClient.fetchQuery({
+                    queryKey: ['/api/invoices'],
+                  });
                   
                   // Fetch all line items for all invoices
                   const allLineItems: any[] = [];
-                  for (const invoice of invoices) {
-                    const lineItemsResponse = await fetch(`/api/invoices/${invoice.id}/line-items`, {
-                      credentials: 'include',
-                    });
-                    if (lineItemsResponse.ok) {
-                      const lineItems = await lineItemsResponse.json();
-                      lineItems.forEach((item: any) => {
+                  for (const invoice of invoices as any[]) {
+                    try {
+                      const lineItems = await queryClient.fetchQuery({
+                        queryKey: [`/api/invoices/${invoice.id}/line-items`],
+                      });
+                      (lineItems as any[]).forEach((item: any) => {
                         allLineItems.push({
                           ...item,
                           invoiceNumber: invoice.invoiceNumber,
@@ -505,20 +507,21 @@ export default function Inventory() {
                           customerId: invoice.customerId,
                         });
                       });
+                    } catch (err) {
+                      console.error(`Failed to fetch line items for invoice ${invoice.id}`, err);
                     }
                   }
                   
                   // Fetch customers for name lookup
-                  const customersResponse = await fetch('/api/customers', {
-                    credentials: 'include',
+                  const customers = await queryClient.fetchQuery({
+                    queryKey: ['/api/customers'],
                   });
-                  const customers = await customersResponse.json();
-                  const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
+                  const customerMap = new Map((customers as any[]).map((c: any) => [c.id, c.name]));
                   
                   // Build the report data grouped by product
                   const reportData: any[] = [];
                   
-                  for (const product of (products || [])) {
+                  for (const product of products) {
                     // Get all line items for this product
                     const productLineItems = allLineItems.filter(
                       (item: any) => item.productId === product.id
