@@ -403,10 +403,15 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
             queryKey: [`/api/invoices/${invoice.id}/line-items`],
           });
           
+          // Get customer/vendor name for this invoice
+          const customer = customers?.find((c: any) => c.id === invoice.customerId);
+          const customerVendorName = customer?.name || 'Unknown';
+          
           if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
             lineItems.forEach((item: any) => {
               lineItemsData.push({
                 'Invoice Number': invoice.invoiceNumber || '',
+                'Customer/Vendor': customerVendorName,
                 'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
                 'Product Name': item.description || '',
                 'Category': item.category || '',
