@@ -227,17 +227,18 @@ export default function Inventory() {
 
             const product = {
               name: cleanString(row[0]) || `Product ${i}`, // Product Name
-              date: convertExcelDate(row[1]), // Date (converted from Excel format)
-              itemCode: cleanString(row[2]) || null, // Item Code
-              packingSize: cleanString(row[3]) || null, // Packing Size
-              category: cleanString(row[4]) || 'Imported', // Category
-              qty: cleanInteger(row[5]), // Qty (as integer)
-              basePrice: cleanNumber(row[6]), // Base Price
-              salesPrice: cleanNumber(row[7]), // Sales Price
-              grossWeight: cleanString(row[8]) || null, // Gross Weight (LBS)
-              netWeight: cleanString(row[9]) || null, // Net Weight (LBS)
-              schemeDescription: cleanString(row[10]) || null, // Scheme Description
-              cartoonBarcode: cleanString(row[11]) || null, // Cartoon Barcode
+              brand: cleanString(row[1]) || null, // Brand
+              date: convertExcelDate(row[2]), // Date (converted from Excel format)
+              itemCode: cleanString(row[3]) || null, // Item Code
+              packingSize: cleanString(row[4]) || null, // Packing Size
+              category: cleanString(row[5]) || 'Imported', // Category
+              qty: cleanInteger(row[6]), // Qty (as integer)
+              basePrice: cleanNumber(row[7]), // Base Price
+              salesPrice: cleanNumber(row[8]), // Sales Price
+              grossWeight: cleanString(row[9]) || null, // Gross Weight (LBS)
+              netWeight: cleanString(row[10]) || null, // Net Weight (LBS)
+              schemeDescription: cleanString(row[11]) || null, // Scheme Description
+              cartoonBarcode: cleanString(row[12]) || null, // Cartoon Barcode
               description: 'Imported from Excel',
             };
             
@@ -275,7 +276,7 @@ export default function Inventory() {
         } else {
           toast({
             title: "No Valid Data",
-            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Date, Item Code, Packing Size, Category, Qty, Base Price, Sales Price, Gross Weight(LBS), Net Weight(LBS), Scheme Description, CARTOON BARCODE`,
+            description: `No valid products found. Processed ${jsonData.length - 1} rows, skipped ${skippedRows}. Check that your file has: Product Name, Brand, Date, Item Code, Packing Size, Category, Qty, Base Price, Sales Price, Gross Weight(LBS), Net Weight(LBS), Scheme Description, CARTOON BARCODE`,
             variant: "destructive",
           });
         }
@@ -322,6 +323,7 @@ export default function Inventory() {
       // Prepare report data
       const reportData = products.map((product: any) => ({
         'Product Name': product.name || '',
+        'Brand': product.brand || '',
         'Date': product.date ? formatDateWithoutTimezone(product.date) : '',
         'Item Code': product.itemCode || '',
         'Packing Size': product.packingSize || '',
