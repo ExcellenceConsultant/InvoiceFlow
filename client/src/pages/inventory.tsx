@@ -475,8 +475,29 @@ export default function Inventory() {
             </Button>
             <Button 
               variant="secondary" 
-              onClick={() => {
-                window.location.href = '/api/products/reports/inventory-movement';
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/products/reports/inventory-movement', {
+                    credentials: 'include',
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error('Failed to generate report');
+                  }
+                  
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (error) {
+                  console.error('Error downloading movement report:', error);
+                  alert('Failed to generate movement report. Please try again.');
+                }
               }}
               data-testid="button-movement-report"
             >
