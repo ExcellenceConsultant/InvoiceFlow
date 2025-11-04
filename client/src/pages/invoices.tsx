@@ -357,7 +357,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
   };
 
   // Generate Excel Report Function
-  const handleExportInvoices = () => {
+  const handleExportInvoices = async () => {
     if (!invoices || invoices.length === 0) {
       toast({
         title: "No Data",
@@ -368,6 +368,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     }
 
     try {
+      toast({
+        title: "Generating Report",
+        description: "Please wait while we prepare your invoice report...",
+      });
+
       // Prepare summary data
       const summaryData = invoices.map((invoice: any) => {
         const customer = customers?.find((c: any) => c.id === invoice.customerId);
@@ -388,23 +393,33 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         };
       });
 
-      // Prepare line items data
+      // Fetch line items for all invoices and prepare data
       const lineItemsData: any[] = [];
-      invoices.forEach((invoice: any) => {
-        if (invoice.lineItems && invoice.lineItems.length > 0) {
-          invoice.lineItems.forEach((item: any) => {
-            lineItemsData.push({
-              'Invoice Number': invoice.invoiceNumber || '',
-              'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
-              'Product Name': item.productName || item.description || '',
-              'Category': item.category || '',
-              'Quantity': item.quantity || 0,
-              'Rate': parseFloat(item.unitPrice || 0).toFixed(2),
-              'Promotional Product': item.isFreeFromScheme ? 'Yes' : '',
-            });
+      
+      for (const invoice of invoices) {
+        try {
+          // Fetch line items for this invoice
+          const lineItems = await queryClient.fetchQuery({
+            queryKey: [`/api/invoices/${invoice.id}/line-items`],
           });
+          
+          if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
+            lineItems.forEach((item: any) => {
+              lineItemsData.push({
+                'Invoice Number': invoice.invoiceNumber || '',
+                'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
+                'Product Name': item.description || '',
+                'Category': item.category || '',
+                'Quantity': item.quantity || 0,
+                'Rate': parseFloat(item.unitPrice || 0).toFixed(2),
+                'Promotional Product': item.isFreeFromScheme ? 'Yes' : '',
+              });
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to fetch line items for invoice ${invoice.id}:`, error);
         }
-      });
+      }
 
       // Create workbook
       const workbook = XLSX.utils.book_new();
