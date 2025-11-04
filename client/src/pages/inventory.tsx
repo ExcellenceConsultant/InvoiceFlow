@@ -474,6 +474,16 @@ export default function Inventory() {
               Generate Report
             </Button>
             <Button 
+              variant="secondary" 
+              onClick={() => {
+                window.location.href = '/api/products/reports/inventory-movement';
+              }}
+              data-testid="button-movement-report"
+            >
+              <BarChart3 className="mr-2" size={16} />
+              Movement Report
+            </Button>
+            <Button 
               onClick={() => {
                 setEditingProduct(null);
                 setShowProductForm(true);
