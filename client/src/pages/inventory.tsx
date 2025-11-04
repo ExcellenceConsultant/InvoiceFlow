@@ -477,26 +477,100 @@ export default function Inventory() {
               variant="secondary" 
               onClick={async () => {
                 try {
-                  const response = await fetch('/api/reports/inventory-movement', {
+                  // Fetch invoices to get movement data
+                  const invoicesResponse = await fetch('/api/invoices', {
                     credentials: 'include',
                   });
                   
-                  if (!response.ok) {
-                    throw new Error('Failed to generate report');
+                  if (!invoicesResponse.ok) {
+                    throw new Error('Failed to fetch invoices');
                   }
                   
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
+                  const invoices = await invoicesResponse.json();
+                  
+                  // Fetch all line items for all invoices
+                  const allLineItems: any[] = [];
+                  for (const invoice of invoices) {
+                    const lineItemsResponse = await fetch(`/api/invoices/${invoice.id}/line-items`, {
+                      credentials: 'include',
+                    });
+                    if (lineItemsResponse.ok) {
+                      const lineItems = await lineItemsResponse.json();
+                      lineItems.forEach((item: any) => {
+                        allLineItems.push({
+                          ...item,
+                          invoiceNumber: invoice.invoiceNumber,
+                          invoiceDate: invoice.invoiceDate,
+                          invoiceType: invoice.invoiceType,
+                          customerId: invoice.customerId,
+                        });
+                      });
+                    }
+                  }
+                  
+                  // Fetch customers for name lookup
+                  const customersResponse = await fetch('/api/customers', {
+                    credentials: 'include',
+                  });
+                  const customers = await customersResponse.json();
+                  const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
+                  
+                  // Build the report data grouped by product
+                  const reportData: any[] = [];
+                  
+                  for (const product of (products || [])) {
+                    // Get all line items for this product
+                    const productLineItems = allLineItems.filter(
+                      (item: any) => item.productId === product.id
+                    );
+                    
+                    if (productLineItems.length > 0) {
+                      // Add product name as header row
+                      reportData.push({
+                        'Product Name': product.name,
+                        'Invoice Number': '',
+                        'Invoice Date': '',
+                        'Name': '',
+                        'QTY': ''
+                      });
+                      
+                      // Add each transaction
+                      productLineItems.forEach((item: any) => {
+                        const customerName = customerMap.get(item.customerId) || '';
+                        // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
+                        const quantity = item.invoiceType === 'receivable' 
+                          ? -item.quantity 
+                          : item.quantity;
+                        
+                        reportData.push({
+                          'Product Name': '',
+                          'Invoice Number': item.invoiceNumber,
+                          'Invoice Date': item.invoiceDate ? formatDateWithoutTimezone(item.invoiceDate) : '',
+                          'Name': customerName,
+                          'QTY': quantity
+                        });
+                      });
+                    }
+                  }
+                  
+                  // Generate Excel file
+                  const XLSX = await import('xlsx');
+                  const worksheet = XLSX.utils.json_to_sheet(reportData);
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Movement');
+                  XLSX.writeFile(workbook, `Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  
+                  toast({
+                    title: "Success",
+                    description: "Inventory movement report generated successfully",
+                  });
                 } catch (error) {
-                  console.error('Error downloading movement report:', error);
-                  alert('Failed to generate movement report. Please try again.');
+                  console.error('Error generating movement report:', error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to generate movement report. Please try again.",
+                    variant: "destructive",
+                  });
                 }
               }}
               data-testid="button-movement-report"
