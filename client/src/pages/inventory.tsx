@@ -56,6 +56,7 @@ export default function Inventory() {
   const filteredProducts = products?.filter((product: any) => {
     const matchesSearch = 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -830,6 +831,7 @@ export default function Inventory() {
                       />
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Brand</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Packing Size</th>
@@ -867,6 +869,9 @@ export default function Inventory() {
                           {product.description && (
                             <div className="text-xs text-muted-foreground">{product.description}</div>
                           )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-brand-${product.id}`}>
+                          {product.brand || '-'}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`product-date-${product.id}`}>
                           {product.date ? formatDateWithoutTimezone(product.date) : '-'}
