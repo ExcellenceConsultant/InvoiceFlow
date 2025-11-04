@@ -474,6 +474,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/products/reports/inventory-movement", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const products = await storage.getProducts(user.userId);
+      const invoices = await storage.getInvoices(user.userId);
+      
+      // Get all invoice line items for all invoices
+      const allLineItems: any[] = [];
+      for (const invoice of invoices) {
+        const lineItems = await storage.getInvoiceLineItems(invoice.id);
+        lineItems.forEach((item: any) => {
+          allLineItems.push({
+            ...item,
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceDate: invoice.invoiceDate,
+            invoiceType: invoice.invoiceType,
+            customerId: invoice.customerId,
+          });
+        });
+      }
+      
+      // Get all customers for name lookup
+      const customers = await storage.getCustomers(user.userId);
+      const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
+      
+      // Build the report data grouped by product
+      const reportData: any[] = [];
+      
+      for (const product of products) {
+        // Get all line items for this product
+        const productLineItems = allLineItems.filter(
+          (item: any) => item.productId === product.id
+        );
+        
+        if (productLineItems.length > 0) {
+          // Add product name as header row
+          reportData.push({
+            "Product Name": product.name,
+            "Invoice Number": "",
+            "Invoice Date": "",
+            "Name": "",
+            "QTY": ""
+          });
+          
+          // Add each transaction
+          productLineItems.forEach((item: any) => {
+            const customerName = customerMap.get(item.customerId) || "";
+            // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
+            const quantity = item.invoiceType === "receivable" 
+              ? -item.quantity 
+              : item.quantity;
+            
+            reportData.push({
+              "Product Name": "",
+              "Invoice Number": item.invoiceNumber,
+              "Invoice Date": item.invoiceDate ? new Date(item.invoiceDate).toLocaleDateString('en-US') : "",
+              "Name": customerName,
+              "QTY": quantity
+            });
+          });
+        }
+      }
+      
+      // Generate Excel file
+      const XLSX = require("xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(reportData, {
+        header: ["Product Name", "Invoice Number", "Invoice Date", "Name", "QTY"],
+        skipHeader: false,
+      });
+      
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory Movement");
+      
+      const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+      
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx"`
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating inventory movement report:", error);
+      res.status(500).json({ message: "Failed to generate inventory movement report" });
+    }
+  });
+
   app.post("/api/products", isAuthenticated, async (req, res) => {
     try {
       console.log("Creating product with data:", req.body);
@@ -566,96 +656,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete product" });
-    }
-  });
-
-  app.get("/api/products/reports/inventory-movement", isAuthenticated, async (req, res) => {
-    try {
-      const user = (req as any).user;
-      const products = await storage.getProducts(user.userId);
-      const invoices = await storage.getInvoices(user.userId);
-      
-      // Get all invoice line items for all invoices
-      const allLineItems: any[] = [];
-      for (const invoice of invoices) {
-        const lineItems = await storage.getInvoiceLineItems(invoice.id);
-        lineItems.forEach((item: any) => {
-          allLineItems.push({
-            ...item,
-            invoiceNumber: invoice.invoiceNumber,
-            invoiceDate: invoice.invoiceDate,
-            invoiceType: invoice.invoiceType,
-            customerId: invoice.customerId,
-          });
-        });
-      }
-      
-      // Get all customers for name lookup
-      const customers = await storage.getCustomers(user.userId);
-      const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
-      
-      // Build the report data grouped by product
-      const reportData: any[] = [];
-      
-      for (const product of products) {
-        // Get all line items for this product
-        const productLineItems = allLineItems.filter(
-          (item: any) => item.productId === product.id
-        );
-        
-        if (productLineItems.length > 0) {
-          // Add product name as header row
-          reportData.push({
-            "Product Name": product.name,
-            "Invoice Number": "",
-            "Invoice Date": "",
-            "Name": "",
-            "QTY": ""
-          });
-          
-          // Add each transaction
-          productLineItems.forEach((item: any) => {
-            const customerName = customerMap.get(item.customerId) || "";
-            // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
-            const quantity = item.invoiceType === "receivable" 
-              ? -item.quantity 
-              : item.quantity;
-            
-            reportData.push({
-              "Product Name": "",
-              "Invoice Number": item.invoiceNumber,
-              "Invoice Date": item.invoiceDate ? new Date(item.invoiceDate).toLocaleDateString('en-US') : "",
-              "Name": customerName,
-              "QTY": quantity
-            });
-          });
-        }
-      }
-      
-      // Generate Excel file
-      const XLSX = require("xlsx");
-      const worksheet = XLSX.utils.json_to_sheet(reportData, {
-        header: ["Product Name", "Invoice Number", "Invoice Date", "Name", "QTY"],
-        skipHeader: false,
-      });
-      
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory Movement");
-      
-      const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-      
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx"`
-      );
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
-      res.send(buffer);
-    } catch (error) {
-      console.error("Error generating inventory movement report:", error);
-      res.status(500).json({ message: "Failed to generate inventory movement report" });
     }
   });
 
