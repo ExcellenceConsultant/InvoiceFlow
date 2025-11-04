@@ -2296,7 +2296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const userId = (req as any).user?.userId;
         
-        console.log("Starting inventory recalculation from invoices...");
+        console.log("Starting optimized inventory recalculation from invoices...");
         
         // Get all products
         const allProducts = await storage.getProducts(userId);
@@ -2306,37 +2306,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allInvoices = await storage.getInvoices(userId);
         console.log(`Found ${allInvoices.length} invoices to process`);
         
-        let updatedProductsCount = 0;
+        // Fetch ALL line items at once and build a map
+        console.log("Fetching all line items...");
+        const productQuantityMap = new Map<string, number>();
         
-        // For each product, calculate the correct quantity
-        for (const product of allProducts) {
-          let netQuantity = 0;
+        for (const invoice of allInvoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
           
-          // Get all line items for this product across all invoices
-          for (const invoice of allInvoices) {
-            const lineItems = await storage.getInvoiceLineItems(invoice.id);
-            
-            for (const item of lineItems) {
-              if (item.productId === product.id) {
-                // AP (payable) invoices add to inventory
-                // AR (receivable) invoices subtract from inventory
-                if (invoice.invoiceType === "payable") {
-                  netQuantity += item.quantity;
-                } else if (invoice.invoiceType === "receivable") {
-                  netQuantity -= item.quantity;
-                }
+          for (const item of lineItems) {
+            if (item.productId && item.productId.trim() !== "") {
+              const currentQty = productQuantityMap.get(item.productId) || 0;
+              
+              // AP (payable) invoices add to inventory
+              // AR (receivable) invoices subtract from inventory
+              if (invoice.invoiceType === "payable") {
+                productQuantityMap.set(item.productId, currentQty + item.quantity);
+              } else if (invoice.invoiceType === "receivable") {
+                productQuantityMap.set(item.productId, currentQty - item.quantity);
               }
             }
           }
+        }
+        
+        console.log(`Calculated quantities for ${productQuantityMap.size} products`);
+        
+        // Update all products
+        let updatedProductsCount = 0;
+        
+        for (const product of allProducts) {
+          const calculatedQty = productQuantityMap.get(product.id) || 0;
+          const finalQty = calculatedQty < 0 ? 0 : calculatedQty; // Don't allow negative
           
-          // Update product quantity if different
-          if (product.qty !== netQuantity) {
+          if (product.qty !== finalQty) {
             console.log(
-              `Updating ${product.name}: ${product.qty} → ${netQuantity}`
+              `Updating ${product.name}: ${product.qty} → ${finalQty}`
             );
             
             await storage.updateProduct(product.id, {
-              qty: netQuantity < 0 ? 0 : netQuantity, // Don't allow negative quantities
+              qty: finalQty,
             });
             
             updatedProductsCount++;
