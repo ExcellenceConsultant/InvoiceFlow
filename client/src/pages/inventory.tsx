@@ -486,10 +486,18 @@ export default function Inventory() {
                     return;
                   }
 
+                  // Show loading message
+                  toast({
+                    title: "Generating Report",
+                    description: "Please wait, this may take a moment...",
+                  });
+
                   // Fetch invoices using queryClient
                   const invoices = await queryClient.fetchQuery({
                     queryKey: ['/api/invoices'],
                   });
+                  
+                  console.log(`Fetching line items for ${(invoices as any[]).length} invoices...`);
                   
                   // Fetch all line items for all invoices
                   const allLineItems: any[] = [];
@@ -511,6 +519,8 @@ export default function Inventory() {
                       console.error(`Failed to fetch line items for invoice ${invoice.id}`, err);
                     }
                   }
+                  
+                  console.log(`Collected ${allLineItems.length} line items`);
                   
                   // Fetch customers for name lookup
                   const customers = await queryClient.fetchQuery({
@@ -556,6 +566,8 @@ export default function Inventory() {
                     }
                   }
                   
+                  console.log(`Generating Excel file with ${reportData.length} rows...`);
+                  
                   // Generate Excel file
                   const XLSX = await import('xlsx');
                   const worksheet = XLSX.utils.json_to_sheet(reportData);
@@ -563,15 +575,17 @@ export default function Inventory() {
                   XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Movement');
                   XLSX.writeFile(workbook, `Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
                   
+                  console.log('Excel file generated successfully');
+                  
                   toast({
                     title: "Success",
-                    description: "Inventory movement report generated successfully",
+                    description: "Inventory movement report downloaded successfully",
                   });
                 } catch (error) {
                   console.error('Error generating movement report:', error);
                   toast({
                     title: "Error",
-                    description: "Failed to generate movement report. Please try again.",
+                    description: `Failed to generate report: ${error}`,
                     variant: "destructive",
                   });
                 }
