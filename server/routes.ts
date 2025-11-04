@@ -2288,6 +2288,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Migration endpoint: Recalculate all inventory quantities from invoices
+  app.post(
+    "/api/migrate/recalculate-inventory",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        
+        console.log("Starting inventory recalculation from invoices...");
+        
+        // Get all products
+        const allProducts = await storage.getProducts(userId);
+        console.log(`Found ${allProducts.length} products to recalculate`);
+        
+        // Get all invoices
+        const allInvoices = await storage.getInvoices(userId);
+        console.log(`Found ${allInvoices.length} invoices to process`);
+        
+        let updatedProductsCount = 0;
+        
+        // For each product, calculate the correct quantity
+        for (const product of allProducts) {
+          let netQuantity = 0;
+          
+          // Get all line items for this product across all invoices
+          for (const invoice of allInvoices) {
+            const lineItems = await storage.getInvoiceLineItems(invoice.id);
+            
+            for (const item of lineItems) {
+              if (item.productId === product.id) {
+                // AP (payable) invoices add to inventory
+                // AR (receivable) invoices subtract from inventory
+                if (invoice.invoiceType === "payable") {
+                  netQuantity += item.quantity;
+                } else if (invoice.invoiceType === "receivable") {
+                  netQuantity -= item.quantity;
+                }
+              }
+            }
+          }
+          
+          // Update product quantity if different
+          if (product.qty !== netQuantity) {
+            console.log(
+              `Updating ${product.name}: ${product.qty} → ${netQuantity}`
+            );
+            
+            await storage.updateProduct(product.id, {
+              qty: netQuantity < 0 ? 0 : netQuantity, // Don't allow negative quantities
+            });
+            
+            updatedProductsCount++;
+          }
+        }
+        
+        console.log(`Recalculation complete: Updated ${updatedProductsCount} products`);
+        
+        res.json({
+          success: true,
+          message: `Successfully recalculated inventory for ${updatedProductsCount} products`,
+          updatedCount: updatedProductsCount,
+          totalProducts: allProducts.length,
+        });
+      } catch (error) {
+        console.error("Inventory recalculation error:", error);
+        const err = error as any;
+        res
+          .status(500)
+          .json({ message: "Failed to recalculate inventory", error: err.message });
+      }
+    },
+  );
+
   // Migration endpoint: Update Sales Price from existing AR invoices
   app.post(
     "/api/migrate/sales-price-from-ar-invoices",

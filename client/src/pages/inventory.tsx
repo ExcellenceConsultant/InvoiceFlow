@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, X } from "lucide-react";
+import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, X, RefreshCw } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -472,6 +472,39 @@ export default function Inventory() {
             >
               <BarChart3 className="mr-2" size={16} />
               Generate Report
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                try {
+                  toast({
+                    title: "Recalculating Inventory",
+                    description: "Please wait while we recalculate quantities from invoices...",
+                  });
+
+                  const response = await apiRequest('POST', '/api/migrate/recalculate-inventory', {});
+                  const result = await response.json();
+
+                  toast({
+                    title: "Success",
+                    description: result.message || "Inventory quantities recalculated successfully",
+                  });
+
+                  // Refresh the products list
+                  queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+                } catch (error: any) {
+                  console.error('Error recalculating inventory:', error);
+                  toast({
+                    title: "Error",
+                    description: error.message || "Failed to recalculate inventory",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              data-testid="button-recalculate-inventory"
+            >
+              <RefreshCw className="mr-2" size={16} />
+              Recalculate Qty
             </Button>
             <Button 
               variant="secondary" 
