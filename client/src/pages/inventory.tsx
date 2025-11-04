@@ -477,7 +477,7 @@ export default function Inventory() {
               variant="secondary" 
               onClick={async () => {
                 try {
-                  const response = await fetch('/api/products/reports/inventory-movement', {
+                  const response = await fetch('/api/reports/inventory-movement', {
                     credentials: 'include',
                   });
                   

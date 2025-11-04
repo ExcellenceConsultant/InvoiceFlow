@@ -463,18 +463,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Product routes
-  app.get("/api/products", isAuthenticated, async (req, res) => {
-    try {
-      const user = (req as any).user;
-      const products = await storage.getProducts(user.userId);
-      res.json(products);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch products" });
-    }
-  });
-
-  app.get("/api/products/reports/inventory-movement", isAuthenticated, async (req, res) => {
+  // Inventory movement report - Must be before other product routes
+  app.get("/api/reports/inventory-movement", isAuthenticated, async (req, res) => {
     try {
       const user = (req as any).user;
       const products = await storage.getProducts(user.userId);
@@ -561,6 +551,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating inventory movement report:", error);
       res.status(500).json({ message: "Failed to generate inventory movement report" });
+    }
+  });
+
+  // Product routes
+  app.get("/api/products", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const products = await storage.getProducts(user.userId);
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
     }
   });
 
