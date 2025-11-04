@@ -394,15 +394,13 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         if (invoice.lineItems && invoice.lineItems.length > 0) {
           invoice.lineItems.forEach((item: any) => {
             lineItemsData.push({
-              'Invoice #': invoice.invoiceNumber || '',
-              'Product Name': item.productName || '',
-              'Item Code': item.itemCode || '',
-              'CARTOON BARCODE': item.cartoonBarcode || '',
+              'Invoice Number': invoice.invoiceNumber || '',
+              'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
+              'Product Name': item.productName || item.description || '',
+              'Category': item.category || '',
               'Quantity': item.quantity || 0,
-              'Unit Price': parseFloat(item.unitPrice || 0).toFixed(2),
-              'Total': parseFloat(item.total || 0).toFixed(2),
-              'Free From Scheme': item.isFreeFromScheme ? 'Yes' : 'No',
-              'Scheme Description': item.isSchemeDescription ? 'Yes' : 'No',
+              'Rate': parseFloat(item.unitPrice || 0).toFixed(2),
+              'Promotional Product': item.isFreeFromScheme ? 'Yes' : '',
             });
           });
         }
