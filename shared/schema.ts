@@ -50,6 +50,7 @@ export const customers = pgTable("customers", {
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(), // Product Name
+  brand: text("brand"), // Brand
   date: timestamp("date").notNull(), // Date
   itemCode: text("item_code"), // Item Code
   packingSize: text("packing_size"), // Packing Size
