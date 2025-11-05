@@ -166,6 +166,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     },
   });
 
+  const getCustomerName = (customerId: string) => {
+    const customer = customers?.find((c: any) => c.id === customerId);
+    return customer?.name || "Unknown Customer";
+  };
+
   const getDisplayStatus = (invoice: any) => {
     // If already paid, return paid
     if (invoice.status === "paid") {
@@ -199,11 +204,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     const matchesStatus = statusFilter === "all" || displayStatus === statusFilter;
     return matchesSearch && matchesStatus;
   }) || [];
-
-  const getCustomerName = (customerId: string) => {
-    const customer = customers?.find((c: any) => c.id === customerId);
-    return customer?.name || "Unknown Customer";
-  };
 
 
   // Check if invoice can be edited based on 24-hour rule
