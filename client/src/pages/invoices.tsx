@@ -191,7 +191,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
   };
 
   const filteredInvoices = invoices?.filter((invoice: any) => {
-    const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const customerName = getCustomerName(invoice.customerId);
+    const matchesSearch = 
+      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchTerm.toLowerCase());
     const displayStatus = getDisplayStatus(invoice);
     const matchesStatus = statusFilter === "all" || displayStatus === statusFilter;
     return matchesSearch && matchesStatus;
