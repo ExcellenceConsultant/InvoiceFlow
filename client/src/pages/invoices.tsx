@@ -1,8 +1,21 @@
 import InvoiceForm from "@/components/invoice-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -15,11 +28,13 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
 import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CalendarDays,
   Check,
   Download,
   Edit,
@@ -32,7 +47,8 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { DateRange } from "react-day-picker";
 import { useLocation } from "wouter";
 import * as XLSX from "xlsx";
 
@@ -50,6 +66,250 @@ type SortConfig = {
   direction: "asc" | "desc";
 };
 
+type DateFilterOption =
+  | "all"
+  | "last_month"
+  | "last_30_days"
+  | "this_quarter"
+  | "last_quarter"
+  | "last_3_months"
+  | "last_6_months"
+  | "last_12_months"
+  | "year_to_date"
+  | "this_year"
+  | "custom"
+  | `year_${number}`;
+
+type DateRangeSelection = {
+  start: Date | null;
+  end: Date | null;
+};
+
+const startOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
+const parseYearFromOption = (option: DateFilterOption): number | null => {
+  if (option.startsWith("year_")) {
+    const value = Number(option.split("_")[1]);
+    return Number.isNaN(value) ? null : value;
+  }
+  return null;
+};
+
+const getQuarterRange = (
+  reference: Date,
+  offset: number,
+): DateRangeSelection => {
+  let year = reference.getFullYear();
+  let quarterIndex = Math.floor(reference.getMonth() / 3) + offset;
+
+  while (quarterIndex < 0) {
+    quarterIndex += 4;
+    year -= 1;
+  }
+
+  while (quarterIndex > 3) {
+    quarterIndex -= 4;
+    year += 1;
+  }
+
+  const startMonth = quarterIndex * 3;
+  const start = startOfDay(new Date(year, startMonth, 1));
+  const end = endOfDay(new Date(year, startMonth + 3, 0));
+
+  return { start, end };
+};
+
+const getYearRange = (year: number): DateRangeSelection => ({
+  start: startOfDay(new Date(year, 0, 1)),
+  end: endOfDay(new Date(year, 11, 31)),
+});
+
+const calculateDateRange = (
+  option: DateFilterOption,
+  customRange?: DateRange,
+  referenceDate: Date = new Date(),
+): DateRangeSelection => {
+  const now = referenceDate;
+
+  switch (option) {
+    case "all":
+      return { start: null, end: null };
+    case "last_month": {
+      const start = startOfDay(
+        new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      );
+      const end = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
+      return { start, end };
+    }
+    case "last_30_days": {
+      const end = endOfDay(now);
+      const start = startOfDay(new Date(now));
+      start.setDate(start.getDate() - 29);
+      return { start, end };
+    }
+    case "this_quarter":
+      return getQuarterRange(now, 0);
+    case "last_quarter":
+      return getQuarterRange(now, -1);
+    case "last_3_months": {
+      const end = endOfDay(now);
+      const start = startOfDay(
+        new Date(now.getFullYear(), now.getMonth() - 2, 1),
+      );
+      return { start, end };
+    }
+    case "last_6_months": {
+      const end = endOfDay(now);
+      const start = startOfDay(
+        new Date(now.getFullYear(), now.getMonth() - 5, 1),
+      );
+      return { start, end };
+    }
+    case "last_12_months": {
+      const end = endOfDay(now);
+      const start = startOfDay(
+        new Date(now.getFullYear(), now.getMonth() - 11, 1),
+      );
+      return { start, end };
+    }
+    case "year_to_date": {
+      const start = startOfDay(new Date(now.getFullYear(), 0, 1));
+      const end = endOfDay(now);
+      return { start, end };
+    }
+    case "this_year":
+      return getYearRange(now.getFullYear());
+    case "custom": {
+      if (customRange?.from && customRange?.to) {
+        return {
+          start: startOfDay(customRange.from),
+          end: endOfDay(customRange.to),
+        };
+      }
+      return { start: null, end: null };
+    }
+    default: {
+      const year = parseYearFromOption(option);
+      if (year) {
+        return getYearRange(year);
+      }
+      return { start: null, end: null };
+    }
+  }
+};
+
+const getDateFilterLabel = (
+  option: DateFilterOption,
+  options: { value: DateFilterOption; label: string }[],
+  customRange?: DateRange,
+) => {
+  if (option === "custom" && customRange?.from && customRange?.to) {
+    return `${formatDateWithoutTimezone(
+      customRange.from,
+    )} – ${formatDateWithoutTimezone(customRange.to)}`;
+  }
+
+  const preset = options.find((opt) => opt.value === option);
+  if (preset) {
+    return preset.label;
+  }
+
+  const year = parseYearFromOption(option);
+  if (year) {
+    return year.toString();
+  }
+
+  return "All dates";
+};
+
+const MS_IN_DAY = 1000 * 60 * 60 * 24;
+
+const getInvoiceDueDate = (invoice: any): Date | null => {
+  const dueDateSource = invoice.dueDate ?? invoice.due_date;
+  if (dueDateSource) {
+    const dueDateParsed = new Date(dueDateSource);
+    if (!Number.isNaN(dueDateParsed.getTime())) {
+      return startOfDay(dueDateParsed);
+    }
+  }
+
+  if (!invoice.invoiceDate) {
+    return null;
+  }
+
+  const invoiceDate = new Date(invoice.invoiceDate);
+  if (Number.isNaN(invoiceDate.getTime())) {
+    return null;
+  }
+
+  invoiceDate.setDate(invoiceDate.getDate() + 30);
+  return startOfDay(invoiceDate);
+};
+
+const formatDayCount = (days: number) => `${days} day${days === 1 ? "" : "s"}`;
+
+const getDisplayStatus = (invoice: any) => {
+  if (invoice.status === "paid" || invoice.status === "overdue") {
+    return invoice.status;
+  }
+
+  const dueDate = getInvoiceDueDate(invoice);
+  if (dueDate) {
+    const today = startOfDay(new Date());
+    if (today > dueDate) {
+      return "overdue";
+    }
+  }
+
+  return invoice.status;
+};
+
+const getDueStatusMessage = (invoice: any, statusOverride?: string) => {
+  const displayStatus = statusOverride ?? getDisplayStatus(invoice);
+  if (displayStatus !== "sent" && displayStatus !== "overdue") {
+    return null;
+  }
+
+  const dueDate = getInvoiceDueDate(invoice);
+  if (!dueDate) {
+    return null;
+  }
+
+  const today = startOfDay(new Date());
+
+  if (displayStatus === "sent") {
+    const diffMs = dueDate.getTime() - today.getTime();
+    if (diffMs === 0) {
+      return "Due today";
+    }
+    if (diffMs > 0) {
+      const daysUntilDue = Math.ceil(diffMs / MS_IN_DAY);
+      return `Due in ${formatDayCount(daysUntilDue)}`;
+    }
+
+    const overdueDays = Math.ceil(Math.abs(diffMs) / MS_IN_DAY);
+    return `Overdue by ${formatDayCount(overdueDays)}`;
+  }
+
+  const overdueMs = today.getTime() - dueDate.getTime();
+  if (overdueMs <= 0) {
+    return "Overdue today";
+  }
+
+  const overdueDays = Math.ceil(overdueMs / MS_IN_DAY);
+  return `Overdue by ${formatDayCount(overdueDays)}`;
+};
+
 export default function Invoices() {
   const permissions = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,9 +318,58 @@ export default function Invoices() {
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [dateFilterOption, setDateFilterOption] =
+    useState<DateFilterOption>("last_12_months");
+  const [customDateRange, setCustomDateRange] = useState<
+    DateRange | undefined
+  >();
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
+  const [pendingCustomRange, setPendingCustomRange] = useState<
+    DateRange | undefined
+  >();
+  const [lastNonCustomDateOption, setLastNonCustomDateOption] =
+    useState<DateFilterOption>("last_12_months");
+  const customDialogCloseActionRef = useRef<"apply" | "cancel" | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+
+  const currentYear = new Date().getFullYear();
+  const dateFilterOptions = useMemo(() => {
+    const previousYear = currentYear - 1;
+
+    const options: { value: DateFilterOption; label: string }[] = [
+      { value: "all", label: "All dates" },
+      { value: "last_month", label: "Last month" },
+      { value: "last_30_days", label: "Last 30 days" },
+      { value: "this_quarter", label: "This quarter" },
+      { value: "last_quarter", label: "Last quarter" },
+      { value: "last_3_months", label: "Last 3 months" },
+      { value: "last_6_months", label: "Last 6 months" },
+      { value: "last_12_months", label: "Last 12 months" },
+      { value: "year_to_date", label: "Year to date" },
+      { value: "this_year", label: "This year" },
+      {
+        value: `year_${previousYear}` as DateFilterOption,
+        label: previousYear.toString(),
+      },
+      { value: "custom", label: "Custom" },
+    ];
+
+    return options;
+  }, [currentYear]);
+
+  const selectedDateRange = useMemo(
+    () => calculateDateRange(dateFilterOption, customDateRange),
+    [dateFilterOption, customDateRange],
+  );
+
+  const dateFilterLabel = useMemo(
+    () =>
+      getDateFilterLabel(dateFilterOption, dateFilterOptions, customDateRange),
+    [dateFilterOption, dateFilterOptions, customDateRange],
+  );
 
   const { data: invoices, isLoading } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
@@ -229,30 +538,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     return customer?.name || "Unknown Customer";
   };
 
-  const getDisplayStatus = (invoice: any) => {
-    // If already paid, return paid
-    if (invoice.status === "paid") {
-      return "paid";
-    }
-
-    // Calculate if invoice is overdue (30-day payment term)
-    const invoiceDate = new Date(invoice.invoiceDate);
-    const dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + 30); // Add 30 days for payment term
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
-    dueDate.setHours(0, 0, 0, 0);
-
-    // If past due date, show overdue
-    if (today > dueDate) {
-      return "overdue";
-    }
-
-    // Otherwise return the actual status
-    return invoice.status;
-  };
-
   const filteredInvoices = useMemo(() => {
     if (!invoices) return [];
 
@@ -264,8 +549,28 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       const matchesStatus =
         statusFilter === "all" || displayStatus === statusFilter;
 
+      const invoiceDateValue = invoice.invoiceDate
+        ? new Date(invoice.invoiceDate)
+        : null;
+      const matchesDate = (() => {
+        if (!selectedDateRange.start || !selectedDateRange.end) {
+          return true;
+        }
+
+        if (!invoiceDateValue || Number.isNaN(invoiceDateValue.getTime())) {
+          return false;
+        }
+
+        const normalized = new Date(invoiceDateValue);
+        normalized.setHours(0, 0, 0, 0);
+        return (
+          normalized >= selectedDateRange.start &&
+          normalized <= selectedDateRange.end
+        );
+      })();
+
       if (!normalizedSearch) {
-        return matchesStatus;
+        return matchesStatus && matchesDate;
       }
 
       const amountRaw =
@@ -311,7 +616,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         value.includes(normalizedSearch),
       );
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesSearch && matchesDate;
     });
 
     if (!sortConfig) {
@@ -375,7 +680,14 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     });
 
     return sorted;
-  }, [invoices, searchTerm, statusFilter, sortConfig, customers]);
+  }, [
+    invoices,
+    searchTerm,
+    statusFilter,
+    sortConfig,
+    customers,
+    selectedDateRange,
+  ]);
 
   const handleSort = (columnKey: SortKey) => {
     setSortConfig((prev) => {
@@ -398,6 +710,67 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     ) : (
       <ArrowDown className="h-3 w-3 text-muted-foreground" />
     );
+  };
+
+  const handleDateFilterChange = (option: DateFilterOption) => {
+    if (option === "custom") {
+      setLastNonCustomDateOption(dateFilterOption);
+      const today = new Date();
+      const initialRange =
+        customDateRange?.from && customDateRange?.to
+          ? customDateRange
+          : { from: today, to: today };
+      setPendingCustomRange(initialRange);
+      customDialogCloseActionRef.current = null;
+      setIsDateFilterOpen(false);
+      setIsCustomDialogOpen(true);
+      return;
+    }
+
+    setDateFilterOption(option);
+    setLastNonCustomDateOption(option);
+    setIsDateFilterOpen(false);
+    setPendingCustomRange(undefined);
+  };
+
+  const handleCustomApply = () => {
+    if (!pendingCustomRange?.from || !pendingCustomRange?.to) {
+      return;
+    }
+    setCustomDateRange(pendingCustomRange);
+    setDateFilterOption("custom");
+    customDialogCloseActionRef.current = "apply";
+    setIsCustomDialogOpen(false);
+    setPendingCustomRange(undefined);
+  };
+
+  const handleCustomCancel = () => {
+    customDialogCloseActionRef.current = "cancel";
+    setPendingCustomRange(undefined);
+    setIsCustomDialogOpen(false);
+  };
+
+  const handleDatePopoverOpenChange = (open: boolean) => {
+    setIsDateFilterOpen(open);
+  };
+
+  const handleCustomDialogOpenChange = (open: boolean) => {
+    if (open) {
+      customDialogCloseActionRef.current = null;
+      setIsCustomDialogOpen(true);
+      return;
+    }
+
+    setIsCustomDialogOpen(false);
+    const action = customDialogCloseActionRef.current;
+    customDialogCloseActionRef.current = null;
+
+    if (action === "apply") {
+      return;
+    }
+
+    setDateFilterOption(lastNonCustomDateOption);
+    setPendingCustomRange(undefined);
   };
 
   // Check if invoice can be edited based on 24-hour rule
@@ -807,6 +1180,48 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="w-full md:w-56">
+              <Popover
+                open={isDateFilterOpen}
+                onOpenChange={handleDatePopoverOpenChange}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    data-testid="button-date-filter"
+                  >
+                    <span>{dateFilterLabel}</span>
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="end">
+                  <div className="p-2">
+                    <div className="max-h-64 overflow-y-auto">
+                      {dateFilterOptions.map((option) => {
+                        const isActive = dateFilterOption === option.value;
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleDateFilterChange(option.value)}
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+                              isActive && "bg-muted text-foreground",
+                            )}
+                          >
+                            <span>{option.label}</span>
+                            {isActive && <Check className="h-4 w-4" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -923,137 +1338,130 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map((invoice: any) => (
-                    <tr
-                      key={invoice.id}
-                      className="border-b border-border hover:bg-muted/20 transition-colors"
-                      data-testid={`invoice-row-${invoice.id}`}
-                    >
-                      <td className="py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedInvoices.includes(invoice.id)}
-                          onChange={() => handleSelectInvoice(invoice.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-4 h-4 cursor-pointer"
-                          data-testid={`checkbox-invoice-${invoice.id}`}
-                        />
-                      </td>
-                      <td
-                        className="py-3 px-4 text-sm font-medium text-foreground"
-                        data-testid={`invoice-number-${invoice.id}`}
+                  {filteredInvoices.map((invoice: any) => {
+                    const displayStatus = getDisplayStatus(invoice);
+                    const dueStatusMessage = getDueStatusMessage(
+                      invoice,
+                      displayStatus,
+                    );
+
+                    return (
+                      <tr
+                        key={invoice.id}
+                        className="border-b border-border hover:bg-muted/20 transition-colors"
+                        data-testid={`invoice-row-${invoice.id}`}
                       >
-                        {invoice.invoiceNumber}
-                      </td>
-                      <td
-                        className="py-3 px-4"
-                        data-testid={`invoice-type-${invoice.id}`}
-                      >
-                        <Badge
-                          className={
-                            invoice.invoiceType === "payable"
-                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100"
-                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                          }
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedInvoices.includes(invoice.id)}
+                            onChange={() => handleSelectInvoice(invoice.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 cursor-pointer"
+                            data-testid={`checkbox-invoice-${invoice.id}`}
+                          />
+                        </td>
+                        <td
+                          className="py-3 px-4 text-sm font-medium text-foreground"
+                          data-testid={`invoice-number-${invoice.id}`}
                         >
-                          <div className="flex items-center">
-                            <div
-                              className={`w-2 h-2 rounded-full mr-2 ${
-                                invoice.invoiceType === "payable"
-                                  ? "bg-orange-500"
-                                  : "bg-green-500"
-                              }`}
-                            ></div>
-                            {invoice.invoiceType === "payable" ? "AP" : "AR"}
+                          {invoice.invoiceNumber}
+                        </td>
+                        <td
+                          className="py-3 px-4"
+                          data-testid={`invoice-type-${invoice.id}`}
+                        >
+                          <Badge
+                            className={
+                              invoice.invoiceType === "payable"
+                                ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100"
+                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                            }
+                          >
+                            <div className="flex items-center">
+                              <div
+                                className={`w-2 h-2 rounded-full mr-2 ${
+                                  invoice.invoiceType === "payable"
+                                    ? "bg-orange-500"
+                                    : "bg-green-500"
+                                }`}
+                              ></div>
+                              {invoice.invoiceType === "payable" ? "AP" : "AR"}
+                            </div>
+                          </Badge>
+                        </td>
+                        <td
+                          className="py-3 px-4 text-sm text-foreground"
+                          data-testid={`invoice-customer-${invoice.id}`}
+                        >
+                          {getCustomerName(invoice.customerId)}
+                        </td>
+                        <td
+                          className="py-3 px-4 text-sm text-muted-foreground"
+                          data-testid={`invoice-date-${invoice.id}`}
+                        >
+                          {formatDateWithoutTimezone(invoice.invoiceDate)}
+                        </td>
+                        <td
+                          className="py-3 px-4 text-sm font-medium text-foreground"
+                          data-testid={`invoice-amount-${invoice.id}`}
+                        >
+                          ${parseFloat(invoice.total).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col items-center">
+                            <Badge
+                              className={
+                                INVOICE_STATUS_COLORS[
+                                  displayStatus as keyof typeof INVOICE_STATUS_COLORS
+                                ]
+                              }
+                              data-testid={`invoice-status-${invoice.id}`}
+                            >
+                              {displayStatus.charAt(0).toUpperCase() +
+                                displayStatus.slice(1)}
+                            </Badge>
+                            {dueStatusMessage && (
+                              <span className="mt-1 text-xs text-muted-foreground">
+                                {dueStatusMessage}
+                              </span>
+                            )}
                           </div>
-                        </Badge>
-                      </td>
-                      <td
-                        className="py-3 px-4 text-sm text-foreground"
-                        data-testid={`invoice-customer-${invoice.id}`}
-                      >
-                        {getCustomerName(invoice.customerId)}
-                      </td>
-                      <td
-                        className="py-3 px-4 text-sm text-muted-foreground"
-                        data-testid={`invoice-date-${invoice.id}`}
-                      >
-                        {formatDateWithoutTimezone(invoice.invoiceDate)}
-                      </td>
-                      <td
-                        className="py-3 px-4 text-sm font-medium text-foreground"
-                        data-testid={`invoice-amount-${invoice.id}`}
-                      >
-                        ${parseFloat(invoice.total).toFixed(2)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge
-                          className={
-                            INVOICE_STATUS_COLORS[
-                              getDisplayStatus(
-                                invoice,
-                              ) as keyof typeof INVOICE_STATUS_COLORS
-                            ]
-                          }
-                          data-testid={`invoice-status-${invoice.id}`}
-                        >
-                          {getDisplayStatus(invoice).charAt(0).toUpperCase() +
-                            getDisplayStatus(invoice).slice(1)}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        {invoice.quickbooksInvoiceId ? (
-                          <Badge
-                            className="bg-accent text-accent-foreground"
-                            data-testid={`quickbooks-synced-${invoice.id}`}
-                          >
-                            Journal Entry Posted
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            data-testid={`quickbooks-not-synced-${invoice.id}`}
-                          >
-                            No Journal Entry
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() =>
-                              setLocation(`/invoices/${invoice.id}`)
-                            }
-                            data-testid={`button-view-invoice-${invoice.id}`}
-                          >
-                            <Eye size={14} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleEditInvoice(invoice, e);
-                            }}
-                            disabled={!canEditInvoice(invoice)}
-                            data-testid={`button-edit-invoice-${invoice.id}`}
-                          >
-                            <Edit size={14} />
-                          </Button>
-                          {invoice.status !== "paid" && (
+                        </td>
+                        <td className="py-3 px-4">
+                          {invoice.quickbooksInvoiceId ? (
+                            <Badge
+                              className="bg-accent text-accent-foreground"
+                              data-testid={`quickbooks-synced-${invoice.id}`}
+                            >
+                              Journal Entry Posted
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              data-testid={`quickbooks-not-synced-${invoice.id}`}
+                            >
+                              No Journal Entry
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-green-600 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                              className="h-8 w-8 p-0"
+                              onClick={() =>
+                                setLocation(`/invoices/${invoice.id}`)
+                              }
+                              data-testid={`button-view-invoice-${invoice.id}`}
+                            >
+                              <Eye size={14} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -1061,23 +1469,65 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleMarkAsPaid(invoice.id, e);
+                                handleEditInvoice(invoice, e);
                               }}
-                              disabled={
-                                markAsPaidMutation.isPending ||
-                                !permissions.canEditInvoice
-                              }
-                              data-testid={`button-mark-paid-${invoice.id}`}
-                              title="Mark as Paid"
+                              disabled={!canEditInvoice(invoice)}
+                              data-testid={`button-edit-invoice-${invoice.id}`}
                             >
-                              <Check size={14} />
+                              <Edit size={14} />
                             </Button>
-                          )}
-                          {!invoice.quickbooksInvoiceId && (
+                            {invoice.status !== "paid" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-green-600 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleMarkAsPaid(invoice.id, e);
+                                }}
+                                disabled={
+                                  markAsPaidMutation.isPending ||
+                                  !permissions.canEditInvoice
+                                }
+                                data-testid={`button-mark-paid-${invoice.id}`}
+                                title="Mark as Paid"
+                              >
+                                <Check size={14} />
+                              </Button>
+                            )}
+                            {!invoice.quickbooksInvoiceId && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-primary hover:text-primary"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSyncToQuickBooks(invoice.id, e);
+                                }}
+                                disabled={
+                                  syncToQuickBooksMutation.isPending ||
+                                  !permissions.canPostToQuickBooks
+                                }
+                                data-testid={`button-sync-quickbooks-${invoice.id}`}
+                                title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
+                              >
+                                <Send size={14} />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-primary hover:text-primary"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -1085,43 +1535,21 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleSyncToQuickBooks(invoice.id, e);
+                                handleDeleteInvoice(invoice.id, e);
                               }}
                               disabled={
-                                syncToQuickBooksMutation.isPending ||
-                                !permissions.canPostToQuickBooks
+                                deleteInvoiceMutation.isPending ||
+                                !permissions.canDeleteInvoice
                               }
-                              data-testid={`button-sync-quickbooks-${invoice.id}`}
-                              title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
+                              data-testid={`button-delete-invoice-${invoice.id}`}
                             >
-                              <Send size={14} />
+                              <Trash2 size={14} />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteInvoice(invoice.id, e);
-                            }}
-                            disabled={
-                              deleteInvoiceMutation.isPending ||
-                              !permissions.canDeleteInvoice
-                            }
-                            data-testid={`button-delete-invoice-${invoice.id}`}
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1158,6 +1586,40 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           onSuccess={handleCloseInvoiceForm}
         />
       )}
+
+      <Dialog
+        open={isCustomDialogOpen}
+        onOpenChange={handleCustomDialogOpenChange}
+      >
+        <DialogContent className="w-auto max-w-none p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Select date range</DialogTitle>
+          </DialogHeader>
+          <div className="px-6">
+            <Calendar
+              mode="range"
+              numberOfMonths={2}
+              selected={pendingCustomRange}
+              onSelect={(range) => setPendingCustomRange(range)}
+              defaultMonth={
+                pendingCustomRange?.from ?? customDateRange?.from ?? new Date()
+              }
+            />
+          </div>
+          <DialogFooter className="flex-row justify-end gap-2 px-6 pb-6">
+            <Button variant="ghost" type="button" onClick={handleCustomCancel}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCustomApply}
+              disabled={!pendingCustomRange?.from || !pendingCustomRange?.to}
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
