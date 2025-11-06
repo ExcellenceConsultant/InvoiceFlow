@@ -1,19 +1,54 @@
-import { useState } from "react";
-import { Plus, Search, Filter, Eye, Edit, Trash2, Send, FileText, Download, Upload, Check, X } from "lucide-react";
-import * as XLSX from 'xlsx';
+import InvoiceForm from "@/components/invoice-form";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
-import { formatDateWithoutTimezone } from "@/lib/dateUtils";
-import { DEFAULT_USER_ID, INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
-import InvoiceForm from "@/components/invoice-form";
 import { usePermissions } from "@/hooks/usePermissions";
+import { INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
+import { formatDateWithoutTimezone } from "@/lib/dateUtils";
+import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  Download,
+  Edit,
+  Eye,
+  FileText,
+  Plus,
+  Search,
+  Send,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
+import * as XLSX from "xlsx";
+
+type SortKey =
+  | "invoiceNumber"
+  | "invoiceType"
+  | "customer"
+  | "invoiceDate"
+  | "amount"
+  | "status"
+  | "journalEntry";
+
+type SortConfig = {
+  key: SortKey;
+  direction: "asc" | "desc";
+};
 
 export default function Invoices() {
   const permissions = usePermissions();
@@ -22,6 +57,7 @@ export default function Invoices() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -38,7 +74,11 @@ export default function Invoices() {
 
   const syncToQuickBooksMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      const response = await apiRequest("POST", `/api/invoices/${invoiceId}/sync-quickbooks`, {});
+      const response = await apiRequest(
+        "POST",
+        `/api/invoices/${invoiceId}/sync-quickbooks`,
+        {},
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw errorData;
@@ -49,27 +89,32 @@ export default function Invoices() {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({
         title: "Journal Entry Posted",
-        description: "Invoice journal entry created in QuickBooks (Debit AR, Credit Sales)",
+        description:
+          "Invoice journal entry created in QuickBooks (Debit AR, Credit Sales)",
       });
     },
     onError: (error: any) => {
       console.error("Invoice sync error:", error);
-      
+
       const showDetails = () => {
         const errorData = error.response?.data || error;
         if (errorData.errorDetails) {
           alert(`QuickBooks Error Details:
-          
+
 Code: ${errorData.errorDetails.code}
 Detail: ${errorData.errorDetails.detail}
-          
+
 Account IDs Used:
 - Accounts Receivable: ${errorData.errorDetails.accountIds.accountsReceivable}
 - Sales: ${errorData.errorDetails.accountIds.sales}
 
 This shows exactly what data was sent to QuickBooks and which accounts were used.`);
         } else {
-          alert(`Error: ${errorData.message || error.message}\n\nNo detailed error information available.`);
+          alert(
+            `Error: ${
+              errorData.message || error.message
+            }\n\nNo detailed error information available.`,
+          );
         }
       };
 
@@ -78,8 +123,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         title: "Journal Entry Failed",
         description: (
           <div>
-            <p>{errorData.message || "Failed to create journal entry in QuickBooks"}</p>
-            <button 
+            <p>
+              {errorData.message ||
+                "Failed to create journal entry in QuickBooks"}
+            </p>
+            <button
               onClick={showDetails}
               className="mt-2 text-xs underline text-blue-400 hover:text-blue-300"
             >
@@ -94,14 +142,16 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
   const bulkSyncMutation = useMutation({
     mutationFn: async (invoiceIds: string[]) => {
-      const promises = invoiceIds.map(id => 
-        apiRequest("POST", `/api/invoices/${id}/sync-quickbooks`, {}).then(r => r.json())
+      const promises = invoiceIds.map((id) =>
+        apiRequest("POST", `/api/invoices/${id}/sync-quickbooks`, {}).then(
+          (r) => r.json(),
+        ),
       );
       return Promise.all(promises);
     },
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      const successCount = results.filter(r => r.success).length;
+      const successCount = results.filter((r) => r.success).length;
       toast({
         title: "Journal Entries Posted",
         description: `${successCount} invoice journal entries created in QuickBooks`,
@@ -118,7 +168,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
   const deleteInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      const response = await apiRequest("DELETE", `/api/invoices/${invoiceId}`, {});
+      const response = await apiRequest(
+        "DELETE",
+        `/api/invoices/${invoiceId}`,
+        {},
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete invoice");
@@ -143,7 +197,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
   const markAsPaidMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      const response = await apiRequest("PATCH", `/api/invoices/${invoiceId}/status`, { status: "paid" });
+      const response = await apiRequest(
+        "PATCH",
+        `/api/invoices/${invoiceId}/status`,
+        { status: "paid" },
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to mark invoice as paid");
@@ -176,35 +234,171 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     if (invoice.status === "paid") {
       return "paid";
     }
-    
+
     // Calculate if invoice is overdue (30-day payment term)
     const invoiceDate = new Date(invoice.invoiceDate);
     const dueDate = new Date(invoiceDate);
     dueDate.setDate(dueDate.getDate() + 30); // Add 30 days for payment term
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
     dueDate.setHours(0, 0, 0, 0);
-    
+
     // If past due date, show overdue
     if (today > dueDate) {
       return "overdue";
     }
-    
+
     // Otherwise return the actual status
     return invoice.status;
   };
 
-  const filteredInvoices = invoices?.filter((invoice: any) => {
-    const customerName = getCustomerName(invoice.customerId);
-    const matchesSearch = 
-      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customerName.toLowerCase().includes(searchTerm.toLowerCase());
-    const displayStatus = getDisplayStatus(invoice);
-    const matchesStatus = statusFilter === "all" || displayStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  }) || [];
+  const filteredInvoices = useMemo(() => {
+    if (!invoices) return [];
 
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    const filtered = invoices.filter((invoice: any) => {
+      const customerName = getCustomerName(invoice.customerId);
+      const displayStatus = getDisplayStatus(invoice);
+      const matchesStatus =
+        statusFilter === "all" || displayStatus === statusFilter;
+
+      if (!normalizedSearch) {
+        return matchesStatus;
+      }
+
+      const amountRaw =
+        invoice.total ?? invoice.totalAmount ?? invoice.amount ?? 0;
+      const amountNumber =
+        typeof amountRaw === "string"
+          ? Number.parseFloat(amountRaw)
+          : Number(amountRaw);
+      const amountString = Number.isNaN(amountNumber)
+        ? ""
+        : amountNumber.toFixed(2);
+      let invoiceTypeLabel = invoice.invoiceType;
+      if (invoiceTypeLabel === "payable") {
+        invoiceTypeLabel = "ap";
+      } else if (invoiceTypeLabel === "receivable") {
+        invoiceTypeLabel = "ar";
+      }
+      const invoiceDateFormatted = invoice.invoiceDate
+        ? formatDateWithoutTimezone(invoice.invoiceDate)
+        : "";
+      const quickbooksStatus = invoice.quickbooksInvoiceId
+        ? "journal entry posted"
+        : "no journal entry";
+
+      const searchableValues = [
+        invoice.invoiceNumber,
+        invoice.invoiceType,
+        invoiceTypeLabel,
+        customerName,
+        invoiceDateFormatted,
+        amountString,
+        displayStatus,
+        quickbooksStatus,
+        invoice.quickbooksInvoiceId,
+        invoice.subtotal,
+        invoice.freight,
+        invoice.discount,
+      ]
+        .filter(Boolean)
+        .map((value: any) => value.toString().toLowerCase());
+
+      const matchesSearch = searchableValues.some((value: string) =>
+        value.includes(normalizedSearch),
+      );
+
+      return matchesStatus && matchesSearch;
+    });
+
+    if (!sortConfig) {
+      return filtered;
+    }
+
+    const getSortableValue = (invoice: any) => {
+      switch (sortConfig.key) {
+        case "invoiceNumber":
+          return invoice.invoiceNumber || "";
+        case "invoiceType":
+          return invoice.invoiceType || "";
+        case "customer":
+          return getCustomerName(invoice.customerId) || "";
+        case "invoiceDate":
+          return invoice.invoiceDate
+            ? new Date(invoice.invoiceDate).getTime()
+            : 0;
+        case "amount": {
+          const amountRaw =
+            invoice.total ?? invoice.totalAmount ?? invoice.amount ?? 0;
+          const amountNumber =
+            typeof amountRaw === "string"
+              ? Number.parseFloat(amountRaw)
+              : Number(amountRaw);
+          return Number.isNaN(amountNumber) ? 0 : amountNumber;
+        }
+        case "status":
+          return getDisplayStatus(invoice) || "";
+        case "journalEntry":
+          return invoice.quickbooksInvoiceId ? 1 : 0;
+        default:
+          return "";
+      }
+    };
+
+    const sorted = [...filtered].sort((a, b) => {
+      const aValue = getSortableValue(a);
+      const bValue = getSortableValue(b);
+
+      if (aValue === bValue) return 0;
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.direction === "asc"
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+
+      const aString = aValue?.toString().toLowerCase() ?? "";
+      const bString = bValue?.toString().toLowerCase() ?? "";
+
+      if (aString === bString) return 0;
+
+      return sortConfig.direction === "asc"
+        ? aString < bString
+          ? -1
+          : 1
+        : aString > bString
+          ? -1
+          : 1;
+    });
+
+    return sorted;
+  }, [invoices, searchTerm, statusFilter, sortConfig, customers]);
+
+  const handleSort = (columnKey: SortKey) => {
+    setSortConfig((prev) => {
+      if (prev?.key === columnKey) {
+        if (prev.direction === "asc") {
+          return { key: columnKey, direction: "desc" };
+        }
+        return null;
+      }
+      return { key: columnKey, direction: "asc" };
+    });
+  };
+
+  const renderSortIcon = (columnKey: SortKey) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
+    }
+    return sortConfig.direction === "asc" ? (
+      <ArrowUp className="h-3 w-3 text-muted-foreground" />
+    ) : (
+      <ArrowDown className="h-3 w-3 text-muted-foreground" />
+    );
+  };
 
   // Check if invoice can be edited based on 24-hour rule
   const canEditInvoice = (invoice: any): boolean => {
@@ -212,17 +406,18 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     if (permissions.role === "super_admin") {
       return true;
     }
-    
+
     // If user doesn't have general edit permission, return false
     if (!permissions.canEditInvoice) {
       return false;
     }
-    
+
     // Check if invoice is within 24 hours of creation
     const invoiceDate = new Date(invoice.invoiceDate);
     const now = new Date();
-    const hoursDifference = (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
-    
+    const hoursDifference =
+      (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
+
     // Admin can edit within 24 hours, super_admin can always edit
     return hoursDifference <= 24;
   };
@@ -233,17 +428,18 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     if (permissions.role === "super_admin") {
       return true;
     }
-    
+
     // If user doesn't have general delete permission, return false
     if (!permissions.canDeleteInvoice) {
       return false;
     }
-    
+
     // Check if invoice is within 24 hours of creation
     const invoiceDate = new Date(invoice.invoiceDate);
     const now = new Date();
-    const hoursDifference = (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
-    
+    const hoursDifference =
+      (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
+
     // Admin can delete within 24 hours, super_admin can always delete
     return hoursDifference <= 24;
   };
@@ -270,18 +466,23 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     setEditingInvoice(null);
   };
 
-  const handleSyncToQuickBooks = (invoiceId: string, event?: React.MouseEvent) => {
+  const handleSyncToQuickBooks = (
+    invoiceId: string,
+    event?: React.MouseEvent,
+  ) => {
     // Prevent event propagation to avoid triggering bulk sync
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    console.log('Syncing individual invoice:', invoiceId);
+    console.log("Syncing individual invoice:", invoiceId);
     syncToQuickBooksMutation.mutate(invoiceId);
   };
 
   const handleBulkSync = () => {
-    const unsyncedInvoices = filteredInvoices.filter((invoice: any) => !invoice.quickbooksInvoiceId);
+    const unsyncedInvoices = filteredInvoices.filter(
+      (invoice: any) => !invoice.quickbooksInvoiceId,
+    );
     if (unsyncedInvoices.length === 0) {
       toast({
         title: "No Action Needed",
@@ -289,7 +490,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       });
       return;
     }
-    
+
     const invoiceIds = unsyncedInvoices.map((invoice: any) => invoice.id);
     bulkSyncMutation.mutate(invoiceIds);
   };
@@ -300,18 +501,22 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       event.preventDefault();
       event.stopPropagation();
     }
-    if (confirm("Are you sure you want to delete this invoice? This action cannot be undone.")) {
+    if (
+      confirm(
+        "Are you sure you want to delete this invoice? This action cannot be undone.",
+      )
+    ) {
       deleteInvoiceMutation.mutate(invoiceId);
     }
   };
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (invoiceIds: string[]) => {
-      const promises = invoiceIds.map(id => 
-        apiRequest("DELETE", `/api/invoices/${id}`, {})
+      const promises = invoiceIds.map((id) =>
+        apiRequest("DELETE", `/api/invoices/${id}`, {}),
       );
       const results = await Promise.allSettled(promises);
-      const failed = results.filter(r => r.status === "rejected").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
       if (failed > 0) {
         throw new Error(`Failed to delete ${failed} invoice(s)`);
       }
@@ -335,10 +540,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
   });
 
   const handleSelectInvoice = (invoiceId: string) => {
-    setSelectedInvoices(prev => 
-      prev.includes(invoiceId) 
-        ? prev.filter(id => id !== invoiceId)
-        : [...prev, invoiceId]
+    setSelectedInvoices((prev) =>
+      prev.includes(invoiceId)
+        ? prev.filter((id) => id !== invoiceId)
+        : [...prev, invoiceId],
     );
   };
 
@@ -352,7 +557,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
   const handleBulkDelete = () => {
     if (selectedInvoices.length === 0) return;
-    
+
     const confirmMessage = `Are you sure you want to delete ${selectedInvoices.length} invoice(s)? This action cannot be undone.`;
     if (confirm(confirmMessage)) {
       bulkDeleteMutation.mutate(selectedInvoices);
@@ -378,83 +583,104 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
       // Prepare summary data
       const summaryData = invoices.map((invoice: any) => {
-        const customer = customers?.find((c: any) => c.id === invoice.customerId);
+        const customer = customers?.find(
+          (c: any) => c.id === invoice.customerId,
+        );
         const displayStatus = getDisplayStatus(invoice);
-        
+
         return {
-          'Invoice #': invoice.invoiceNumber || '',
-          'Type': invoice.invoiceType === 'receivable' ? 'AR' : 'AP',
-          'Customer/Vendor': customer?.name || 'Unknown',
-          'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
-          'Subtotal': parseFloat(invoice.subtotal || 0).toFixed(2),
-          'Freight': parseFloat(invoice.freight || 0).toFixed(2),
-          'Discount': parseFloat(invoice.discount || 0).toFixed(2),
-          'Total Amount': parseFloat(invoice.totalAmount || 0).toFixed(2),
-          'Status': displayStatus,
-          'Journal Entry': invoice.quickbooksInvoiceId ? 'Posted' : 'Not Posted',
-          'QB Journal Entry ID': invoice.quickbooksInvoiceId || '',
+          "Invoice #": invoice.invoiceNumber || "",
+          Type: invoice.invoiceType === "receivable" ? "AR" : "AP",
+          "Customer/Vendor": customer?.name || "Unknown",
+          "Invoice Date": invoice.invoiceDate
+            ? formatDateWithoutTimezone(invoice.invoiceDate)
+            : "",
+          Subtotal: parseFloat(invoice.subtotal || 0).toFixed(2),
+          Freight: parseFloat(invoice.freight || 0).toFixed(2),
+          Discount: parseFloat(invoice.discount || 0).toFixed(2),
+          "Total Amount": parseFloat(invoice.totalAmount || 0).toFixed(2),
+          Status: displayStatus,
+          "Journal Entry": invoice.quickbooksInvoiceId
+            ? "Posted"
+            : "Not Posted",
+          "QB Journal Entry ID": invoice.quickbooksInvoiceId || "",
         };
       });
 
       // Fetch line items for all invoices and prepare data
       const lineItemsData: any[] = [];
-      
+
       for (const invoice of invoices) {
         try {
           // Fetch line items for this invoice
           const lineItems = await queryClient.fetchQuery({
             queryKey: [`/api/invoices/${invoice.id}/line-items`],
           });
-          
+
           // Get customer/vendor name for this invoice
-          const customer = customers?.find((c: any) => c.id === invoice.customerId);
-          const customerVendorName = customer?.name || 'Unknown';
-          
+          const customer = customers?.find(
+            (c: any) => c.id === invoice.customerId,
+          );
+          const customerVendorName = customer?.name || "Unknown";
+
           if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
             lineItems.forEach((item: any) => {
               lineItemsData.push({
-                'Invoice Number': invoice.invoiceNumber || '',
-                'Customer/Vendor': customerVendorName,
-                'Invoice Date': invoice.invoiceDate ? formatDateWithoutTimezone(invoice.invoiceDate) : '',
-                'Product Name': item.description || '',
-                'Category': item.category || '',
-                'Quantity': item.quantity || 0,
-                'Rate': parseFloat(item.unitPrice || 0).toFixed(2),
-                'Promotional Product': item.isFreeFromScheme ? 'Yes' : '',
+                "Invoice Number": invoice.invoiceNumber || "",
+                "Customer/Vendor": customerVendorName,
+                "Invoice Date": invoice.invoiceDate
+                  ? formatDateWithoutTimezone(invoice.invoiceDate)
+                  : "",
+                "Product Name": item.description || "",
+                Category: item.category || "",
+                Quantity: item.quantity || 0,
+                Rate: parseFloat(item.unitPrice || 0).toFixed(2),
+                "Promotional Product": item.isFreeFromScheme ? "Yes" : "",
               });
             });
           }
         } catch (error) {
-          console.error(`Failed to fetch line items for invoice ${invoice.id}:`, error);
+          console.error(
+            `Failed to fetch line items for invoice ${invoice.id}:`,
+            error,
+          );
         }
       }
 
       // Create workbook
       const workbook = XLSX.utils.book_new();
-      
+
       // Add summary sheet
       const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Invoice Summary');
-      
+      XLSX.utils.book_append_sheet(
+        workbook,
+        summaryWorksheet,
+        "Invoice Summary",
+      );
+
       // Add line items sheet if there are any
       if (lineItemsData.length > 0) {
         const lineItemsWorksheet = XLSX.utils.json_to_sheet(lineItemsData);
-        XLSX.utils.book_append_sheet(workbook, lineItemsWorksheet, 'Line Items');
+        XLSX.utils.book_append_sheet(
+          workbook,
+          lineItemsWorksheet,
+          "Line Items",
+        );
       }
-      
+
       // Generate filename with current date
-      const currentDate = new Date().toISOString().split('T')[0];
+      const currentDate = new Date().toISOString().split("T")[0];
       const filename = `Invoices_Report_${currentDate}.xlsx`;
-      
+
       // Save file
       XLSX.writeFile(workbook, filename);
-      
+
       toast({
         title: "Report Generated",
         description: `Invoice report exported successfully as ${filename}`,
       });
     } catch (error) {
-      console.error('Excel export error:', error);
+      console.error("Excel export error:", error);
       toast({
         title: "Export Failed",
         description: "Failed to generate invoice report. Please try again.",
@@ -469,18 +695,25 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       <div className="mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Invoices</h1>
-            <p className="text-muted-foreground mt-1">Manage and track all your invoices</p>
+            <h1
+              className="text-3xl font-bold text-foreground"
+              data-testid="page-title"
+            >
+              Invoices
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage and track all your invoices
+            </p>
           </div>
-          
+
           <div className="flex items-center space-x-3 mt-4 lg:mt-0">
             {selectedInvoices.length > 0 && (
               <div className="flex items-center space-x-2 mr-2 px-3 py-2 bg-muted rounded-lg">
                 <span className="text-sm text-muted-foreground">
                   {selectedInvoices.length} selected
                 </span>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0"
                   onClick={() => setSelectedInvoices([])}
@@ -489,11 +722,14 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 >
                   <X size={14} />
                 </Button>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   size="sm"
                   onClick={handleBulkDelete}
-                  disabled={bulkDeleteMutation.isPending || !permissions.canDeleteInvoice}
+                  disabled={
+                    bulkDeleteMutation.isPending ||
+                    !permissions.canDeleteInvoice
+                  }
                   data-testid="button-bulk-delete"
                 >
                   <Trash2 className="mr-2" size={14} />
@@ -501,25 +737,29 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 </Button>
               </div>
             )}
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               onClick={handleExportInvoices}
               data-testid="button-export-invoices"
             >
               <Download className="mr-2" size={16} />
               Export
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleBulkSync}
-              disabled={bulkSyncMutation.isPending || !permissions.canPostToQuickBooks}
+              disabled={
+                bulkSyncMutation.isPending || !permissions.canPostToQuickBooks
+              }
               data-testid="button-bulk-sync-quickbooks"
               title="Create journal entries in QuickBooks for all invoices (Debit AR, Credit Sales)"
             >
               <Upload className="mr-2" size={16} />
-              {bulkSyncMutation.isPending ? "Creating Journal Entries..." : "Post Journal Entries to QB"}
+              {bulkSyncMutation.isPending
+                ? "Creating Journal Entries..."
+                : "Post Journal Entries to QB"}
             </Button>
-            <Button 
+            <Button
               onClick={() => setShowInvoiceForm(true)}
               disabled={!permissions.canCreateInvoice}
               data-testid="button-create-invoice"
@@ -537,7 +777,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                  size={16}
+                />
                 <Input
                   placeholder="Search invoices..."
                   value={searchTerm}
@@ -547,7 +790,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 />
               </div>
             </div>
-            
+
             <div className="w-full md:w-48">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger data-testid="select-status-filter">
@@ -558,7 +801,9 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                   <SelectItem value={INVOICE_STATUSES.DRAFT}>Draft</SelectItem>
                   <SelectItem value={INVOICE_STATUSES.SENT}>Sent</SelectItem>
                   <SelectItem value={INVOICE_STATUSES.PAID}>Paid</SelectItem>
-                  <SelectItem value={INVOICE_STATUSES.OVERDUE}>Overdue</SelectItem>
+                  <SelectItem value={INVOICE_STATUSES.OVERDUE}>
+                    Overdue
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -578,7 +823,11 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-20 bg-muted/30 rounded-lg animate-pulse" data-testid={`invoice-skeleton-${i}`} />
+                <div
+                  key={i}
+                  className="h-20 bg-muted/30 rounded-lg animate-pulse"
+                  data-testid={`invoice-skeleton-${i}`}
+                />
               ))}
             </div>
           ) : filteredInvoices.length > 0 ? (
@@ -587,33 +836,101 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                 <thead>
                   <tr className="border-b border-border">
                     <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
-                      <input 
+                      <input
                         type="checkbox"
-                        checked={filteredInvoices.length > 0 && selectedInvoices.length === filteredInvoices.length}
+                        checked={
+                          filteredInvoices.length > 0 &&
+                          selectedInvoices.length === filteredInvoices.length
+                        }
                         onChange={handleSelectAll}
                         className="w-4 h-4 cursor-pointer"
                         data-testid="checkbox-select-all"
                       />
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Invoice #</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Customer</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Journal Entry</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("invoiceNumber")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Invoice #</span>
+                        {renderSortIcon("invoiceNumber")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("invoiceType")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Type</span>
+                        {renderSortIcon("invoiceType")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("customer")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Customer</span>
+                        {renderSortIcon("customer")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("invoiceDate")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Date</span>
+                        {renderSortIcon("invoiceDate")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("amount")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Amount</span>
+                        {renderSortIcon("amount")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("status")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Status</span>
+                        {renderSortIcon("status")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("journalEntry")}
+                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                      >
+                        <span>Journal Entry</span>
+                        {renderSortIcon("journalEntry")}
+                      </button>
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredInvoices.map((invoice: any) => (
-                    <tr 
-                      key={invoice.id} 
+                    <tr
+                      key={invoice.id}
                       className="border-b border-border hover:bg-muted/20 transition-colors"
                       data-testid={`invoice-row-${invoice.id}`}
                     >
                       <td className="py-3 px-4">
-                        <input 
+                        <input
                           type="checkbox"
                           checked={selectedInvoices.includes(invoice.id)}
                           onChange={() => handleSelectInvoice(invoice.id)}
@@ -622,68 +939,101 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                           data-testid={`checkbox-invoice-${invoice.id}`}
                         />
                       </td>
-                      <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`invoice-number-${invoice.id}`}>
+                      <td
+                        className="py-3 px-4 text-sm font-medium text-foreground"
+                        data-testid={`invoice-number-${invoice.id}`}
+                      >
                         {invoice.invoiceNumber}
                       </td>
-                      <td className="py-3 px-4" data-testid={`invoice-type-${invoice.id}`}>
-                        <Badge 
-                          className={invoice.invoiceType === "payable" 
-                            ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100" 
-                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                      <td
+                        className="py-3 px-4"
+                        data-testid={`invoice-type-${invoice.id}`}
+                      >
+                        <Badge
+                          className={
+                            invoice.invoiceType === "payable"
+                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100"
+                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
                           }
                         >
                           <div className="flex items-center">
-                            <div 
+                            <div
                               className={`w-2 h-2 rounded-full mr-2 ${
-                                invoice.invoiceType === "payable" ? "bg-orange-500" : "bg-green-500"
+                                invoice.invoiceType === "payable"
+                                  ? "bg-orange-500"
+                                  : "bg-green-500"
                               }`}
                             ></div>
                             {invoice.invoiceType === "payable" ? "AP" : "AR"}
                           </div>
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-sm text-foreground" data-testid={`invoice-customer-${invoice.id}`}>
+                      <td
+                        className="py-3 px-4 text-sm text-foreground"
+                        data-testid={`invoice-customer-${invoice.id}`}
+                      >
                         {getCustomerName(invoice.customerId)}
                       </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground" data-testid={`invoice-date-${invoice.id}`}>
+                      <td
+                        className="py-3 px-4 text-sm text-muted-foreground"
+                        data-testid={`invoice-date-${invoice.id}`}
+                      >
                         {formatDateWithoutTimezone(invoice.invoiceDate)}
                       </td>
-                      <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`invoice-amount-${invoice.id}`}>
+                      <td
+                        className="py-3 px-4 text-sm font-medium text-foreground"
+                        data-testid={`invoice-amount-${invoice.id}`}
+                      >
                         ${parseFloat(invoice.total).toFixed(2)}
                       </td>
                       <td className="py-3 px-4">
-                        <Badge 
-                          className={INVOICE_STATUS_COLORS[getDisplayStatus(invoice) as keyof typeof INVOICE_STATUS_COLORS]}
+                        <Badge
+                          className={
+                            INVOICE_STATUS_COLORS[
+                              getDisplayStatus(
+                                invoice,
+                              ) as keyof typeof INVOICE_STATUS_COLORS
+                            ]
+                          }
                           data-testid={`invoice-status-${invoice.id}`}
                         >
-                          {getDisplayStatus(invoice).charAt(0).toUpperCase() + getDisplayStatus(invoice).slice(1)}
+                          {getDisplayStatus(invoice).charAt(0).toUpperCase() +
+                            getDisplayStatus(invoice).slice(1)}
                         </Badge>
                       </td>
                       <td className="py-3 px-4">
                         {invoice.quickbooksInvoiceId ? (
-                          <Badge className="bg-accent text-accent-foreground" data-testid={`quickbooks-synced-${invoice.id}`}>
+                          <Badge
+                            className="bg-accent text-accent-foreground"
+                            data-testid={`quickbooks-synced-${invoice.id}`}
+                          >
                             Journal Entry Posted
                           </Badge>
                         ) : (
-                          <Badge variant="outline" data-testid={`quickbooks-not-synced-${invoice.id}`}>
+                          <Badge
+                            variant="outline"
+                            data-testid={`quickbooks-not-synced-${invoice.id}`}
+                          >
                             No Journal Entry
                           </Badge>
                         )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={() => setLocation(`/invoices/${invoice.id}`)}
+                            onClick={() =>
+                              setLocation(`/invoices/${invoice.id}`)
+                            }
                             data-testid={`button-view-invoice-${invoice.id}`}
                           >
                             <Eye size={14} />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-8 w-8 p-0"
                             onMouseDown={(e) => {
                               e.preventDefault();
@@ -700,9 +1050,9 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             <Edit size={14} />
                           </Button>
                           {invoice.status !== "paid" && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-8 w-8 p-0 text-green-600 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
                               onMouseDown={(e) => {
                                 e.preventDefault();
@@ -713,7 +1063,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                                 e.stopPropagation();
                                 handleMarkAsPaid(invoice.id, e);
                               }}
-                              disabled={markAsPaidMutation.isPending || !permissions.canEditInvoice}
+                              disabled={
+                                markAsPaidMutation.isPending ||
+                                !permissions.canEditInvoice
+                              }
                               data-testid={`button-mark-paid-${invoice.id}`}
                               title="Mark as Paid"
                             >
@@ -721,9 +1074,9 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             </Button>
                           )}
                           {!invoice.quickbooksInvoiceId && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-8 w-8 p-0 text-primary hover:text-primary"
                               onMouseDown={(e) => {
                                 e.preventDefault();
@@ -734,16 +1087,19 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                                 e.stopPropagation();
                                 handleSyncToQuickBooks(invoice.id, e);
                               }}
-                              disabled={syncToQuickBooksMutation.isPending || !permissions.canPostToQuickBooks}
+                              disabled={
+                                syncToQuickBooksMutation.isPending ||
+                                !permissions.canPostToQuickBooks
+                              }
                               data-testid={`button-sync-quickbooks-${invoice.id}`}
                               title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
                             >
                               <Send size={14} />
                             </Button>
                           )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                             onMouseDown={(e) => {
                               e.preventDefault();
@@ -754,7 +1110,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               e.stopPropagation();
                               handleDeleteInvoice(invoice.id, e);
                             }}
-                            disabled={deleteInvoiceMutation.isPending || !permissions.canDeleteInvoice}
+                            disabled={
+                              deleteInvoiceMutation.isPending ||
+                              !permissions.canDeleteInvoice
+                            }
                             data-testid={`button-delete-invoice-${invoice.id}`}
                           >
                             <Trash2 size={14} />
@@ -769,16 +1128,17 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           ) : (
             <div className="text-center py-12">
               <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">No invoices found</h3>
+              <h3 className="mt-2 text-sm font-medium text-foreground">
+                No invoices found
+              </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm || statusFilter !== "all" 
-                  ? "Try adjusting your search or filter criteria." 
-                  : "Create your first invoice to get started."
-                }
+                {searchTerm || statusFilter !== "all"
+                  ? "Try adjusting your search or filter criteria."
+                  : "Create your first invoice to get started."}
               </p>
-              <Button 
-                className="mt-4" 
-                onClick={() => setShowInvoiceForm(true)} 
+              <Button
+                className="mt-4"
+                onClick={() => setShowInvoiceForm(true)}
                 disabled={!permissions.canCreateInvoice}
                 data-testid="button-create-first-invoice"
               >
@@ -792,9 +1152,9 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
       {/* Invoice Form Modal */}
       {showInvoiceForm && (
-        <InvoiceForm 
+        <InvoiceForm
           invoice={editingInvoice}
-          onClose={handleCloseInvoiceForm} 
+          onClose={handleCloseInvoiceForm}
           onSuccess={handleCloseInvoiceForm}
         />
       )}
