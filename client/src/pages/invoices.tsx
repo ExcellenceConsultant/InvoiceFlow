@@ -39,6 +39,7 @@ import {
   Download,
   Edit,
   Eye,
+  FileDown,
   FileText,
   Plus,
   Search,
@@ -379,6 +380,37 @@ export default function Invoices() {
 
   const { data: customers } = useQuery<any[]>({
     queryKey: ["/api/customers"],
+  });
+
+  const postToQuickBooksMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/invoices/${invoiceId}/post-to-quickbooks`,
+        {},
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw errorData;
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Invoice Posted to QuickBooks",
+        description: `${data.message} (Doc #${data.docNumber})`,
+      });
+    },
+    onError: (error: any) => {
+      console.error("Invoice post error:", error);
+      const errorData = error.response?.data || error;
+      toast({
+        title: "Failed to Post Invoice",
+        description: errorData.message || "Failed to post invoice to QuickBooks",
+        variant: "destructive",
+      });
+    },
   });
 
   const syncToQuickBooksMutation = useMutation({
@@ -837,6 +869,18 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
   const handleCloseInvoiceForm = () => {
     setShowInvoiceForm(false);
     setEditingInvoice(null);
+  };
+
+  const handlePostToQuickBooks = (
+    invoiceId: string,
+    event?: React.MouseEvent,
+  ) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    console.log("Posting invoice to QuickBooks:", invoiceId);
+    postToQuickBooksMutation.mutate(invoiceId);
   };
 
   const handleSyncToQuickBooks = (
@@ -1501,28 +1545,52 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               </Button>
                             )}
                             {!invoice.quickbooksInvoiceId && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-primary hover:text-primary"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleSyncToQuickBooks(invoice.id, e);
-                                }}
-                                disabled={
-                                  syncToQuickBooksMutation.isPending ||
-                                  !permissions.canPostToQuickBooks
-                                }
-                                data-testid={`button-sync-quickbooks-${invoice.id}`}
-                                title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
-                              >
-                                <Send size={14} />
-                              </Button>
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-400"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handlePostToQuickBooks(invoice.id, e);
+                                  }}
+                                  disabled={
+                                    postToQuickBooksMutation.isPending ||
+                                    !permissions.canPostToQuickBooks
+                                  }
+                                  data-testid={`button-post-to-quickbooks-${invoice.id}`}
+                                  title="Post actual invoice/bill to QuickBooks"
+                                >
+                                  <FileDown size={14} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-primary hover:text-primary"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSyncToQuickBooks(invoice.id, e);
+                                  }}
+                                  disabled={
+                                    syncToQuickBooksMutation.isPending ||
+                                    !permissions.canPostToQuickBooks
+                                  }
+                                  data-testid={`button-sync-quickbooks-${invoice.id}`}
+                                  title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
+                                >
+                                  <Send size={14} />
+                                </Button>
+                              </>
                             )}
                             <Button
                               variant="ghost"

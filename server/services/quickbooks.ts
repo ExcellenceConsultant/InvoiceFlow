@@ -402,6 +402,43 @@ export class QuickBooksService {
     }
   }
 
+  async findItemByName(
+    accessToken: string,
+    companyId: string,
+    itemName: string
+  ): Promise<any> {
+    try {
+      const escapedName = itemName.replace(/'/g, "''");
+      console.log(`Searching for item with Name: "${itemName}"`);
+      
+      const response = await axios.get(
+        `${this.getBaseUrl()}/v3/company/${companyId}/query?query=SELECT * FROM Item WHERE Name = '${escapedName}'`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const items = response.data.QueryResponse?.Item || [];
+      if (items.length > 0) {
+        console.log(`Found item by exact Name match:`, {
+          Id: items[0].Id,
+          Name: items[0].Name,
+          Type: items[0].Type
+        });
+        return items[0];
+      }
+
+      console.log(`Item "${itemName}" not found in QuickBooks`);
+      return null;
+    } catch (error) {
+      console.error('QuickBooks item search failed:', error);
+      return null;
+    }
+  }
+
   async createItem(
     accessToken: string,
     companyId: string,
@@ -420,9 +457,17 @@ export class QuickBooksService {
         }
       );
 
-      return response.data.QueryResponse?.Item?.[0];
-    } catch (error) {
-      console.error('QuickBooks item creation failed:', error);
+      return response.data.QueryResponse?.Item?.[0] || response.data.Item;
+    } catch (error: any) {
+      console.error('QuickBooks item creation failed:', error.response?.data || error.message);
+      console.error('Request data that failed:', JSON.stringify(itemData, null, 2));
+      
+      if (error.response) {
+        const enhancedError = new Error('Failed to create item in QuickBooks');
+        (enhancedError as any).response = error.response;
+        throw enhancedError;
+      }
+      
       throw new Error('Failed to create item in QuickBooks');
     }
   }

@@ -1579,25 +1579,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Ensure tokens are valid and refresh if needed
         const validQbConfig = await ensureValidTokens();
 
-        // Create unique name to avoid conflicts
-        const timestamp = Date.now();
-        const qbItemData = {
-          Name: `${product.name}_${timestamp}`,
-          Type: "Service",
-        };
-
-        const qbItem = await quickBooksService.createItem(
+        // First, search for existing item by name
+        let qbItem = await quickBooksService.findItemByName(
           validQbConfig.accessToken,
           validQbConfig.companyId,
-          qbItemData,
+          product.name,
         );
+
+        let action = "found";
+        
+        // If not found, create new item
+        if (!qbItem) {
+          console.log(`Item "${product.name}" not found, creating new item in QuickBooks`);
+          const qbItemData = {
+            Name: product.name,
+            Type: "Service",
+          };
+
+          qbItem = await quickBooksService.createItem(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            qbItemData,
+          );
+          action = "created";
+        }
 
         // Update product with QuickBooks ID
         await storage.updateProduct(product.id, {
           quickbooksItemId: qbItem.Id,
         });
 
-        res.json({ success: true, quickbooksItemId: qbItem.Id });
+        res.json({ 
+          success: true, 
+          quickbooksItemId: qbItem.Id,
+          action,
+          name: qbItem.Name
+        });
       } catch (error: unknown) {
         const err = error as any;
         console.error(
@@ -1659,6 +1676,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     return qbConfig;
   }
+
+  // New endpoint for posting actual invoices/bills to QuickBooks
+  app.post(
+    "/api/invoices/:id/post-to-quickbooks",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const invoice = await storage.getInvoice(req.params.id);
+        if (!invoice) {
+          return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Get system-wide QuickBooks config
+        const qbConfig = await storage.getSystemSetting("quickbooks_config");
+        if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
+          return res.status(400).json({ message: "QuickBooks not connected" });
+        }
+
+        // Ensure tokens are valid and refresh if needed
+        const validQbConfig = await ensureValidTokens();
+
+        // Get line items
+        const lineItems = await storage.getInvoiceLineItems(invoice.id);
+
+        // Sync all products to QuickBooks first and get their QB Item IDs
+        const lineItemsWithQBIds = [];
+        for (const lineItem of lineItems) {
+          const product = await storage.getProduct(lineItem.productId!);
+          if (!product) continue;
+
+          // Search for existing item by name or create new one
+          let qbItem = await quickBooksService.findItemByName(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            product.name,
+          );
+
+          if (!qbItem) {
+            console.log(`Creating QB item for product: ${product.name}`);
+            qbItem = await quickBooksService.createItem(
+              validQbConfig.accessToken,
+              validQbConfig.companyId,
+              { Name: product.name, Type: "Service" },
+            );
+          }
+
+          // Update product with QB ID if not already set
+          if (!product.quickbooksItemId) {
+            await storage.updateProduct(product.id, {
+              quickbooksItemId: qbItem.Id,
+            });
+          }
+
+          lineItemsWithQBIds.push({
+            ...lineItem,
+            quickbooksItemId: qbItem.Id,
+            productName: product.name,
+          });
+        }
+
+        // Check invoice type
+        const invoiceType = (invoice as any).invoiceType || "receivable";
+        console.log(`Posting ${invoiceType} invoice ${invoice.invoiceNumber} to QuickBooks`);
+
+        if (invoiceType === "receivable") {
+          // Post AR Invoice
+          const customer = await storage.getCustomer(invoice.customerId!);
+          if (!customer) {
+            return res.status(400).json({ message: "Customer not found" });
+          }
+
+          // Find or create customer in QuickBooks
+          let qbCustomer = await quickBooksService.findCustomerByDisplayName(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            customer.name,
+          );
+
+          if (!qbCustomer) {
+            qbCustomer = await quickBooksService.createCustomer(
+              validQbConfig.accessToken,
+              validQbConfig.companyId,
+              { DisplayName: customer.name },
+            );
+            await storage.updateCustomer(customer.id, {
+              quickbooksCustomerId: qbCustomer.Id,
+            });
+          }
+
+          // Build QB Invoice data
+          const qbInvoiceData: any = {
+            CustomerRef: { value: qbCustomer.Id },
+            DocNumber: invoice.invoiceNumber,
+            TxnDate: new Date(invoice.invoiceDate!).toISOString().split('T')[0],
+            DueDate: new Date(invoice.dueDate!).toISOString().split('T')[0],
+            Line: lineItemsWithQBIds.map((item) => ({
+              DetailType: "SalesItemLineDetail",
+              Amount: Number(item.quantity) * Number(item.unitPrice),
+              SalesItemLineDetail: {
+                ItemRef: { value: item.quickbooksItemId },
+                Qty: Number(item.quantity),
+                UnitPrice: Number(item.unitPrice),
+              },
+              Description: item.productName,
+            })),
+          };
+
+          const qbInvoice = await quickBooksService.createInvoice(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            qbInvoiceData,
+          );
+
+          // Update local invoice with QB ID
+          await storage.updateInvoice(invoice.id, {
+            quickbooksInvoiceId: qbInvoice.Id,
+          });
+
+          res.json({
+            success: true,
+            message: "Invoice posted to QuickBooks successfully",
+            quickbooksInvoiceId: qbInvoice.Id,
+            docNumber: qbInvoice.DocNumber,
+          });
+        } else if (invoiceType === "payable") {
+          // Post AP Bill
+          const vendor = await storage.getCustomer(invoice.customerId!);
+          if (!vendor) {
+            return res.status(400).json({ message: "Vendor not found" });
+          }
+
+          // Find or create vendor in QuickBooks
+          let qbVendor = await quickBooksService.findVendorByDisplayName(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            vendor.name,
+          );
+
+          if (!qbVendor) {
+            qbVendor = await quickBooksService.createVendor(
+              validQbConfig.accessToken,
+              validQbConfig.companyId,
+              { DisplayName: vendor.name },
+            );
+            await storage.updateCustomer(vendor.id, {
+              quickbooksCustomerId: qbVendor.Id,
+            });
+          }
+
+          // Build QB Bill data
+          const qbBillData: any = {
+            VendorRef: { value: qbVendor.Id },
+            DocNumber: invoice.invoiceNumber,
+            TxnDate: new Date(invoice.invoiceDate!).toISOString().split('T')[0],
+            DueDate: new Date(invoice.dueDate!).toISOString().split('T')[0],
+            Line: lineItemsWithQBIds.map((item) => ({
+              DetailType: "AccountBasedExpenseLineDetail",
+              Amount: Number(item.quantity) * Number(item.unitPrice),
+              AccountBasedExpenseLineDetail: {
+                AccountRef: { value: "1" },
+              },
+              Description: `${item.productName} - Qty: ${item.quantity} @ ${item.unitPrice}`,
+            })),
+          };
+
+          const qbBill = await quickBooksService.createBill(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            qbBillData,
+          );
+
+          // Update local invoice with QB ID
+          await storage.updateInvoice(invoice.id, {
+            quickbooksInvoiceId: qbBill.Id,
+          });
+
+          res.json({
+            success: true,
+            message: "Bill posted to QuickBooks successfully",
+            quickbooksInvoiceId: qbBill.Id,
+            docNumber: qbBill.DocNumber,
+          });
+        } else {
+          return res.status(400).json({
+            message: "Invalid invoice type. Must be 'receivable' or 'payable'",
+          });
+        }
+      } catch (error: unknown) {
+        const err = error as any;
+        console.error(
+          "QuickBooks invoice post error:",
+          err.response?.data || err.message,
+        );
+        console.error(
+          "Full error details:",
+          JSON.stringify(err.response?.data, null, 2),
+        );
+
+        let errorMessage = "Failed to post invoice to QuickBooks";
+        let fullErrorDetails = null;
+
+        if (err.response?.data?.Fault?.Error?.[0]) {
+          const qbError = err.response.data.Fault.Error[0];
+          errorMessage = qbError.Detail || qbError.code || errorMessage;
+          fullErrorDetails = {
+            code: qbError.code,
+            detail: qbError.Detail,
+            element: qbError.element || null,
+          };
+        }
+
+        res.status(500).json({
+          message: errorMessage,
+          errorDetails: fullErrorDetails,
+        });
+      }
+    },
+  );
 
   app.post(
     "/api/invoices/:id/sync-quickbooks",

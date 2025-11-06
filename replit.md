@@ -27,7 +27,11 @@ Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including s
 - **CARTOON BARCODE System**: Full barcode tracking from Excel import/manual entry to invoice line items. Displays `CARTOON BARCODE` on packing lists and `Item Code` on invoices.
 - **Manual Price Control**: Product prices (Base Price and Sales Price) are manually set in the inventory and are NOT automatically updated by invoices. This ensures price stability and allows complete control over pricing in the inventory management system.
 - **Journal Entry Integration**: Full AP and AR invoice journal entries, ensuring balanced accounting equations and updating existing entries to prevent duplicates.
-- **QuickBooks Sync**: Automatic customer and vendor creation/sync.
+- **QuickBooks Integration**: 
+  - **Inventory Sync**: Products sync by exact name match to prevent duplicates. If "BHINDI CUT" exists in QB, it uses that item ID; otherwise creates new.
+  - **Direct Invoice/Bill Posting**: New endpoint `/api/invoices/:id/post-to-quickbooks` posts actual QB invoices (AR) or bills (AP) with all line items, automatically syncing products first.
+  - **Journal Entry Sync**: Legacy endpoint `/api/invoices/:id/sync-quickbooks` creates journal entries for accounting integration.
+  - **Automatic Customer/Vendor Sync**: Finds existing customers/vendors by name or creates new ones as needed.
 - **Reporting**: Excel reporting for both inventory and invoices. Invoice reports include two sheets: Invoice Summary (invoice details, totals, status, journal entry info) and Line Items (detailed product information for each invoice). **Inventory Movement Report**: Tracks all product movements showing invoice transactions by product, with negative quantities for sales (AR) and positive for purchases (AP).
 - **Packing List Generation**: PDF generation displaying CARTOON BARCODE, with smart pagination (25 rows per page, category headers duplicated).
 - **Promotional Schemes**: Buy X get Y free functionality with intelligent edit-mode preservation. When editing invoices, promotional free items remain exactly where they were saved. Free items are automatically removed if main product quantity falls below scheme threshold (e.g., changing from 20 to 19 items). Users can manually change or remove free items at any time.
