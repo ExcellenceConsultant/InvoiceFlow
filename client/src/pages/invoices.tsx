@@ -429,7 +429,7 @@ export default function Invoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({
-        title: "Journal Entry Posted",
+        title: "Invoice Posted",
         description:
           "Invoice journal entry created in QuickBooks (Debit AR, Credit Sales)",
       });
@@ -461,12 +461,12 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
       const errorData = error.response?.data || error;
       toast({
-        title: "Journal Entry Failed",
+        title: "Invoice Post Failed",
         description: (
           <div>
             <p>
               {errorData.message ||
-                "Failed to create journal entry in QuickBooks"}
+                "Failed to create invoice post in QuickBooks"}
             </p>
             <button
               onClick={showDetails}
@@ -1372,7 +1372,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                         onClick={() => handleSort("journalEntry")}
                         className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
                       >
-                        <span>Journal Entry</span>
+                        <span>Invoice Post</span>
                         {renderSortIcon("journalEntry")}
                       </button>
                     </th>
@@ -1478,14 +1478,14 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                               className="bg-accent text-accent-foreground"
                               data-testid={`quickbooks-synced-${invoice.id}`}
                             >
-                              Journal Entry Posted
+                              Invoice Posted
                             </Badge>
                           ) : (
                             <Badge
                               variant="outline"
                               data-testid={`quickbooks-not-synced-${invoice.id}`}
                             >
-                              No Journal Entry
+                              No Invoice Post
                             </Badge>
                           )}
                         </td>
