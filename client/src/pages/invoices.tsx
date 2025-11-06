@@ -494,8 +494,8 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       const successCount = results.filter((r) => r.success).length;
       toast({
-        title: "Journal Entries Posted",
-        description: `${successCount} invoice journal entries created in QuickBooks`,
+        title: "Invoices Posted",
+        description: `${successCount} invoice posts created in QuickBooks`,
       });
     },
     onError: () => {
@@ -1017,10 +1017,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           Discount: parseFloat(invoice.discount || 0).toFixed(2),
           "Total Amount": parseFloat(invoice.totalAmount || 0).toFixed(2),
           Status: displayStatus,
-          "Journal Entry": invoice.quickbooksInvoiceId
+          "Invoice Post": invoice.quickbooksInvoiceId
             ? "Posted"
             : "Not Posted",
-          "QB Journal Entry ID": invoice.quickbooksInvoiceId || "",
+          "QB Invoice ID": invoice.quickbooksInvoiceId || "",
         };
       });
 
