@@ -29,7 +29,7 @@ Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including s
 - **Journal Entry Integration**: Full AP and AR invoice journal entries, ensuring balanced accounting equations and updating existing entries to prevent duplicates.
 - **QuickBooks Integration**: 
   - **Inventory Sync**: Products sync by exact name match to prevent duplicates. If "BHINDI CUT" exists in QB, it uses that item ID; otherwise creates new.
-  - **Direct Invoice/Bill Posting**: New endpoint `/api/invoices/:id/post-to-quickbooks` posts actual QB invoices (AR) or bills (AP) with all line items, automatically syncing products first.
+  - **Direct Invoice/Bill Posting**: New endpoint `/api/invoices/:id/post-to-quickbooks` posts actual QB invoices (AR) or bills (AP) with all line items, automatically syncing products first. AR invoices use `SalesItemLineDetail` and AP bills use `ItemBasedExpenseLineDetail` to properly reference inventory items.
   - **Journal Entry Sync**: Legacy endpoint `/api/invoices/:id/sync-quickbooks` creates journal entries for accounting integration.
   - **Automatic Customer/Vendor Sync**: Finds existing customers/vendors by name or creates new ones as needed.
 - **Reporting**: Excel reporting for both inventory and invoices. Invoice reports include two sheets: Invoice Summary (invoice details, totals, status, journal entry info) and Line Items (detailed product information for each invoice). **Inventory Movement Report**: Tracks all product movements showing invoice transactions by product, with negative quantities for sales (AR) and positive for purchases (AP).

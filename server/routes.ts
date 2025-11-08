@@ -2306,16 +2306,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             storage
           );
 
-          // Build bill line items with COGS account
+          // Build bill line items with item references
           const qbLineItems = [];
           for (const item of lineItems) {
-            qbLineItems.push({
-              Amount: parseFloat(item.lineTotal),
-              DetailType: "AccountBasedExpenseLineDetail",
-              AccountBasedExpenseLineDetail: {
-                AccountRef: { value: "173", name: "Cost of Goods Sold" }
-              }
-            });
+            if (!item.productId) continue;
+            const product = await storage.getProduct(item.productId);
+            if (product && product.quickbooksItemId) {
+              qbLineItems.push({
+                Amount: parseFloat(item.lineTotal),
+                DetailType: "ItemBasedExpenseLineDetail",
+                ItemBasedExpenseLineDetail: {
+                  ItemRef: {
+                    value: product.quickbooksItemId,
+                    name: product.name
+                  },
+                  UnitPrice: parseFloat(item.unitPrice),
+                  Qty: parseFloat(String(item.quantity))
+                }
+              });
+            }
           }
 
           // Validate that we have at least one line item

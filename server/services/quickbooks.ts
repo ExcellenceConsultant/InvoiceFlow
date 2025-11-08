@@ -33,8 +33,13 @@ export interface QuickBooksBillData {
   Line: Array<{
     Amount: number;
     DetailType: string;
-    AccountBasedExpenseLineDetail: {
+    AccountBasedExpenseLineDetail?: {
       AccountRef: { value: string; name?: string };
+    };
+    ItemBasedExpenseLineDetail?: {
+      ItemRef: { value: string; name: string };
+      UnitPrice: number;
+      Qty: number;
     };
   }>;
 }
