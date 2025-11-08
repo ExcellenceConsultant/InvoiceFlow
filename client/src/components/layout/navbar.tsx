@@ -17,7 +17,7 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2" data-testid="link-home">
-              <img src={kitchenXpressLogo} alt="Kitchen Xpress" className="h-10 w-auto object-contain" />
+              <img src={kitchenXpressLogo} alt="Kitchen Xpress" className="h-12 w-auto object-contain" />
               <span className="text-xl font-bold text-foreground">InvoiceFlow</span>
             </Link>
             
