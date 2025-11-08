@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { CheckCircle, AlertCircle, Upload, Users, Package, FileText, ArrowRight, Search } from "lucide-react";
+import { CheckCircle, AlertCircle, Upload, Users, Package, FileText, ArrowRight, Search, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,6 +21,11 @@ export default function QuickBooksSync() {
   const queryClient = useQueryClient();
   const [showAccounts, setShowAccounts] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [showSyncResults, setShowSyncResults] = useState(false);
+  const [syncResults, setSyncResults] = useState<{
+    failedCustomers: any[];
+    failedProducts: any[];
+  }>({ failedCustomers: [], failedProducts: [] });
   const permissions = usePermissions();
 
   const { data: user } = useQuery({
@@ -108,6 +120,86 @@ export default function QuickBooksSync() {
       toast({
         title: "Error",
         description: error.message || "Failed to fetch QuickBooks accounts",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncAllMutation = useMutation({
+    mutationFn: async () => {
+      const unsyncedCustomers = (customers as any[])?.filter((c: any) => !c.quickbooksCustomerId) || [];
+      const unsyncedProducts = (products as any[])?.filter((p: any) => !p.quickbooksItemId) || [];
+
+      const failedCustomers: any[] = [];
+      const failedProducts: any[] = [];
+
+      // Sync all customers
+      const customerPromises = unsyncedCustomers.map(async (customer: any) => {
+        try {
+          const response = await apiRequest("POST", `/api/customers/${customer.id}/sync-quickbooks`, {});
+          if (!response.ok) {
+            throw new Error("Failed to sync");
+          }
+          return { success: true, item: customer };
+        } catch (error) {
+          failedCustomers.push(customer);
+          return { success: false, item: customer };
+        }
+      });
+
+      // Sync all products
+      const productPromises = unsyncedProducts.map(async (product: any) => {
+        try {
+          const response = await apiRequest("POST", `/api/products/${product.id}/sync-quickbooks`, {});
+          if (!response.ok) {
+            throw new Error("Failed to sync");
+          }
+          return { success: true, item: product };
+        } catch (error) {
+          failedProducts.push(product);
+          return { success: false, item: product };
+        }
+      });
+
+      // Wait for all syncs to complete
+      await Promise.all([...customerPromises, ...productPromises]);
+
+      return {
+        totalCustomers: unsyncedCustomers.length,
+        totalProducts: unsyncedProducts.length,
+        failedCustomers,
+        failedProducts,
+      };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+
+      const totalFailed = data.failedCustomers.length + data.failedProducts.length;
+      const totalItems = data.totalCustomers + data.totalProducts;
+
+      if (totalFailed === 0) {
+        toast({
+          title: "Success",
+          description: "Everything synced successfully!",
+        });
+      } else {
+        setSyncResults({
+          failedCustomers: data.failedCustomers,
+          failedProducts: data.failedProducts,
+        });
+        setShowSyncResults(true);
+        toast({
+          title: "Partial Sync Complete",
+          description: `${totalItems - totalFailed} of ${totalItems} items synced. ${totalFailed} items failed.`,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync items to QuickBooks",
         variant: "destructive",
       });
     },
