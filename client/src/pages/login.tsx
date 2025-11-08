@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import kitchenXpressLogo from "@assets/WhatsApp Image 2025-10-08 at 12.47.38 AM_1760212885421.jpeg";
+import kitchenXpressLogo from "@assets/logo png _1762639803507.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();

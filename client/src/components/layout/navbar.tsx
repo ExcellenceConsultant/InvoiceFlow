@@ -3,7 +3,7 @@ import { Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import kitchenXpressLogo from "@assets/WhatsApp Image 2025-10-08 at 12.47.38 AM_1760212885421.jpeg";
+import kitchenXpressLogo from "@assets/logo png _1762639803507.png";
 
 export default function Navbar() {
   const [location] = useLocation();
