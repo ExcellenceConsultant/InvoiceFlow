@@ -1,20 +1,20 @@
-import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { z } from "zod";
-import * as XLSX from "xlsx";
-import multer from "multer";
-import { storage } from "./storage";
-import { quickBooksService } from "./services/quickbooks";
 import {
   insertCustomerSchema,
-  insertProductSchema,
-  insertProductVariantSchema,
-  insertProductSchemeSchema,
-  insertInvoiceSchema,
   insertInvoiceLineItemSchema,
+  insertInvoiceSchema,
+  insertProductSchema,
+  insertProductSchemeSchema,
+  insertProductVariantSchema,
 } from "@shared/schema";
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import multer from "multer";
+import * as XLSX from "xlsx";
+import { z } from "zod";
 import { isAuthenticated, requireRole } from "./auth";
 import { registerAuthRoutes } from "./authRoutes";
+import { quickBooksService } from "./services/quickbooks";
+import { storage } from "./storage";
 
 // Configure multer for file uploads (memory storage) with limits
 const upload = multer({
@@ -154,7 +154,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { code, realmId, state } = req.query;
 
       // Log request query params (excluding sensitive code)
-      console.log("QuickBooks callback params:", { realmId, state, hasCode: !!code });
+      console.log("QuickBooks callback params:", {
+        realmId,
+        state,
+        hasCode: !!code,
+      });
 
       // Get the frontend URL from request origin or environment
       const origin =
@@ -247,15 +251,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.headers["x-requested-with"];
 
       const errorMessage = error.message || "Authentication failed";
-      const errorType = error.message?.includes("invalid_grant") ? "invalid_grant" : "auth_failed";
+      const errorType = error.message?.includes("invalid_grant")
+        ? "invalid_grant"
+        : "auth_failed";
       if (isApiCall) {
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: errorType,
           message: errorMessage,
         });
       }
       const encodedMessage = encodeURIComponent(errorMessage);
-      res.redirect(`${origin}/#/quickbooks/auth#error=${errorType}&message=${encodedMessage}`);
+      res.redirect(
+        `${origin}/#/quickbooks/auth#error=${errorType}&message=${encodedMessage}`,
+      );
     }
   });
 
@@ -295,12 +303,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .safeParse(req.body);
 
       if (!validation.success) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid customer data",
-            errors: validation.error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid customer data",
+          errors: validation.error.errors,
+        });
       }
 
       const user = (req as any).user;
@@ -316,29 +322,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/customers/:id", isAuthenticated, requireRole(['super_admin', 'admin']), async (req, res) => {
-    try {
-      const customer = await storage.updateCustomer(req.params.id, req.body);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
+  app.patch(
+    "/api/customers/:id",
+    isAuthenticated,
+    requireRole(["super_admin", "admin"]),
+    async (req, res) => {
+      try {
+        const customer = await storage.updateCustomer(req.params.id, req.body);
+        if (!customer) {
+          return res.status(404).json({ message: "Customer not found" });
+        }
+        res.json(customer);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to update customer" });
       }
-      res.json(customer);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update customer" });
-    }
-  });
+    },
+  );
 
-  app.delete("/api/customers/:id", isAuthenticated, requireRole(['super_admin', 'admin']), async (req, res) => {
-    try {
-      const success = await storage.deleteCustomer(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Customer not found" });
+  app.delete(
+    "/api/customers/:id",
+    isAuthenticated,
+    requireRole(["super_admin", "admin"]),
+    async (req, res) => {
+      try {
+        const success = await storage.deleteCustomer(req.params.id);
+        if (!success) {
+          return res.status(404).json({ message: "Customer not found" });
+        }
+        res.json({ success: true });
+      } catch (error) {
+        res.status(500).json({ message: "Failed to delete customer" });
       }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete customer" });
-    }
-  });
+    },
+  );
 
   // Export customers/vendors to Excel
   app.get("/api/customers/export", isAuthenticated, async (req, res) => {
@@ -439,7 +455,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!validation.success) {
               results.failed++;
               results.errors.push(
-                `Row ${i + 2}: ${validation.error.errors.map((e) => e.message).join(", ")}`,
+                `Row ${i + 2}: ${validation.error.errors
+                  .map((e) => e.message)
+                  .join(", ")}`,
               );
               continue;
             }
@@ -464,95 +482,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Inventory movement report - Must be before other product routes
-  app.get("/api/reports/inventory-movement", isAuthenticated, async (req, res) => {
-    try {
-      const user = (req as any).user;
-      const products = await storage.getProducts(user.userId);
-      const invoices = await storage.getInvoices(user.userId);
-      
-      // Get all invoice line items for all invoices
-      const allLineItems: any[] = [];
-      for (const invoice of invoices) {
-        const lineItems = await storage.getInvoiceLineItems(invoice.id);
-        lineItems.forEach((item: any) => {
-          allLineItems.push({
-            ...item,
-            invoiceNumber: invoice.invoiceNumber,
-            invoiceDate: invoice.invoiceDate,
-            invoiceType: invoice.invoiceType,
-            customerId: invoice.customerId,
-          });
-        });
-      }
-      
-      // Get all customers for name lookup
-      const customers = await storage.getCustomers(user.userId);
-      const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
-      
-      // Build the report data grouped by product
-      const reportData: any[] = [];
-      
-      for (const product of products) {
-        // Get all line items for this product
-        const productLineItems = allLineItems.filter(
-          (item: any) => item.productId === product.id
-        );
-        
-        if (productLineItems.length > 0) {
-          // Add product name as header row
-          reportData.push({
-            "Product Name": product.name,
-            "Invoice Number": "",
-            "Invoice Date": "",
-            "Name": "",
-            "QTY": ""
-          });
-          
-          // Add each transaction
-          productLineItems.forEach((item: any) => {
-            const customerName = customerMap.get(item.customerId) || "";
-            // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
-            const quantity = item.invoiceType === "receivable" 
-              ? -item.quantity 
-              : item.quantity;
-            
-            reportData.push({
-              "Product Name": "",
-              "Invoice Number": item.invoiceNumber,
-              "Invoice Date": item.invoiceDate ? new Date(item.invoiceDate).toLocaleDateString('en-US') : "",
-              "Name": customerName,
-              "QTY": quantity
+  app.get(
+    "/api/reports/inventory-movement",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const user = (req as any).user;
+        const products = await storage.getProducts(user.userId);
+        const invoices = await storage.getInvoices(user.userId);
+
+        // Get all invoice line items for all invoices
+        const allLineItems: any[] = [];
+        for (const invoice of invoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+          lineItems.forEach((item: any) => {
+            allLineItems.push({
+              ...item,
+              invoiceNumber: invoice.invoiceNumber,
+              invoiceDate: invoice.invoiceDate,
+              invoiceType: invoice.invoiceType,
+              customerId: invoice.customerId,
             });
           });
         }
+
+        // Get all customers for name lookup
+        const customers = await storage.getCustomers(user.userId);
+        const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
+
+        // Build the report data grouped by product
+        const reportData: any[] = [];
+
+        for (const product of products) {
+          // Get all line items for this product
+          const productLineItems = allLineItems.filter(
+            (item: any) => item.productId === product.id,
+          );
+
+          if (productLineItems.length > 0) {
+            // Add product name as header row
+            reportData.push({
+              "Product Name": product.name,
+              "Invoice Number": "",
+              "Invoice Date": "",
+              Name: "",
+              QTY: "",
+            });
+
+            // Add each transaction
+            productLineItems.forEach((item: any) => {
+              const customerName = customerMap.get(item.customerId) || "";
+              // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
+              const quantity =
+                item.invoiceType === "receivable"
+                  ? -item.quantity
+                  : item.quantity;
+
+              reportData.push({
+                "Product Name": "",
+                "Invoice Number": item.invoiceNumber,
+                "Invoice Date": item.invoiceDate
+                  ? new Date(item.invoiceDate).toLocaleDateString("en-US")
+                  : "",
+                Name: customerName,
+                QTY: quantity,
+              });
+            });
+          }
+        }
+
+        // Generate Excel file
+        const XLSX = require("xlsx");
+        const worksheet = XLSX.utils.json_to_sheet(reportData, {
+          header: [
+            "Product Name",
+            "Invoice Number",
+            "Invoice Date",
+            "Name",
+            "QTY",
+          ],
+          skipHeader: false,
+        });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory Movement");
+
+        const buffer = XLSX.write(workbook, {
+          type: "buffer",
+          bookType: "xlsx",
+        });
+
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="Inventory_Movement_Report_${
+            new Date().toISOString().split("T")[0]
+          }.xlsx"`,
+        );
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+        res.send(buffer);
+      } catch (error) {
+        console.error("Error generating inventory movement report:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to generate inventory movement report" });
       }
-      
-      // Generate Excel file
-      const XLSX = require("xlsx");
-      const worksheet = XLSX.utils.json_to_sheet(reportData, {
-        header: ["Product Name", "Invoice Number", "Invoice Date", "Name", "QTY"],
-        skipHeader: false,
-      });
-      
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory Movement");
-      
-      const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-      
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx"`
-      );
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
-      res.send(buffer);
-    } catch (error) {
-      console.error("Error generating inventory movement report:", error);
-      res.status(500).json({ message: "Failed to generate inventory movement report" });
-    }
-  });
+    },
+  );
 
   // Product routes
   app.get("/api/products", isAuthenticated, async (req, res) => {
@@ -573,12 +611,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!validation.success) {
         console.error("Product validation failed:", validation.error.errors);
-        return res
-          .status(400)
-          .json({
-            message: "Invalid product data",
-            errors: validation.error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid product data",
+          errors: validation.error.errors,
+        });
       }
 
       const user = (req as any).user;
@@ -607,12 +643,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!validation.success) {
         console.error("Product validation failed:", validation.error.errors);
-        return res
-          .status(400)
-          .json({
-            message: "Invalid product data",
-            errors: validation.error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid product data",
+          errors: validation.error.errors,
+        });
       }
 
       const product = await storage.updateProduct(
@@ -679,12 +713,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validation = insertProductVariantSchema.safeParse(req.body);
 
       if (!validation.success) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid variant data",
-            errors: validation.error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid variant data",
+          errors: validation.error.errors,
+        });
       }
 
       const variant = await storage.createVariant(validation.data);
@@ -718,12 +750,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validation = insertProductSchemeSchema.safeParse(req.body);
 
       if (!validation.success) {
-        return res
-          .status(400)
-          .json({
-            message: "Invalid scheme data",
-            errors: validation.error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid scheme data",
+          errors: validation.error.errors,
+        });
       }
 
       const scheme = await storage.createScheme({
@@ -786,33 +816,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user;
       const invoices = await storage.getInvoices(user.userId);
-      
+
       // Filter for AR invoices only
-      const arInvoices = invoices.filter(inv => inv.invoiceType === "receivable");
-      
+      const arInvoices = invoices.filter(
+        (inv) => inv.invoiceType === "receivable",
+      );
+
       if (arInvoices.length === 0) {
         // Start from 1 if no AR invoices exist
         return res.json({ nextNumber: "1" });
       }
-      
+
       // Extract numeric invoice numbers and find the maximum
       const numericInvoiceNumbers = arInvoices
-        .map(inv => {
+        .map((inv) => {
           const invoiceNumber = inv.invoiceNumber.trim();
           // Remove any non-numeric characters and parse as number
-          const numericPart = invoiceNumber.replace(/\D/g, '');
+          const numericPart = invoiceNumber.replace(/\D/g, "");
           return parseInt(numericPart, 10);
         })
-        .filter(num => !isNaN(num));
-      
+        .filter((num) => !isNaN(num));
+
       if (numericInvoiceNumbers.length === 0) {
         // If no valid numeric invoice numbers found, start from 1
         return res.json({ nextNumber: "1" });
       }
-      
+
       const maxNumber = Math.max(...numericInvoiceNumbers);
       const nextNumber = maxNumber + 1;
-      
+
       res.json({ nextNumber: nextNumber.toString() });
     } catch (error) {
       console.error("Error getting next invoice number:", error);
@@ -842,12 +874,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Invoice validation failed:",
           invoiceValidation.error.errors,
         );
-        return res
-          .status(400)
-          .json({
-            message: "Invalid invoice data",
-            errors: invoiceValidation.error.errors,
-          });
+        return res.status(400).json({
+          message: "Invalid invoice data",
+          errors: invoiceValidation.error.errors,
+        });
       }
 
       const user = (req as any).user;
@@ -966,10 +996,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`,
                 );
-                
+
                 // Update only quantity, keep prices as manually set in inventory
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty
+                await storage.updateProduct(item.productId, {
+                  qty: newQty,
                 });
                 continue; // Skip the default update below
               }
@@ -979,10 +1009,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`,
                 );
-                
+
                 // Update only quantity, keep prices as manually set in inventory
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty
+                await storage.updateProduct(item.productId, {
+                  qty: newQty,
                 });
                 continue; // Skip the default update below
               }
@@ -1062,7 +1092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = (req as any).user?.userId;
-      
+
       // Get invoice and line items before deletion for inventory adjustment
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -1070,7 +1100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const lineItems = await storage.getInvoiceLineItems(req.params.id);
-      
+
       // Collect unique product IDs from deleted invoice
       const uniqueProductIds = new Set<string>();
       for (const item of lineItems) {
@@ -1078,22 +1108,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           uniqueProductIds.add(item.productId);
         }
       }
-      
+
       // Fetch all invoices once (for efficiency)
       const allInvoices = await storage.getInvoices(userId);
-      
+
       // Separate and sort invoices by type
       const otherApInvoices = allInvoices
-        .filter(inv => inv.invoiceType === "payable" && inv.id !== req.params.id)
-        .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime());
-      
+        .filter(
+          (inv) => inv.invoiceType === "payable" && inv.id !== req.params.id,
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.invoiceDate).getTime() -
+            new Date(a.invoiceDate).getTime(),
+        );
+
       const otherArInvoices = allInvoices
-        .filter(inv => inv.invoiceType === "receivable" && inv.id !== req.params.id)
-        .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime());
-      
+        .filter(
+          (inv) => inv.invoiceType === "receivable" && inv.id !== req.params.id,
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.invoiceDate).getTime() -
+            new Date(a.invoiceDate).getTime(),
+        );
+
       // Cache line items for all relevant invoices to avoid repeated queries
       const lineItemsCache = new Map<string, any[]>();
-      
+
       // Fetch line items for AP invoices
       for (const inv of otherApInvoices) {
         if (!lineItemsCache.has(inv.id)) {
@@ -1101,7 +1143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lineItemsCache.set(inv.id, items);
         }
       }
-      
+
       // Fetch line items for AR invoices
       for (const inv of otherArInvoices) {
         if (!lineItemsCache.has(inv.id)) {
@@ -1109,42 +1151,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lineItemsCache.set(inv.id, items);
         }
       }
-      
+
       // Build a map of product prices from other invoices
-      const productPriceMap = new Map<string, { basePrice: string; salesPrice: string }>();
-      
+      const productPriceMap = new Map<
+        string,
+        { basePrice: string; salesPrice: string }
+      >();
+
       for (const productId of Array.from(uniqueProductIds)) {
         // For AP invoices: find latest Base Price from cached line items
         let latestBasePrice = "0.00";
         try {
           for (const otherInv of otherApInvoices) {
             const cachedItems = lineItemsCache.get(otherInv.id) || [];
-            const matchingItem = cachedItems.find(li => li.productId === productId);
+            const matchingItem = cachedItems.find(
+              (li) => li.productId === productId,
+            );
             if (matchingItem) {
               latestBasePrice = matchingItem.unitPrice;
               break; // Take the first match (most recent due to sort)
             }
           }
         } catch (error) {
-          console.error(`Error finding Base Price for product ${productId}:`, error);
+          console.error(
+            `Error finding Base Price for product ${productId}:`,
+            error,
+          );
         }
-        
+
         // For AR invoices: find latest Sales Price from cached line items
         let latestSalesPrice = "0.00";
         try {
           for (const otherInv of otherArInvoices) {
             const cachedItems = lineItemsCache.get(otherInv.id) || [];
-            const matchingItem = cachedItems.find(li => li.productId === productId);
+            const matchingItem = cachedItems.find(
+              (li) => li.productId === productId,
+            );
             if (matchingItem) {
               latestSalesPrice = matchingItem.unitPrice;
               break; // Take the first match (most recent due to sort)
             }
           }
         } catch (error) {
-          console.error(`Error finding Sales Price for product ${productId}:`, error);
+          console.error(
+            `Error finding Sales Price for product ${productId}:`,
+            error,
+          );
         }
-        
-        productPriceMap.set(productId, { basePrice: latestBasePrice, salesPrice: latestSalesPrice });
+
+        productPriceMap.set(productId, {
+          basePrice: latestBasePrice,
+          salesPrice: latestSalesPrice,
+        });
       }
 
       // Revert inventory changes for AP invoices (subtract added quantity)
@@ -1157,17 +1215,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const newQty = Math.max(0, currentProduct.qty - item.quantity);
                 const priceInfo = productPriceMap.get(item.productId);
                 const latestBasePrice = priceInfo?.basePrice || "0.00";
-                
+
                 console.log(
                   `Reverting AP invoice deletion: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
                 );
                 console.log(
-                  `Updating Base Price for product ${currentProduct.name} to $${parseFloat(latestBasePrice).toFixed(2)} after AP invoice deletion`,
+                  `Updating Base Price for product ${
+                    currentProduct.name
+                  } to $${parseFloat(latestBasePrice).toFixed(
+                    2,
+                  )} after AP invoice deletion`,
                 );
-                
-                await storage.updateProduct(item.productId, { 
+
+                await storage.updateProduct(item.productId, {
                   qty: newQty,
-                  basePrice: latestBasePrice 
+                  basePrice: latestBasePrice,
                 });
               }
             } catch (inventoryError) {
@@ -1190,17 +1252,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const newQty = currentProduct.qty + item.quantity;
                 const priceInfo = productPriceMap.get(item.productId);
                 const latestSalesPrice = priceInfo?.salesPrice || "0.00";
-                
+
                 console.log(
                   `Reverting AR invoice deletion: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${item.quantity})`,
                 );
                 console.log(
-                  `Updating Sales Price for product ${currentProduct.name} to $${parseFloat(latestSalesPrice).toFixed(2)} after AR invoice deletion`,
+                  `Updating Sales Price for product ${
+                    currentProduct.name
+                  } to $${parseFloat(latestSalesPrice).toFixed(
+                    2,
+                  )} after AR invoice deletion`,
                 );
-                
-                await storage.updateProduct(item.productId, { 
+
+                await storage.updateProduct(item.productId, {
                   qty: newQty,
-                  salesPrice: latestSalesPrice 
+                  salesPrice: latestSalesPrice,
                 });
               }
             } catch (inventoryError) {
@@ -1236,12 +1302,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error: any) {
-      res
-        .status(500)
-        .json({
-          message: "Failed to update invoice status",
-          error: error.message,
-        });
+      res.status(500).json({
+        message: "Failed to update invoice status",
+        error: error.message,
+      });
     }
   });
 
@@ -1329,6 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedInvoice = await storage.updateInvoice(invoiceId, {
         customerId: invoiceData.customerId,
         invoiceNumber: invoiceData.invoiceNumber,
+        purchaseOrder: invoiceData.purchaseOrder,
         invoiceDate: new Date(invoiceData.invoiceDate),
         dueDate: invoiceData.dueDate
           ? new Date(invoiceData.dueDate)
@@ -1385,10 +1450,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`,
                 );
-                
+
                 // Update only quantity, keep prices as manually set in inventory
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty
+                await storage.updateProduct(item.productId, {
+                  qty: newQty,
                 });
               }
             } catch (inventoryError) {
@@ -1413,10 +1478,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(
                   `Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
                 );
-                
+
                 // Update only quantity, keep prices as manually set in inventory
-                await storage.updateProduct(item.productId, { 
-                  qty: newQty
+                await storage.updateProduct(item.productId, {
+                  qty: newQty,
                 });
               }
             } catch (inventoryError) {
@@ -1579,42 +1644,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Ensure tokens are valid and refresh if needed
         const validQbConfig = await ensureValidTokens();
 
-        // First, search for existing item by name
-        let qbItem = await quickBooksService.findItemByName(
+        // Create unique name to avoid conflicts
+        const timestamp = Date.now();
+        const qbItemData = {
+          Name: `${product.name}_${timestamp}`,
+          Type: "Service",
+        };
+
+        const qbItem = await quickBooksService.createItem(
           validQbConfig.accessToken,
           validQbConfig.companyId,
-          product.name,
+          qbItemData,
         );
-
-        let action = "found";
-        
-        // If not found, create new item
-        if (!qbItem) {
-          console.log(`Item "${product.name}" not found, creating new item in QuickBooks`);
-          const qbItemData = {
-            Name: product.name,
-            Type: "Service",
-          };
-
-          qbItem = await quickBooksService.createItem(
-            validQbConfig.accessToken,
-            validQbConfig.companyId,
-            qbItemData,
-          );
-          action = "created";
-        }
 
         // Update product with QuickBooks ID
         await storage.updateProduct(product.id, {
           quickbooksItemId: qbItem.Id,
         });
 
-        res.json({ 
-          success: true, 
-          quickbooksItemId: qbItem.Id,
-          action,
-          name: qbItem.Name
-        });
+        res.json({ success: true, quickbooksItemId: qbItem.Id });
       } catch (error: unknown) {
         const err = error as any;
         console.error(
@@ -1632,7 +1680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to ensure valid QuickBooks tokens (system-wide)
   async function ensureValidTokens() {
     const qbConfig = await storage.getSystemSetting("quickbooks_config");
-    
+
     if (!qbConfig || !qbConfig.refreshToken) {
       throw new Error(
         "No refresh token available. Please reconnect to QuickBooks.",
@@ -1677,224 +1725,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return qbConfig;
   }
 
-  // New endpoint for posting actual invoices/bills to QuickBooks
-  app.post(
-    "/api/invoices/:id/post-to-quickbooks",
-    isAuthenticated,
-    async (req, res) => {
-      try {
-        const invoice = await storage.getInvoice(req.params.id);
-        if (!invoice) {
-          return res.status(404).json({ message: "Invoice not found" });
-        }
-
-        // Get system-wide QuickBooks config
-        const qbConfig = await storage.getSystemSetting("quickbooks_config");
-        if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
-          return res.status(400).json({ message: "QuickBooks not connected" });
-        }
-
-        // Ensure tokens are valid and refresh if needed
-        const validQbConfig = await ensureValidTokens();
-
-        // Get line items
-        const lineItems = await storage.getInvoiceLineItems(invoice.id);
-
-        // Sync all products to QuickBooks first and get their QB Item IDs
-        const lineItemsWithQBIds = [];
-        for (const lineItem of lineItems) {
-          const product = await storage.getProduct(lineItem.productId!);
-          if (!product) continue;
-
-          // Search for existing item by name or create new one
-          let qbItem = await quickBooksService.findItemByName(
-            validQbConfig.accessToken,
-            validQbConfig.companyId,
-            product.name,
-          );
-
-          if (!qbItem) {
-            console.log(`Creating QB item for product: ${product.name}`);
-            qbItem = await quickBooksService.createItem(
-              validQbConfig.accessToken,
-              validQbConfig.companyId,
-              { Name: product.name, Type: "Service" },
-            );
-          }
-
-          // Update product with QB ID if not already set
-          if (!product.quickbooksItemId) {
-            await storage.updateProduct(product.id, {
-              quickbooksItemId: qbItem.Id,
-            });
-          }
-
-          lineItemsWithQBIds.push({
-            ...lineItem,
-            quickbooksItemId: qbItem.Id,
-            productName: product.name,
-          });
-        }
-
-        // Check invoice type
-        const invoiceType = (invoice as any).invoiceType || "receivable";
-        console.log(`Posting ${invoiceType} invoice ${invoice.invoiceNumber} to QuickBooks`);
-
-        if (invoiceType === "receivable") {
-          // Post AR Invoice
-          const customer = await storage.getCustomer(invoice.customerId!);
-          if (!customer) {
-            return res.status(400).json({ message: "Customer not found" });
-          }
-
-          // Find or create customer in QuickBooks
-          let qbCustomer = await quickBooksService.findCustomerByDisplayName(
-            validQbConfig.accessToken,
-            validQbConfig.companyId,
-            customer.name,
-          );
-
-          if (!qbCustomer) {
-            qbCustomer = await quickBooksService.createCustomer(
-              validQbConfig.accessToken,
-              validQbConfig.companyId,
-              { DisplayName: customer.name },
-            );
-            await storage.updateCustomer(customer.id, {
-              quickbooksCustomerId: qbCustomer.Id,
-            });
-          }
-
-          // Build QB Invoice data
-          const qbInvoiceData: any = {
-            CustomerRef: { value: qbCustomer.Id },
-            DocNumber: invoice.invoiceNumber,
-            TxnDate: new Date(invoice.invoiceDate!).toISOString().split('T')[0],
-            DueDate: new Date(invoice.dueDate!).toISOString().split('T')[0],
-            Line: lineItemsWithQBIds.map((item) => ({
-              DetailType: "SalesItemLineDetail",
-              Amount: Number(item.quantity) * Number(item.unitPrice),
-              SalesItemLineDetail: {
-                ItemRef: { value: item.quickbooksItemId },
-                Qty: Number(item.quantity),
-                UnitPrice: Number(item.unitPrice),
-              },
-              Description: item.productName,
-            })),
-          };
-
-          const qbInvoice = await quickBooksService.createInvoice(
-            validQbConfig.accessToken,
-            validQbConfig.companyId,
-            qbInvoiceData,
-          );
-
-          // Update local invoice with QB ID
-          await storage.updateInvoice(invoice.id, {
-            quickbooksInvoiceId: qbInvoice.Id,
-          });
-
-          res.json({
-            success: true,
-            message: "Invoice posted to QuickBooks successfully",
-            quickbooksInvoiceId: qbInvoice.Id,
-            docNumber: qbInvoice.DocNumber,
-          });
-        } else if (invoiceType === "payable") {
-          // Post AP Bill
-          const vendor = await storage.getCustomer(invoice.customerId!);
-          if (!vendor) {
-            return res.status(400).json({ message: "Vendor not found" });
-          }
-
-          // Find or create vendor in QuickBooks
-          let qbVendor = await quickBooksService.findVendorByDisplayName(
-            validQbConfig.accessToken,
-            validQbConfig.companyId,
-            vendor.name,
-          );
-
-          if (!qbVendor) {
-            qbVendor = await quickBooksService.createVendor(
-              validQbConfig.accessToken,
-              validQbConfig.companyId,
-              { DisplayName: vendor.name },
-            );
-            await storage.updateCustomer(vendor.id, {
-              quickbooksCustomerId: qbVendor.Id,
-            });
-          }
-
-          // Build QB Bill data
-          const qbBillData: any = {
-            VendorRef: { value: qbVendor.Id },
-            DocNumber: invoice.invoiceNumber,
-            TxnDate: new Date(invoice.invoiceDate!).toISOString().split('T')[0],
-            DueDate: new Date(invoice.dueDate!).toISOString().split('T')[0],
-            Line: lineItemsWithQBIds.map((item) => ({
-              DetailType: "AccountBasedExpenseLineDetail",
-              Amount: Number(item.quantity) * Number(item.unitPrice),
-              AccountBasedExpenseLineDetail: {
-                AccountRef: { value: "1" },
-              },
-              Description: `${item.productName} - Qty: ${item.quantity} @ ${item.unitPrice}`,
-            })),
-          };
-
-          const qbBill = await quickBooksService.createBill(
-            validQbConfig.accessToken,
-            validQbConfig.companyId,
-            qbBillData,
-          );
-
-          // Update local invoice with QB ID
-          await storage.updateInvoice(invoice.id, {
-            quickbooksInvoiceId: qbBill.Id,
-          });
-
-          res.json({
-            success: true,
-            message: "Bill posted to QuickBooks successfully",
-            quickbooksInvoiceId: qbBill.Id,
-            docNumber: qbBill.DocNumber,
-          });
-        } else {
-          return res.status(400).json({
-            message: "Invalid invoice type. Must be 'receivable' or 'payable'",
-          });
-        }
-      } catch (error: unknown) {
-        const err = error as any;
-        console.error(
-          "QuickBooks invoice post error:",
-          err.response?.data || err.message,
-        );
-        console.error(
-          "Full error details:",
-          JSON.stringify(err.response?.data, null, 2),
-        );
-
-        let errorMessage = "Failed to post invoice to QuickBooks";
-        let fullErrorDetails = null;
-
-        if (err.response?.data?.Fault?.Error?.[0]) {
-          const qbError = err.response.data.Fault.Error[0];
-          errorMessage = qbError.Detail || qbError.code || errorMessage;
-          fullErrorDetails = {
-            code: qbError.code,
-            detail: qbError.Detail,
-            element: qbError.element || null,
-          };
-        }
-
-        res.status(500).json({
-          message: errorMessage,
-          errorDetails: fullErrorDetails,
-        });
-      }
-    },
-  );
-
   app.post(
     "/api/invoices/:id/sync-quickbooks",
     isAuthenticated,
@@ -1920,17 +1750,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (invoiceType === "receivable") {
           // Handle Accounts Receivable (AR) Invoice
-          return await handleARInvoiceSync(invoice, validQbConfig, storage, res);
+          return await handleARInvoiceSync(
+            invoice,
+            validQbConfig,
+            storage,
+            res,
+          );
         } else if (invoiceType === "payable") {
           // Handle Accounts Payable (AP) Invoice (Bill)
-          return await handleAPInvoiceSync(invoice, validQbConfig, storage, res);
+          return await handleAPInvoiceSync(
+            invoice,
+            validQbConfig,
+            storage,
+            res,
+          );
         } else {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Invalid invoice type. Must be 'receivable' or 'payable'",
-            });
+          return res.status(400).json({
+            message: "Invalid invoice type. Must be 'receivable' or 'payable'",
+          });
         }
       } catch (error: unknown) {
         const err = error as any;
@@ -2106,7 +1943,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ) {
     const isUpdate = !!invoice.quickbooksInvoiceId;
     console.log(
-      `${isUpdate ? "Updating" : "Creating"} QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`,
+      `${
+        isUpdate ? "Updating" : "Creating"
+      } QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`,
     );
 
     // Find or create customer in QuickBooks
@@ -2299,7 +2138,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       invoiceType: "receivable",
       totalAmount: total,
       accounts: accounts,
-      message: `Journal Entry successfully ${isUpdate ? "updated" : "created"} in QuickBooks`,
+      message: `Journal Entry successfully ${
+        isUpdate ? "updated" : "created"
+      } in QuickBooks`,
     });
   }
 
@@ -2450,14 +2291,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schemes = await storage.getProductSchemes(userId);
 
       // Calculate total revenue from AR (receivable) invoices only
-      const receivableInvoices = invoices.filter((invoice) => invoice.invoiceType === "receivable");
-      const totalRevenue = receivableInvoices.reduce((sum, invoice) => sum + parseFloat(invoice.total), 0);
-      console.log(`[STATS] AR Invoices: ${receivableInvoices.length}, Total Revenue: $${totalRevenue.toFixed(2)}`);
+      const receivableInvoices = invoices.filter(
+        (invoice) => invoice.invoiceType === "receivable",
+      );
+      const totalRevenue = receivableInvoices.reduce(
+        (sum, invoice) => sum + parseFloat(invoice.total),
+        0,
+      );
+      console.log(
+        `[STATS] AR Invoices: ${
+          receivableInvoices.length
+        }, Total Revenue: $${totalRevenue.toFixed(2)}`,
+      );
 
       // Calculate total purchase from AP (payable) invoices only
-      const payableInvoices = invoices.filter((invoice) => invoice.invoiceType === "payable");
-      const totalPurchase = payableInvoices.reduce((sum, invoice) => sum + parseFloat(invoice.total), 0);
-      console.log(`[STATS] AP Invoices: ${payableInvoices.length}, Total Purchase: $${totalPurchase.toFixed(2)}`);
+      const payableInvoices = invoices.filter(
+        (invoice) => invoice.invoiceType === "payable",
+      );
+      const totalPurchase = payableInvoices.reduce(
+        (sum, invoice) => sum + parseFloat(invoice.total),
+        0,
+      );
+      console.log(
+        `[STATS] AP Invoices: ${
+          payableInvoices.length
+        }, Total Purchase: $${totalPurchase.toFixed(2)}`,
+      );
 
       // Count active invoices (sent or draft status)
       const activeInvoices = invoices.filter(
@@ -2530,63 +2389,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        
-        console.log("Starting optimized inventory recalculation from invoices...");
-        
+
+        console.log(
+          "Starting optimized inventory recalculation from invoices...",
+        );
+
         // Get all products
         const allProducts = await storage.getProducts(userId);
         console.log(`Found ${allProducts.length} products to recalculate`);
-        
+
         // Get all invoices
         const allInvoices = await storage.getInvoices(userId);
         console.log(`Found ${allInvoices.length} invoices to process`);
-        
+
         // Fetch ALL line items at once and build a map
         console.log("Fetching all line items...");
         const productQuantityMap = new Map<string, number>();
-        
+
         for (const invoice of allInvoices) {
           const lineItems = await storage.getInvoiceLineItems(invoice.id);
-          
+
           for (const item of lineItems) {
             if (item.productId && item.productId.trim() !== "") {
               const currentQty = productQuantityMap.get(item.productId) || 0;
-              
+
               // AP (payable) invoices add to inventory
               // AR (receivable) invoices subtract from inventory
               if (invoice.invoiceType === "payable") {
-                productQuantityMap.set(item.productId, currentQty + item.quantity);
+                productQuantityMap.set(
+                  item.productId,
+                  currentQty + item.quantity,
+                );
               } else if (invoice.invoiceType === "receivable") {
-                productQuantityMap.set(item.productId, currentQty - item.quantity);
+                productQuantityMap.set(
+                  item.productId,
+                  currentQty - item.quantity,
+                );
               }
             }
           }
         }
-        
-        console.log(`Calculated quantities for ${productQuantityMap.size} products`);
-        
+
+        console.log(
+          `Calculated quantities for ${productQuantityMap.size} products`,
+        );
+
         // Update all products
         let updatedProductsCount = 0;
-        
+
         for (const product of allProducts) {
           const calculatedQty = productQuantityMap.get(product.id) || 0;
           const finalQty = calculatedQty < 0 ? 0 : calculatedQty; // Don't allow negative
-          
+
           if (product.qty !== finalQty) {
             console.log(
-              `Updating ${product.name}: ${product.qty} → ${finalQty}`
+              `Updating ${product.name}: ${product.qty} → ${finalQty}`,
             );
-            
+
             await storage.updateProduct(product.id, {
               qty: finalQty,
             });
-            
+
             updatedProductsCount++;
           }
         }
-        
-        console.log(`Recalculation complete: Updated ${updatedProductsCount} products`);
-        
+
+        console.log(
+          `Recalculation complete: Updated ${updatedProductsCount} products`,
+        );
+
         res.json({
           success: true,
           message: `Successfully recalculated inventory for ${updatedProductsCount} products`,
@@ -2596,9 +2467,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Inventory recalculation error:", error);
         const err = error as any;
-        res
-          .status(500)
-          .json({ message: "Failed to recalculate inventory", error: err.message });
+        res.status(500).json({
+          message: "Failed to recalculate inventory",
+          error: err.message,
+        });
       }
     },
   );
@@ -2610,30 +2482,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        
-        console.log("Starting Sales Price migration from existing AR invoices...");
-        
+
+        console.log(
+          "Starting Sales Price migration from existing AR invoices...",
+        );
+
         // Get all AR invoices
         const allInvoices = await storage.getInvoices(userId);
-        const arInvoices = allInvoices.filter((invoice) => invoice.invoiceType === "receivable");
-        
+        const arInvoices = allInvoices.filter(
+          (invoice) => invoice.invoiceType === "receivable",
+        );
+
         console.log(`Found ${arInvoices.length} AR invoices to process`);
-        
+
         let updatedProductsCount = 0;
-        const productUpdates = new Map<string, { productId: string; salesPrice: string; productName: string }>();
-        
+        const productUpdates = new Map<
+          string,
+          { productId: string; salesPrice: string; productName: string }
+        >();
+
         // Process each AR invoice
         for (const invoice of arInvoices) {
           const lineItems = await storage.getInvoiceLineItems(invoice.id);
-          
+
           for (const item of lineItems) {
             if (item.productId && item.productId.trim() !== "") {
               const product = await storage.getProduct(item.productId);
-              
+
               if (product) {
                 const newRate = parseFloat(item.unitPrice);
                 const currentSalesPrice = parseFloat(product.salesPrice || "0");
-                
+
                 // Track the latest rate for each product (last invoice wins)
                 if (newRate !== currentSalesPrice) {
                   productUpdates.set(item.productId, {
@@ -2646,28 +2525,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-        
+
         // Apply all updates
         for (const update of Array.from(productUpdates.values())) {
           const product = await storage.getProduct(update.productId);
           if (product) {
             const currentSalesPrice = parseFloat(product.salesPrice || "0");
             const newRate = parseFloat(update.salesPrice);
-            
+
             console.log(
-              `Updating Sales Price for product ${update.productName}: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+              `Updating Sales Price for product ${
+                update.productName
+              }: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
             );
-            
+
             await storage.updateProduct(update.productId, {
               salesPrice: update.salesPrice,
             });
-            
+
             updatedProductsCount++;
           }
         }
-        
-        console.log(`Migration complete: Updated Sales Price for ${updatedProductsCount} products`);
-        
+
+        console.log(
+          `Migration complete: Updated Sales Price for ${updatedProductsCount} products`,
+        );
+
         res.json({
           success: true,
           message: `Successfully updated Sales Price for ${updatedProductsCount} products from existing AR invoices`,
@@ -2676,9 +2559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Sales Price migration error:", error);
         const err = error as any;
-        res
-          .status(500)
-          .json({ message: "Failed to migrate Sales Price", error: err.message });
+        res.status(500).json({
+          message: "Failed to migrate Sales Price",
+          error: err.message,
+        });
       }
     },
   );

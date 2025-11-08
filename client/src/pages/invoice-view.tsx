@@ -1,13 +1,12 @@
 // invoice-view.tsx
-import { useEffect } from "react";
-import React from "react";
-import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Invoice, InvoiceLineItem, Customer } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Package, Tag } from "lucide-react";
 import { DEFAULT_USER_ID } from "@/lib/constants";
-import { formatDateWithoutTimezone, formatDateUS } from "@/lib/dateUtils";
+import { formatDateUS } from "@/lib/dateUtils";
+import { Invoice, InvoiceLineItem } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Package, Printer, Tag } from "lucide-react";
+import { useEffect } from "react";
+import { useLocation, useParams } from "wouter";
 
 function formatCurrency(num: number) {
   if (Number.isNaN(num) || num === null || num === undefined) return "$0.00";
@@ -142,14 +141,14 @@ function InvoiceView() {
   // BUT: exclude scheme description items from merging as they need unique productId associations
   const itemMap = new Map<string, any>();
   const schemeDescriptionItems: any[] = [];
-  
+
   for (const item of rawLineItems) {
     // Don't merge scheme description items - they need to maintain their productId associations
     if (item.isSchemeDescription) {
       schemeDescriptionItems.push(item);
       continue;
     }
-    
+
     const key = `${item.productCode || item.description}::${item.unitPrice}`;
     if (itemMap.has(key)) {
       const acc = itemMap.get(key);
@@ -159,9 +158,12 @@ function InvoiceView() {
       itemMap.set(key, { ...item });
     }
   }
-  
+
   // Combine merged items with unmerged scheme descriptions
-  const lineItems = [...Array.from(itemMap.values()), ...schemeDescriptionItems];
+  const lineItems = [
+    ...Array.from(itemMap.values()),
+    ...schemeDescriptionItems,
+  ];
   useEffect(() => {
     const style = document.createElement("style");
     style.id = "invoice-print-styles";
@@ -327,19 +329,16 @@ function InvoiceView() {
   line-height: 1.6;
 }
 
-.notes-box ol {
-  margin: 0;
-  padding-left: 30px;
-  list-style-position: outside;
-}
-
-.notes-box ol li {
-  padding-left: 10px;
+.notes-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
-.notes-box ol li::marker {
+.notes-number {
   font-weight: bold;
+  min-width: 18px;
 }
 
 .footer-section {
@@ -366,43 +365,39 @@ function InvoiceView() {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  
+
   .category-header {
     background-color: #f9f9f9 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  
+
   .invoice-table th {
     background-color: #f5f5f5 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  
+
   .notes-box {
     background-color: white !important;
     background: white !important;
+    margin-left: 18px !important;
     border: none !important;
     padding: 0 !important;
     min-height: 0 !important;
   }
-  
-  .notes-box ol {
-    list-style-type: decimal !important;
-    list-style-position: outside !important;
-    padding-left: 30px !important;
-    margin: 0 !important;
-  }
-  
-  .notes-box ol li {
-    padding-left: 10px !important;
+
+  .notes-line {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
     margin-bottom: 8px !important;
-    display: list-item !important;
   }
-  
-  .notes-box ol li::marker {
+
+  .notes-number {
     font-weight: bold !important;
     color: #000 !important;
+    min-width: 18px !important;
   }
 }
     `;
@@ -435,9 +430,7 @@ function InvoiceView() {
   const freight = toNumber(
     (invoice as any).freight || (invoice as any).freightAmount || 0,
   );
-  const discountPercent = toNumber(
-    (invoice as any).discount || 0,
-  );
+  const discountPercent = toNumber((invoice as any).discount || 0);
   const discountAmount = (netAmount * discountPercent) / 100;
   const totalInvoiceAmount = netAmount + freight - discountAmount;
 
@@ -451,14 +444,16 @@ function InvoiceView() {
   const schemeMap = new Map<string, string>();
   if (schemes) {
     schemes.forEach((scheme: any) => {
-      schemeMap.set(scheme.id, scheme.name || '');
+      schemeMap.set(scheme.id, scheme.name || "");
     });
   }
 
   // Separate regular items, scheme items, and scheme description items
-  const regularItems = lineItems.filter(item => !item.isFreeFromScheme && !item.isSchemeDescription);
-  const schemeItems = lineItems.filter(item => item.isFreeFromScheme);
-  const schemeDescItems = lineItems.filter(item => item.isSchemeDescription);
+  const regularItems = lineItems.filter(
+    (item) => !item.isFreeFromScheme && !item.isSchemeDescription,
+  );
+  const schemeItems = lineItems.filter((item) => item.isFreeFromScheme);
+  const schemeDescItems = lineItems.filter((item) => item.isSchemeDescription);
 
   // Build flat list of rows (category headers + items)
   const categorizedItems: { [key: string]: any[] } = {};
@@ -473,20 +468,20 @@ function InvoiceView() {
   // Sort items alphabetically within each category
   Object.keys(categorizedItems).forEach((cat) => {
     categorizedItems[cat].sort((a, b) => {
-      const nameA = (a.description || '').toLowerCase();
-      const nameB = (b.description || '').toLowerCase();
+      const nameA = (a.description || "").toLowerCase();
+      const nameB = (b.description || "").toLowerCase();
       return nameA.localeCompare(nameB);
     });
   });
 
   // Define category order for invoice: Frozen Vegetable first, Frozen Fruit second, Frozen Bulk third
-  const categoryOrder = ['Frozen Vegetable', 'Frozen Fruit', 'Frozen Bulk'];
-  
+  const categoryOrder = ["Frozen Vegetable", "Frozen Fruit", "Frozen Bulk"];
+
   // Sort categories based on the defined order
   const sortedCategories = Object.keys(categorizedItems).sort((a, b) => {
     const indexA = categoryOrder.indexOf(a);
     const indexB = categoryOrder.indexOf(b);
-    
+
     // If both categories are in the order array, sort by their index
     if (indexA !== -1 && indexB !== -1) {
       return indexA - indexB;
@@ -499,8 +494,12 @@ function InvoiceView() {
     return a.localeCompare(b);
   });
 
-  type TableRow = { type: 'category'; category: string } | { type: 'item'; item: any; srNo: number; isScheme: boolean } | { type: 'schemeDesc'; item: any } | { type: 'schemeName'; schemeName: string };
-  
+  type TableRow =
+    | { type: "category"; category: string }
+    | { type: "item"; item: any; srNo: number; isScheme: boolean }
+    | { type: "schemeDesc"; item: any }
+    | { type: "schemeName"; schemeName: string };
+
   // Build all rows first (category headers + items + scheme descriptions in order)
   const allRows: TableRow[] = [];
   let srCounter = 0;
@@ -508,29 +507,31 @@ function InvoiceView() {
   // Add regular items with their categories and scheme descriptions
   sortedCategories.forEach((category) => {
     const items = categorizedItems[category];
-    allRows.push({ type: 'category', category });
+    allRows.push({ type: "category", category });
     items.forEach((item) => {
       srCounter++;
-      allRows.push({ type: 'item', item, srNo: srCounter, isScheme: false });
-      
+      allRows.push({ type: "item", item, srNo: srCounter, isScheme: false });
+
       // Add scheme description right after the product if it exists
-      const relatedSchemeDesc = schemeDescItems.find(sd => sd.productId === item.productId);
+      const relatedSchemeDesc = schemeDescItems.find(
+        (sd) => sd.productId === item.productId,
+      );
       if (relatedSchemeDesc) {
-        allRows.push({ type: 'schemeDesc', item: relatedSchemeDesc });
+        allRows.push({ type: "schemeDesc", item: relatedSchemeDesc });
       }
     });
   });
 
   // Add promotional scheme items at the end if any exist (without Sr. No.)
   if (schemeItems.length > 0) {
-    allRows.push({ type: 'category', category: 'Promotional Schemes' });
+    allRows.push({ type: "category", category: "Promotional Schemes" });
     schemeItems.forEach((item) => {
-      allRows.push({ type: 'item', item, srNo: 0, isScheme: true });
-      
+      allRows.push({ type: "item", item, srNo: 0, isScheme: true });
+
       // Add scheme name row below the promotional scheme item if schemeId exists
       if (item.schemeId && schemeMap.has(item.schemeId)) {
-        const schemeName = schemeMap.get(item.schemeId) || '';
-        allRows.push({ type: 'schemeName', schemeName });
+        const schemeName = schemeMap.get(item.schemeId) || "";
+        allRows.push({ type: "schemeName", schemeName });
       }
     });
   }
@@ -539,9 +540,13 @@ function InvoiceView() {
   const ROWS_PER_PAGE = 22;
   const MAX_ROWS_WITH_SUMMARY = 12; // If <= 12 rows, fit everything on one page with summary
   const totalRows = allRows.length;
-  
-  const pages: { rows: TableRow[]; emptyCount: number; showSummary: boolean }[] = [];
-  
+
+  const pages: {
+    rows: TableRow[];
+    emptyCount: number;
+    showSummary: boolean;
+  }[] = [];
+
   // If total rows fit on one page with summary, create single page
   if (totalRows <= MAX_ROWS_WITH_SUMMARY) {
     pages.push({ rows: allRows, emptyCount: 0, showSummary: true });
@@ -556,7 +561,11 @@ function InvoiceView() {
 
       // If we've reached 22 total rows, create a page
       if (rowCountOnCurrentPage === ROWS_PER_PAGE) {
-        pages.push({ rows: currentPageRows, emptyCount: 0, showSummary: false });
+        pages.push({
+          rows: currentPageRows,
+          emptyCount: 0,
+          showSummary: false,
+        });
         currentPageRows = [];
         rowCountOnCurrentPage = 0;
       }
@@ -619,7 +628,9 @@ function InvoiceView() {
       {pages.map((page, pageIndex) => (
         <div
           key={pageIndex}
-          className={`invoice-page ${pageIndex < pages.length - 1 ? "page-break" : ""}`}
+          className={`invoice-page ${
+            pageIndex < pages.length - 1 ? "page-break" : ""
+          }`}
         >
           {/* Header */}
           <div className="invoice-header">INVOICE</div>
@@ -673,7 +684,9 @@ function InvoiceView() {
                       {shipAddress.city && (
                         <div className="info-detail">
                           {shipAddress.city}
-                          {shipAddress.state ? `, ${shipAddress.state}` : ""}{" "}
+                          {shipAddress.state
+                            ? `, ${shipAddress.state}`
+                            : ""}{" "}
                           {shipAddress.zipCode || ""}
                         </div>
                       )}
@@ -693,9 +706,7 @@ function InvoiceView() {
               </div>
               <div className="info-detail">
                 <strong>Invoice Date</strong> :{" "}
-                {invoice.invoiceDate
-                  ? formatDateUS(invoice.invoiceDate)
-                  : "—"}
+                {invoice.invoiceDate ? formatDateUS(invoice.invoiceDate) : "—"}
               </div>
               <div className="info-detail">
                 <strong>Payment Term</strong> : Net{" "}
@@ -703,9 +714,14 @@ function InvoiceView() {
               </div>
               <div className="info-detail">
                 <strong>Due Date</strong> :{" "}
-                {invoice.dueDate
-                  ? formatDateUS(invoice.dueDate)
-                  : "—"}
+                {invoice.dueDate ? formatDateUS(invoice.dueDate) : "—"}
+              </div>
+              <div className="info-detail">
+                <strong>Purchase Order</strong> :{" "}
+                {(invoice as any).purchaseOrder ||
+                  (invoice as any).purchaseOrderNo ||
+                  (invoice as any).poNumber ||
+                  "—"}
               </div>
             </div>
           </div>
@@ -736,7 +752,7 @@ function InvoiceView() {
               </thead>
               <tbody>
                 {page.rows.map((row, idx) => {
-                  if (row.type === 'category') {
+                  if (row.type === "category") {
                     return (
                       <tr key={`cat-${pageIndex}-${idx}`}>
                         <td colSpan={7} className="category-header">
@@ -744,35 +760,47 @@ function InvoiceView() {
                         </td>
                       </tr>
                     );
-                  } else if (row.type === 'schemeDesc') {
+                  } else if (row.type === "schemeDesc") {
                     // Scheme description row (starts from Product Code column)
                     return (
-                      <tr key={`scheme-desc-${pageIndex}-${idx}`} className="scheme-description-row">
+                      <tr
+                        key={`scheme-desc-${pageIndex}-${idx}`}
+                        className="scheme-description-row"
+                      >
                         <td style={{ border: "none" }}></td>
                         <td style={{ border: "none" }}></td>
-                        <td colSpan={5} style={{ 
-                          backgroundColor: "white",
-                          fontSize: "inherit",
-                          color: "inherit",
-                          textAlign: "left"
-                        }}>
+                        <td
+                          colSpan={5}
+                          style={{
+                            backgroundColor: "white",
+                            fontSize: "inherit",
+                            color: "inherit",
+                            textAlign: "left",
+                          }}
+                        >
                           {row.item.description}
                         </td>
                       </tr>
                     );
-                  } else if (row.type === 'schemeName') {
+                  } else if (row.type === "schemeName") {
                     // Scheme name row (starts from Packing Size column)
                     return (
-                      <tr key={`scheme-name-${pageIndex}-${idx}`} className="scheme-name-row">
+                      <tr
+                        key={`scheme-name-${pageIndex}-${idx}`}
+                        className="scheme-name-row"
+                      >
                         <td style={{ border: "none" }}></td>
                         <td style={{ border: "none" }}></td>
                         <td style={{ border: "none" }}></td>
-                        <td colSpan={4} style={{ 
-                          backgroundColor: "white",
-                          fontSize: "inherit",
-                          color: "inherit",
-                          textAlign: "left"
-                        }}>
+                        <td
+                          colSpan={4}
+                          style={{
+                            backgroundColor: "white",
+                            fontSize: "inherit",
+                            color: "inherit",
+                            textAlign: "left",
+                          }}
+                        >
                           {row.schemeName}
                         </td>
                       </tr>
@@ -792,7 +820,9 @@ function InvoiceView() {
                         <td>
                           {item.packingSize
                             ? item.packingSize.replace(/GM/g, "G")
-                            : row.isScheme ? "" : "—"}
+                            : row.isScheme
+                              ? ""
+                              : "—"}
                         </td>
                         <td>{item.description}</td>
                         <td style={{ textAlign: "center" }}>{qty || "—"}</td>
@@ -834,11 +864,12 @@ function InvoiceView() {
                     <strong>Total Carton:</strong> {totalCartons}
                   </div>
                   <div>
-                    <strong>Net Weight LBS:</strong> {netWeightLbs.toFixed(0)} LBS
+                    <strong>Net Weight LBS:</strong> {netWeightLbs.toFixed(0)}{" "}
+                    LBS
                   </div>
                   <div>
-                    <strong>Gross Weight LBS:</strong> {grossWeightLbs.toFixed(0)}{" "}
-                    LBS
+                    <strong>Gross Weight LBS:</strong>{" "}
+                    {grossWeightLbs.toFixed(0)} LBS
                   </div>
                   <div style={{ marginTop: "10px" }}>
                     <strong>Amount in Words:</strong>
@@ -846,13 +877,20 @@ function InvoiceView() {
                   <div>
                     {numberToWords(Math.floor(totalInvoiceAmount))
                       .split(" ")
-                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                      .map(
+                        (word) => word.charAt(0).toUpperCase() + word.slice(1),
+                      )
                       .join(" ")}{" "}
                     Dollars
                     {totalInvoiceAmount % 1 > 0
-                      ? ` and ${numberToWords(Math.round((totalInvoiceAmount % 1) * 100))
+                      ? ` and ${numberToWords(
+                          Math.round((totalInvoiceAmount % 1) * 100),
+                        )
                           .split(" ")
-                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                          .map(
+                            (word) =>
+                              word.charAt(0).toUpperCase() + word.slice(1),
+                          )
                           .join(" ")} Cents`
                       : ""}
                   </div>
@@ -861,16 +899,28 @@ function InvoiceView() {
                 {/* Right side - Financial summary */}
                 <div className="summary-right">
                   <div>
-                    <strong>Subtotal:</strong> <span style={{ float: 'right' }}>{formatCurrency(netAmount)}</span>
+                    <strong>Subtotal:</strong>{" "}
+                    <span style={{ float: "right" }}>
+                      {formatCurrency(netAmount)}
+                    </span>
                   </div>
                   <div>
-                    <strong>Freight:</strong> <span style={{ float: 'right' }}>{formatCurrency(freight)}</span>
+                    <strong>Freight:</strong>{" "}
+                    <span style={{ float: "right" }}>
+                      {formatCurrency(freight)}
+                    </span>
                   </div>
                   <div>
-                    <strong>Discount ({discountPercent.toFixed(2)}%):</strong> <span style={{ float: 'right', color: '#dc2626' }}>-{formatCurrency(discountAmount)}</span>
+                    <strong>Discount ({discountPercent.toFixed(2)}%):</strong>{" "}
+                    <span style={{ float: "right", color: "#dc2626" }}>
+                      -{formatCurrency(discountAmount)}
+                    </span>
                   </div>
                   <div className="summary-total">
-                    <strong>Total Amount:</strong> <span style={{ float: 'right' }}>{formatCurrency(totalInvoiceAmount)}</span>
+                    <strong>Total Amount:</strong>{" "}
+                    <span style={{ float: "right" }}>
+                      {formatCurrency(totalInvoiceAmount)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -879,16 +929,20 @@ function InvoiceView() {
               <div className="notes-section">
                 <div className="notes-label">Notes:</div>
                 <div className="notes-box">
-                  <ol>
-                    {((invoice as any).notes || "").split('\n').filter((line: string) => line.trim()).map((line: string, idx: number) => {
-                      // Remove existing numbering (e.g., "1. ", "2. ", etc.)
-                      const cleanLine = line.replace(/^\d+\.\s*/, '');
-                      return <li key={idx}>{cleanLine}</li>;
+                  {((invoice as any).notes || "")
+                    .split("\n")
+                    .filter((line: string) => line.trim())
+                    .map((line: string, idx: number) => {
+                      const cleanLine = line.replace(/^\d+\.\s*/, "").trim();
+                      return (
+                        <div className="notes-line" key={idx}>
+                          <span className="notes-number">{idx + 1}.</span>
+                          <span>{cleanLine}</span>
+                        </div>
+                      );
                     })}
-                  </ol>
                 </div>
               </div>
-              
 
               {/* Footer */}
               <div className="footer-section">
@@ -896,23 +950,27 @@ function InvoiceView() {
                   <span>Received By:</span>
                   <span>___________________</span>
                 </div>
-                <div className="footer-item" style={{ textAlign: 'center' }}>
+                <div className="footer-item" style={{ textAlign: "center" }}>
                   <span>Total Pallet:</span>
                   <span></span>
                 </div>
-                <div className="footer-company">Kitchen Express Overseas Inc</div>
+                <div className="footer-company">
+                  Kitchen Express Overseas Inc
+                </div>
               </div>
             </>
           )}
 
           {/* Page Number */}
-          <div style={{ 
-            position: 'absolute', 
-            top: '5px', 
-            right: '20px', 
-            fontSize: '11px',
-            fontFamily: 'Arial, sans-serif'
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "5px",
+              right: "20px",
+              fontSize: "11px",
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
             Page {pageIndex + 1} of {totalPages}
           </div>
         </div>

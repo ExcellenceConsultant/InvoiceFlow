@@ -1,10 +1,21 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  decimal,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   username: varchar("username").notNull().unique(),
   email: varchar("email"), // Optional now
   mobile: varchar("mobile").notNull().unique(), // Required for password reset
@@ -21,7 +32,9 @@ export const users = pgTable("users", {
 
 // System-wide QuickBooks configuration (shared across all users)
 export const systemSettings = pgTable("system_settings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   key: text("key").notNull().unique(),
   value: jsonb("value"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -29,7 +42,9 @@ export const systemSettings = pgTable("system_settings", {
 });
 
 export const customers = pgTable("customers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
@@ -48,7 +63,9 @@ export const customers = pgTable("customers", {
 });
 
 export const products = pgTable("products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(), // Product Name
   brand: text("brand"), // Brand
   date: timestamp("date").notNull(), // Date
@@ -69,7 +86,9 @@ export const products = pgTable("products", {
 });
 
 export const productVariants = pgTable("product_variants", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   productId: varchar("product_id").references(() => products.id),
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
@@ -81,7 +100,9 @@ export const productVariants = pgTable("product_variants", {
 });
 
 export const productSchemes = pgTable("product_schemes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
   productId: varchar("product_id").references(() => products.id), // Optional - schemes are now based on total qty
@@ -94,12 +115,19 @@ export const productSchemes = pgTable("product_schemes", {
 });
 
 export const invoices = pgTable("invoices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull(),
   customerId: varchar("customer_id").references(() => customers.id),
+  purchaseOrder: text("purchase_order"),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
-  freight: decimal("freight", { precision: 10, scale: 2 }).default("0").notNull(),
-  discount: decimal("discount", { precision: 10, scale: 2 }).default("0").notNull(),
+  freight: decimal("freight", { precision: 10, scale: 2 })
+    .default("0")
+    .notNull(),
+  discount: decimal("discount", { precision: 10, scale: 2 })
+    .default("0")
+    .notNull(),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue
   invoiceType: text("invoice_type").notNull().default("receivable"), // receivable (AR), payable (AP)
@@ -114,7 +142,9 @@ export const invoices = pgTable("invoices", {
 });
 
 export const invoiceLineItems = pgTable("invoice_line_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   invoiceId: varchar("invoice_id").references(() => invoices.id),
   productId: varchar("product_id").references(() => products.id),
   variantId: varchar("variant_id").references(() => productVariants.id),
@@ -152,36 +182,50 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   createdAt: true,
 });
 
-export const insertProductSchema = createInsertSchema(products).omit({
+export const insertProductSchema = createInsertSchema(products)
+  .omit({
+    id: true,
+    userId: true,
+    createdAt: true,
+  })
+  .extend({
+    date: z.string().transform((str) => new Date(str)),
+  });
+
+export const insertProductVariantSchema = createInsertSchema(
+  productVariants,
+).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProductSchemeSchema = createInsertSchema(
+  productSchemes,
+).omit({
   id: true,
   userId: true,
   createdAt: true,
-}).extend({
-  date: z.string().transform((str) => new Date(str)),
 });
 
-export const insertProductVariantSchema = createInsertSchema(productVariants).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertInvoiceSchema = createInsertSchema(invoices)
+  .omit({
+    id: true,
+    userId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .extend({
+    invoiceDate: z.string().transform((str) => new Date(str)),
+    dueDate: z
+      .string()
+      .optional()
+      .transform((str) => (str ? new Date(str) : null)),
+    purchaseOrder: z.string().optional(),
+  });
 
-export const insertProductSchemeSchema = createInsertSchema(productSchemes).omit({
-  id: true,
-  userId: true,
-  createdAt: true,
-});
-
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({
-  id: true,
-  userId: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  invoiceDate: z.string().transform((str) => new Date(str)),
-  dueDate: z.string().optional().transform((str) => str ? new Date(str) : null),
-});
-
-export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
+export const insertInvoiceLineItemSchema = createInsertSchema(
+  invoiceLineItems,
+).omit({
   id: true,
   createdAt: true,
 });

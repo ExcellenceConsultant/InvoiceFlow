@@ -1,8 +1,3 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { X, Plus, Trash2, NotebookPen, Save, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,7 +9,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -22,36 +16,51 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Gift, NotebookPen, Plus, Save, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 const DEFAULT_NOTES = `1. All matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related here to shall be adjudicated exclusively in the state or federal courts located in  Pennsylvania.
 2. Overdue balances subject to finance charge of 2 %  per month.
 3. I understand and accept that cheque image deposited through ACH debits are valid mode of payment.
 4. Final Sale`;
 
-const invoiceSchema = z.object({
-  customerId: z.string().min(1, "Customer is required"),
-  invoiceNumber: z.string(),
-  invoiceDate: z.string().min(1, "Invoice date is required"),
-  paymentTerms: z.number().min(0, "Payment terms must be non-negative").default(30),
-  invoiceType: z.enum(["receivable", "payable"], {
-    required_error: "Please select invoice type",
-  }),
-  freight: z.number().min(0, "Freight must be non-negative").default(0),
-  discount: z.number().min(0, "Discount must be non-negative").default(0),
-  notes: z.string().optional(),
-}).refine((data) => {
-  // Invoice number is required for both AR and AP invoices
-  if (!data.invoiceNumber || data.invoiceNumber.trim() === "") {
-    return false;
-  }
-  return true;
-}, {
-  message: "Invoice number is required",
-  path: ["invoiceNumber"],
-});
+const invoiceSchema = z
+  .object({
+    customerId: z.string().min(1, "Customer is required"),
+    invoiceNumber: z.string(),
+    purchaseOrder: z.string().optional().default(""),
+    invoiceDate: z.string().min(1, "Invoice date is required"),
+    paymentTerms: z
+      .number()
+      .min(0, "Payment terms must be non-negative")
+      .default(30),
+    invoiceType: z.enum(["receivable", "payable"], {
+      required_error: "Please select invoice type",
+    }),
+    freight: z.number().min(0, "Freight must be non-negative").default(0),
+    discount: z.number().min(0, "Discount must be non-negative").default(0),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Invoice number is required for both AR and AP invoices
+      if (!data.invoiceNumber || data.invoiceNumber.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Invoice number is required",
+      path: ["invoiceNumber"],
+    }
+  );
 
 const lineItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -104,25 +113,35 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
   const form = useForm<z.infer<typeof invoiceSchema>>({
     resolver: zodResolver(invoiceSchema),
-    defaultValues: isEditMode ? {
-      customerId: invoice.customerId || "",
-      invoiceNumber: invoice.invoiceNumber || "",
-      invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-      paymentTerms: 30,
-      invoiceType: invoice.invoiceType || "receivable",
-      freight: parseFloat(invoice.freight || 0),
-      discount: parseFloat(invoice.discount || 0),
-      notes: invoice.notes || DEFAULT_NOTES,
-    } : {
-      customerId: "",
-      invoiceNumber: "", // Will be set by useEffect for AR invoices
-      invoiceDate: new Date().toISOString().split("T")[0],
-      paymentTerms: 30,
-      invoiceType: "receivable",
-      freight: 0,
-      discount: 0,
-      notes: DEFAULT_NOTES,
-    },
+    defaultValues: isEditMode
+      ? {
+          customerId: invoice.customerId || "",
+          invoiceNumber: invoice.invoiceNumber || "",
+          purchaseOrder:
+            invoice.purchaseOrder ||
+            invoice.purchaseOrderNo ||
+            invoice.poNumber ||
+            "",
+          invoiceDate: invoice.invoiceDate
+            ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+            : new Date().toISOString().split("T")[0],
+          paymentTerms: 30,
+          invoiceType: invoice.invoiceType || "receivable",
+          freight: parseFloat(invoice.freight || 0),
+          discount: parseFloat(invoice.discount || 0),
+          notes: invoice.notes || DEFAULT_NOTES,
+        }
+      : {
+          customerId: "",
+          invoiceNumber: "", // Will be set by useEffect for AR invoices
+          purchaseOrder: "",
+          invoiceDate: new Date().toISOString().split("T")[0],
+          paymentTerms: 30,
+          invoiceType: "receivable",
+          freight: 0,
+          discount: 0,
+          notes: DEFAULT_NOTES,
+        },
   });
 
   // Reset form when invoice data changes (for edit mode)
@@ -131,7 +150,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       form.reset({
         customerId: invoice.customerId || "",
         invoiceNumber: invoice.invoiceNumber || "",
-        invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+        purchaseOrder:
+          invoice.purchaseOrder ||
+          invoice.purchaseOrderNo ||
+          invoice.poNumber ||
+          "",
+        invoiceDate: invoice.invoiceDate
+          ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
         paymentTerms: invoice.paymentTerms || 30,
         invoiceType: invoice.invoiceType || "receivable",
         freight: parseFloat(invoice.freight || 0),
@@ -158,7 +184,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   });
 
   const { data: existingLineItems } = useQuery({
-    queryKey: [`/api/invoices/${invoice?.id || 'placeholder'}/line-items`],
+    queryKey: [`/api/invoices/${invoice?.id || "placeholder"}/line-items`],
     enabled: isEditMode && !!invoice?.id,
   });
 
@@ -187,7 +213,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     if (!isEditMode) {
       const subscription = form.watch((value, { name }) => {
         if (name === "invoiceType") {
-          if (value.invoiceType === "receivable" && nextInvoiceNumberData?.nextNumber) {
+          if (
+            value.invoiceType === "receivable" &&
+            nextInvoiceNumberData?.nextNumber
+          ) {
             form.setValue("invoiceNumber", nextInvoiceNumberData.nextNumber);
           } else if (value.invoiceType === "payable") {
             form.setValue("invoiceNumber", "");
@@ -200,13 +229,17 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
   // Load existing line items when editing
   useEffect(() => {
-    if (isEditMode && Array.isArray(existingLineItems) && existingLineItems.length > 0) {
+    if (
+      isEditMode &&
+      Array.isArray(existingLineItems) &&
+      existingLineItems.length > 0
+    ) {
       const regularItems: any[] = [];
       const schemeItemsMap: { [key: number]: any[] } = {};
       const manualFreeItemsList: any[] = [];
-      
+
       let currentRegularIndex = -1;
-      
+
       existingLineItems.forEach((item: any, idx: number) => {
         // Format the item
         const formattedItem = {
@@ -228,7 +261,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           schemeDescription: item.description || "",
           schemeId: item.schemeId || "",
         };
-        
+
         // Check if this is a scheme description line
         if (item.isSchemeDescription) {
           regularItems.push(formattedItem);
@@ -238,7 +271,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         else if (item.isFreeFromScheme && item.schemeId) {
           // Check if this belongs to a product-specific scheme (associated with the previous regular item)
           const prevItem = existingLineItems[idx - 1];
-          if (prevItem && !prevItem.isFreeFromScheme && !prevItem.isSchemeDescription && prevItem.productId === item.productId) {
+          if (
+            prevItem &&
+            !prevItem.isFreeFromScheme &&
+            !prevItem.isSchemeDescription &&
+            prevItem.productId === item.productId
+          ) {
             // This is a product-specific scheme free item - add to showSchemeItems
             if (!schemeItemsMap[currentRegularIndex]) {
               schemeItemsMap[currentRegularIndex] = [];
@@ -263,7 +301,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           currentRegularIndex++;
         }
       });
-      
+
       setLineItems(regularItems);
       setShowSchemeItems(schemeItemsMap);
       setManualFreeItems(manualFreeItemsList);
@@ -303,7 +341,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const updateInvoiceMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Updating invoice data:", data);
-      const response = await apiRequest("PUT", `/api/invoices/${invoice.id}`, data);
+      const response = await apiRequest(
+        "PUT",
+        `/api/invoices/${invoice.id}`,
+        data
+      );
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Invoice update failed:", errorData);
@@ -314,8 +356,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       if (invoice?.id) {
-        queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoice.id}`] });
-        queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoice.id}/line-items`] });
+        queryClient.invalidateQueries({
+          queryKey: [`/api/invoices/${invoice.id}`],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [`/api/invoices/${invoice.id}/line-items`],
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -339,7 +385,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       const response = await apiRequest(
         "POST",
         `/api/invoices/${invoiceId}/sync-quickbooks`,
-        {},
+        {}
       );
       return response.json();
     },
@@ -377,17 +423,18 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         (scheme: any) =>
           scheme.productId === productId &&
           scheme.isActive &&
-          quantity >= scheme.buyQuantity,
+          quantity >= scheme.buyQuantity
       );
 
       // If in edit mode and scheme items already exist for this line
-      const hasExistingSchemeItems = showSchemeItems[index] && showSchemeItems[index].length > 0;
+      const hasExistingSchemeItems =
+        showSchemeItems[index] && showSchemeItems[index].length > 0;
 
       if (applicableScheme) {
         const freeQuantity =
           Math.floor(quantity / applicableScheme.buyQuantity) *
           applicableScheme.freeQuantity;
-        
+
         // Only update scheme items if:
         // 1. No existing scheme items (creating new), OR
         // 2. Quantity changed and needs recalculation
@@ -482,11 +529,15 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
   const getUsedFreeQuantity = (schemeId: string) => {
     return manualFreeItems
-      .filter(item => item.schemeId === schemeId)
+      .filter((item) => item.schemeId === schemeId)
       .reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  const addManualFreeItem = (productId: string, schemeId: string, quantity: number) => {
+  const addManualFreeItem = (
+    productId: string,
+    schemeId: string,
+    quantity: number
+  ) => {
     const product = products?.find((p: any) => p.id === productId);
     if (!product) return;
 
@@ -507,9 +558,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     };
 
     setManualFreeItems([...manualFreeItems, newFreeItem]);
-    
+
     // Reset pending selection for this scheme
-    setSchemePendingSelections(prev => {
+    setSchemePendingSelections((prev) => {
       const updated = { ...prev };
       delete updated[schemeId];
       return updated;
@@ -536,7 +587,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         item.productId.trim() !== "" &&
         item.description &&
         item.description.trim() !== "" &&
-        (item.quantity > 0 || item.isSchemeDescription), // Allow scheme description with 0 quantity
+        (item.quantity > 0 || item.isSchemeDescription) // Allow scheme description with 0 quantity
     );
 
     console.log("Valid line items:", validLineItems);
@@ -586,8 +637,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
             productCode: item.productCode || null,
             cartoonBarcode: item.cartoonBarcode || null,
             packingSize: item.packingSize || null,
-            grossWeightKgs: item.grossWeightKgs ? item.grossWeightKgs.toString() : null,
-            netWeightKgs: item.netWeightKgs ? item.netWeightKgs.toString() : null,
+            grossWeightKgs: item.grossWeightKgs
+              ? item.grossWeightKgs.toString()
+              : null,
+            netWeightKgs: item.netWeightKgs
+              ? item.netWeightKgs.toString()
+              : null,
             category: item.category || null,
             isFreeFromScheme: true,
             schemeId: schemeItem.schemeId,
@@ -608,8 +663,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         productCode: freeItem.productCode || null,
         cartoonBarcode: freeItem.cartoonBarcode || null,
         packingSize: freeItem.packingSize || null,
-        grossWeightKgs: freeItem.grossWeightKgs ? freeItem.grossWeightKgs.toString() : null,
-        netWeightKgs: freeItem.netWeightKgs ? freeItem.netWeightKgs.toString() : null,
+        grossWeightKgs: freeItem.grossWeightKgs
+          ? freeItem.grossWeightKgs.toString()
+          : null,
+        netWeightKgs: freeItem.netWeightKgs
+          ? freeItem.netWeightKgs.toString()
+          : null,
         category: freeItem.category || null,
         isFreeFromScheme: true,
         isSchemeDescription: false,
@@ -623,9 +682,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     dueDate.setDate(dueDate.getDate() + data.paymentTerms);
     const dueDateString = dueDate.toISOString().split("T")[0];
 
+    const { purchaseOrder, ...invoiceFormData } = data;
+    const purchaseOrderValue = purchaseOrder?.trim() || null;
+
     const invoiceData = {
       invoice: {
-        ...data,
+        ...invoiceFormData,
         subtotal: subtotal.toString(),
         freight: freight.toString(),
         discount: discountPercent.toString(),
@@ -634,6 +696,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         invoiceType: data.invoiceType,
         invoiceDate: data.invoiceDate,
         dueDate: dueDateString,
+        purchaseOrder: purchaseOrderValue,
       },
       lineItems: allLineItems,
     };
@@ -730,18 +793,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   name="customerId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Customer/Vendor
-                      </FormLabel>
+                      <FormLabel>Customer/Vendor</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger data-testid="select-customer">
-                            <SelectValue
-                              placeholder="Select Customer/Vendor"
-                            />
+                            <SelectValue placeholder="Select Customer/Vendor" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -749,7 +808,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                             <Input
                               placeholder="Search customer..."
                               value={customerSearchTerm}
-                              onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                              onChange={(e) =>
+                                setCustomerSearchTerm(e.target.value)
+                              }
                               className="h-8"
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
@@ -757,7 +818,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           </div>
                           {customers
                             ?.filter((customer: any) =>
-                              customer.name.toLowerCase().includes(customerSearchTerm.toLowerCase())
+                              customer.name
+                                .toLowerCase()
+                                .includes(customerSearchTerm.toLowerCase())
                             )
                             .map((customer: any) => (
                               <SelectItem
@@ -794,14 +857,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="invoiceNumber"
                   render={({ field }) => {
                     const invoiceType = form.watch("invoiceType");
                     const isARInvoice = invoiceType === "receivable";
-                    
+
                     return (
                       <FormItem>
                         <FormLabel>
@@ -820,7 +883,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         <FormControl>
                           <Input
                             {...field}
-                            placeholder={!isEditMode && !isARInvoice ? "Enter invoice number" : ""}
+                            placeholder={
+                              !isEditMode && !isARInvoice
+                                ? "Enter invoice number"
+                                : ""
+                            }
                             data-testid="input-invoice-number"
                           />
                         </FormControl>
@@ -832,6 +899,24 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
                 <FormField
                   control={form.control}
+                  name="purchaseOrder"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purchase Order</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Enter purchase order number"
+                          data-testid="input-purchase-order"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="paymentTerms"
                   render={({ field }) => (
                     <FormItem>
@@ -839,10 +924,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       <FormControl>
                         <Input
                           type="number"
-                          min="0"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
                           data-testid="input-payment-terms"
+                          onBlur={(e) => {
+                            const value = Number(e.target.value);
+                            if (!Number.isFinite(value) || value < 0) {
+                              form.setValue("paymentTerms", 0);
+                            }
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -864,7 +953,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           min="0"
                           step="0.01"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value))
+                          }
                           placeholder="0.00"
                           data-testid="input-freight"
                         />
@@ -887,7 +978,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           max="100"
                           step="0.01"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value))
+                          }
                           placeholder="2.00"
                           data-testid="input-discount"
                         />
@@ -911,12 +1004,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         size="sm"
                         onClick={() => {
                           const currentNotes = field.value || "";
-                          const lines = currentNotes.split('\n').filter(line => line.trim());
+                          const lines = currentNotes
+                            .split("\n")
+                            .filter((line) => line.trim());
                           const numberedLines = lines.map((line, index) => {
-                            const cleanLine = line.replace(/^\d+\.\s*/, '');
+                            const cleanLine = line.replace(/^\d+\.\s*/, "");
                             return `${index + 1}. ${cleanLine}`;
                           });
-                          field.onChange(numberedLines.join('\n'));
+                          field.onChange(numberedLines.join("\n"));
                         }}
                         data-testid="button-add-numbering"
                       >
@@ -962,10 +1057,13 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           new Set(
                             products
                               ?.map((p: any) => p.category)
-                              .filter(Boolean),
-                          ),
+                              .filter(Boolean)
+                          )
                         ).map((category) => (
-                          <SelectItem key={category as string} value={category as string}>
+                          <SelectItem
+                            key={category as string}
+                            value={category as string}
+                          >
                             {category as string}
                           </SelectItem>
                         ))}
@@ -993,7 +1091,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                 updateLineItem(
                                   index,
                                   "description",
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
                               className="h-8"
@@ -1019,262 +1117,291 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           className="grid grid-cols-12 gap-3 items-end p-3 bg-muted/50 rounded-lg"
                           data-testid={`line-item-${index}`}
                         >
-                        <div className="col-span-3">
-                          <label className="block text-xs text-muted-foreground mb-1">
-                            Product
-                          </label>
-                          <Select
-                            value={item.productId}
-                            onValueChange={(value) => {
-                              console.log("Product selected:", value);
-                              const product = products?.find(
-                                (p: any) => p.id === value,
-                              );
-                              console.log("Found product:", product);
-
-                              if (product) {
-                                let updatedItems = [...lineItems];
-                                // Use salesPrice for AR (receivable) invoices, basePrice for AP (payable) invoices
-                                const invoiceType = form.getValues("invoiceType");
-                                const unitPrice = invoiceType === "receivable" 
-                                  ? (parseFloat(product.salesPrice) || 0)
-                                  : (parseFloat(product.basePrice) || 0);
-                                updatedItems[index] = {
-                                  ...updatedItems[index],
-                                  productId: value,
-                                  description: product.name,
-                                  unitPrice: unitPrice,
-                                  productCode: product.itemCode || "",
-                                  cartoonBarcode: product.cartoonBarcode || "",
-                                  packingSize: product.packingSize || "",
-                                  grossWeightKgs: parseFloat(
-                                    product.grossWeight || "0",
-                                  ),
-                                  netWeightKgs: parseFloat(
-                                    product.netWeight || "0",
-                                  ),
-                                  category:
-                                    product.category ||
-                                    updatedItems[index].category,
-                                  lineTotal:
-                                    updatedItems[index].quantity * unitPrice,
-                                  isSchemeDescription: false,
-                                  stockQuantity: parseInt(product.qty) || 0,
-                                };
-
-                                // Check if product has scheme description and add it as next line item
-                                if (product.schemeDescription && product.schemeDescription.trim()) {
-                                  // Check if next item is already a scheme description for this product
-                                  const nextItem = updatedItems[index + 1];
-                                  const isNextItemSchemeDesc = nextItem?.isSchemeDescription && nextItem?.productId === value;
-                                  
-                                  if (!isNextItemSchemeDesc) {
-                                    // Insert scheme description line item after the product using array spread
-                                    const schemeDescItem = {
-                                      productId: value,
-                                      variantId: "",
-                                      description: product.schemeDescription,
-                                      quantity: 0,
-                                      unitPrice: 0,
-                                      lineTotal: 0,
-                                      productCode: "",
-                                      cartoonBarcode: "",
-                                      packingSize: "",
-                                      grossWeightKgs: 0,
-                                      netWeightKgs: 0,
-                                      category: product.category || "",
-                                      isSchemeDescription: true,
-                                      schemeDescription: product.schemeDescription,
-                                      stockQuantity: 0,
-                                    };
-                                    // Create new array with scheme description inserted
-                                    updatedItems = [
-                                      ...updatedItems.slice(0, index + 1),
-                                      schemeDescItem,
-                                      ...updatedItems.slice(index + 1)
-                                    ];
-                                  }
-                                }
-
-                                setLineItems(updatedItems);
-                                console.log(
-                                  "Updated line items:",
-                                  updatedItems,
-                                );
-                              }
-                            }}
-                          >
-                            <SelectTrigger
-                              className="h-8"
-                              data-testid={`select-product-${index}`}
-                            >
-                              <SelectValue placeholder="Select Product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <div className="px-2 pb-2">
-                                <Input
-                                  placeholder="Search product..."
-                                  value={productSearchTerm}
-                                  onChange={(e) => setProductSearchTerm(e.target.value)}
-                                  className="h-8"
-                                  onClick={(e) => e.stopPropagation()}
-                                  onKeyDown={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                              {productsLoading ? (
-                                <SelectItem value="loading" disabled>
-                                  Loading products...
-                                </SelectItem>
-                              ) : (
-                                (() => {
-                                  // Filter by category
-                                  const categoryFiltered =
-                                    categoryFilter === "all"
-                                      ? products
-                                      : products?.filter(
-                                          (product: any) =>
-                                            product.category === categoryFilter,
-                                        );
-
-                                  // Filter by search term (case-insensitive substring match)
-                                  const filteredProducts = categoryFiltered?.filter((product: any) =>
-                                    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-                                    (product.itemCode ?? "").toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-                                    (product.category ?? "").toLowerCase().includes(productSearchTerm.toLowerCase())
-                                  );
-
-                                  // always include the currently selected product if not in filtered list
-                                  const currentProduct =
-                                    products?.find(
-                                      (p: any) => p.id === item.productId,
-                                    ) || null;
-
-                                  const displayProducts =
-                                    filteredProducts || [];
-
-                                  if (
-                                    currentProduct &&
-                                    !displayProducts.some(
-                                      (p: any) => p.id === currentProduct.id,
-                                    )
-                                  ) {
-                                    displayProducts.unshift(currentProduct);
-                                  }
-
-                                  return displayProducts.length > 0 ? (
-                                    displayProducts.map((product: any) => (
-                                      <SelectItem
-                                        key={product.id}
-                                        value={product.id}
-                                        data-testid={`option-product-${product.id}`}
-                                      >
-                                        {product.name} -{" "}
-                                        {product.itemCode || "No Code"} (
-                                        {product.category})
-                                      </SelectItem>
-                                    ))
-                                  ) : (
-                                    <SelectItem value="no-products" disabled>
-                                      No products available
-                                    </SelectItem>
-                                  );
-                                })()
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="col-span-2">
-                          <label className="block text-xs text-muted-foreground mb-1">
-                            Description
-                          </label>
-                          <Input
-                            value={item.description}
-                            onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "description",
-                                e.target.value,
-                              )
-                            }
-                            className="h-8"
-                            data-testid={`input-description-${index}`}
-                          />
-                        </div>
-
-                        <div className="col-span-2">
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs text-muted-foreground">
-                              Qty
+                          <div className="col-span-3">
+                            <label className="block text-xs text-muted-foreground mb-1">
+                              Product
                             </label>
-                            {item.productId && (
-                              <span className="text-xs font-semibold text-green-600 dark:text-green-400" data-testid={`stock-quantity-${index}`}>
-                                Stock: {item.stockQuantity}
-                              </span>
-                            )}
+                            <Select
+                              value={item.productId}
+                              onValueChange={(value) => {
+                                console.log("Product selected:", value);
+                                const product = products?.find(
+                                  (p: any) => p.id === value
+                                );
+                                console.log("Found product:", product);
+
+                                if (product) {
+                                  let updatedItems = [...lineItems];
+                                  // Use salesPrice for AR (receivable) invoices, basePrice for AP (payable) invoices
+                                  const invoiceType =
+                                    form.getValues("invoiceType");
+                                  const unitPrice =
+                                    invoiceType === "receivable"
+                                      ? parseFloat(product.salesPrice) || 0
+                                      : parseFloat(product.basePrice) || 0;
+                                  updatedItems[index] = {
+                                    ...updatedItems[index],
+                                    productId: value,
+                                    description: product.name,
+                                    unitPrice: unitPrice,
+                                    productCode: product.itemCode || "",
+                                    cartoonBarcode:
+                                      product.cartoonBarcode || "",
+                                    packingSize: product.packingSize || "",
+                                    grossWeightKgs: parseFloat(
+                                      product.grossWeight || "0"
+                                    ),
+                                    netWeightKgs: parseFloat(
+                                      product.netWeight || "0"
+                                    ),
+                                    category:
+                                      product.category ||
+                                      updatedItems[index].category,
+                                    lineTotal:
+                                      updatedItems[index].quantity * unitPrice,
+                                    isSchemeDescription: false,
+                                    stockQuantity: parseInt(product.qty) || 0,
+                                  };
+
+                                  // Check if product has scheme description and add it as next line item
+                                  if (
+                                    product.schemeDescription &&
+                                    product.schemeDescription.trim()
+                                  ) {
+                                    // Check if next item is already a scheme description for this product
+                                    const nextItem = updatedItems[index + 1];
+                                    const isNextItemSchemeDesc =
+                                      nextItem?.isSchemeDescription &&
+                                      nextItem?.productId === value;
+
+                                    if (!isNextItemSchemeDesc) {
+                                      // Insert scheme description line item after the product using array spread
+                                      const schemeDescItem = {
+                                        productId: value,
+                                        variantId: "",
+                                        description: product.schemeDescription,
+                                        quantity: 0,
+                                        unitPrice: 0,
+                                        lineTotal: 0,
+                                        productCode: "",
+                                        cartoonBarcode: "",
+                                        packingSize: "",
+                                        grossWeightKgs: 0,
+                                        netWeightKgs: 0,
+                                        category: product.category || "",
+                                        isSchemeDescription: true,
+                                        schemeDescription:
+                                          product.schemeDescription,
+                                        stockQuantity: 0,
+                                      };
+                                      // Create new array with scheme description inserted
+                                      updatedItems = [
+                                        ...updatedItems.slice(0, index + 1),
+                                        schemeDescItem,
+                                        ...updatedItems.slice(index + 1),
+                                      ];
+                                    }
+                                  }
+
+                                  setLineItems(updatedItems);
+                                  console.log(
+                                    "Updated line items:",
+                                    updatedItems
+                                  );
+                                }
+                              }}
+                            >
+                              <SelectTrigger
+                                className="h-8"
+                                data-testid={`select-product-${index}`}
+                              >
+                                <SelectValue placeholder="Select Product" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <div className="px-2 pb-2">
+                                  <Input
+                                    placeholder="Search product..."
+                                    value={productSearchTerm}
+                                    onChange={(e) =>
+                                      setProductSearchTerm(e.target.value)
+                                    }
+                                    className="h-8"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                                {productsLoading ? (
+                                  <SelectItem value="loading" disabled>
+                                    Loading products...
+                                  </SelectItem>
+                                ) : (
+                                  (() => {
+                                    // Filter by category
+                                    const categoryFiltered =
+                                      categoryFilter === "all"
+                                        ? products
+                                        : products?.filter(
+                                            (product: any) =>
+                                              product.category ===
+                                              categoryFilter
+                                          );
+
+                                    // Filter by search term (case-insensitive substring match)
+                                    const filteredProducts =
+                                      categoryFiltered?.filter(
+                                        (product: any) =>
+                                          product.name
+                                            .toLowerCase()
+                                            .includes(
+                                              productSearchTerm.toLowerCase()
+                                            ) ||
+                                          (product.itemCode ?? "")
+                                            .toLowerCase()
+                                            .includes(
+                                              productSearchTerm.toLowerCase()
+                                            ) ||
+                                          (product.category ?? "")
+                                            .toLowerCase()
+                                            .includes(
+                                              productSearchTerm.toLowerCase()
+                                            )
+                                      );
+
+                                    // always include the currently selected product if not in filtered list
+                                    const currentProduct =
+                                      products?.find(
+                                        (p: any) => p.id === item.productId
+                                      ) || null;
+
+                                    const displayProducts =
+                                      filteredProducts || [];
+
+                                    if (
+                                      currentProduct &&
+                                      !displayProducts.some(
+                                        (p: any) => p.id === currentProduct.id
+                                      )
+                                    ) {
+                                      displayProducts.unshift(currentProduct);
+                                    }
+
+                                    return displayProducts.length > 0 ? (
+                                      displayProducts.map((product: any) => (
+                                        <SelectItem
+                                          key={product.id}
+                                          value={product.id}
+                                          data-testid={`option-product-${product.id}`}
+                                        >
+                                          {product.name} -{" "}
+                                          {product.itemCode || "No Code"} (
+                                          {product.category})
+                                        </SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="no-products" disabled>
+                                        No products available
+                                      </SelectItem>
+                                    );
+                                  })()
+                                )}
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "quantity",
-                                parseInt(e.target.value) || 0,
-                              )
-                            }
-                            className="h-8"
-                            data-testid={`input-quantity-${index}`}
-                          />
-                        </div>
 
-                        <div className="col-span-2">
-                          <label className="block text-xs text-muted-foreground mb-1">
-                            Rate
-                          </label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.unitPrice}
-                            onChange={(e) =>
-                              updateLineItem(
-                                index,
-                                "unitPrice",
-                                parseFloat(e.target.value) || 0,
-                              )
-                            }
-                            className="h-8"
-                            data-testid={`input-unit-price-${index}`}
-                          />
-                        </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-muted-foreground mb-1">
+                              Description
+                            </label>
+                            <Input
+                              value={item.description}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "description",
+                                  e.target.value
+                                )
+                              }
+                              className="h-8"
+                              data-testid={`input-description-${index}`}
+                            />
+                          </div>
 
-                        <div className="col-span-2">
-                          <label className="block text-xs text-muted-foreground mb-1">
-                            Amount
-                          </label>
-                          <Input
-                            value={item.lineTotal.toFixed(2)}
-                            readOnly
-                            className="h-8"
-                            data-testid={`input-line-total-${index}`}
-                          />
-                        </div>
+                          <div className="col-span-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-xs text-muted-foreground">
+                                Qty
+                              </label>
+                              {item.productId && (
+                                <span
+                                  className="text-xs font-semibold text-green-600 dark:text-green-400"
+                                  data-testid={`stock-quantity-${index}`}
+                                >
+                                  Stock: {item.stockQuantity}
+                                </span>
+                              )}
+                            </div>
+                            <Input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "quantity",
+                                  parseInt(e.target.value) || 0
+                                )
+                              }
+                              className="h-8"
+                              data-testid={`input-quantity-${index}`}
+                            />
+                          </div>
 
-                        <div className="col-span-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeLineItem(index)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            data-testid={`button-remove-line-item-${index}`}
-                          >
-                            <Trash2 size={14} />
-                          </Button>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-muted-foreground mb-1">
+                              Rate
+                            </label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  "unitPrice",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="h-8"
+                              data-testid={`input-unit-price-${index}`}
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-xs text-muted-foreground mb-1">
+                              Amount
+                            </label>
+                            <Input
+                              value={item.lineTotal.toFixed(2)}
+                              readOnly
+                              className="h-8"
+                              data-testid={`input-line-total-${index}`}
+                            />
+                          </div>
+
+                          <div className="col-span-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeLineItem(index)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              data-testid={`button-remove-line-item-${index}`}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
                       )}
-                      
+
                       {!item.isSchemeDescription && showSchemeItems[index] && (
                         <div className="ml-4 mt-2 space-y-2">
                           <div className="flex items-center gap-2 mb-2">
@@ -1334,7 +1461,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   />
                                 </div>
                               </div>
-                            ),
+                            )
                           )}
                         </div>
                       )}
@@ -1376,12 +1503,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                               +
                               {schemeItems.reduce(
                                 (total, item) => total + item.quantity,
-                                0,
+                                0
                               )}{" "}
                               free items
                             </span>
                           </div>
-                        ),
+                        )
                       )}
                     </div>
                     <div className="mt-3 text-xs text-muted-foreground">
@@ -1392,199 +1519,296 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 )}
 
                 {/* Total Quantity-Based Schemes */}
-                {schemes && schemes.filter((s: any) => s.isActive && !s.productId).length > 0 && (
-                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Gift className="text-primary" size={20} />
-                      <h3 className="text-lg font-semibold text-primary">
-                        Quantity-Based Promotional Schemes
-                      </h3>
-                    </div>
-                    <div className="mb-3 text-sm">
-                      <span className="font-medium text-foreground">Total Quantity: </span>
-                      <span className="text-lg font-bold text-primary">{calculateTotalQuantity()}</span>
-                    </div>
-                    
-                    {schemes.filter((s: any) => s.isActive && !s.productId).map((scheme: any) => {
-                      const totalQty = calculateTotalQuantity();
-                      const timesTriggered = Math.floor(totalQty / scheme.buyQuantity);
-                      const freeQuantityEarned = timesTriggered * scheme.freeQuantity;
-                      const isTriggered = timesTriggered > 0;
+                {schemes &&
+                  schemes.filter((s: any) => s.isActive && !s.productId)
+                    .length > 0 && (
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Gift className="text-primary" size={20} />
+                        <h3 className="text-lg font-semibold text-primary">
+                          Quantity-Based Promotional Schemes
+                        </h3>
+                      </div>
+                      <div className="mb-3 text-sm">
+                        <span className="font-medium text-foreground">
+                          Total Quantity:{" "}
+                        </span>
+                        <span className="text-lg font-bold text-primary">
+                          {calculateTotalQuantity()}
+                        </span>
+                      </div>
 
-                      return (
-                        <div key={scheme.id} className="border border-border rounded-lg p-3 mb-3 bg-background">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <div className="font-semibold text-foreground">{scheme.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Buy {scheme.buyQuantity} Get {scheme.freeQuantity} Free
-                              </div>
-                            </div>
-                            {isTriggered && (
-                              <div className="text-accent font-bold">
-                                {freeQuantityEarned} Free Items Available
-                              </div>
-                            )}
-                          </div>
-                          
-                          {isTriggered && (
-                            <div className="mt-3 space-y-3">
-                              {/* Show remaining quantity */}
-                              <div className="text-xs text-muted-foreground">
-                                Available: {freeQuantityEarned - getUsedFreeQuantity(scheme.id)} of {freeQuantityEarned} free items
-                              </div>
-                              
-                              {/* Only show selector if there are remaining free items */}
-                              {(freeQuantityEarned - getUsedFreeQuantity(scheme.id)) > 0 && (
-                                <div className="grid grid-cols-12 gap-2">
-                                  <div className="col-span-5">
-                                    <Select
-                                      value={schemePendingSelections[scheme.id]?.productId || ""}
-                                      onValueChange={(productId) => {
-                                        setSchemePendingSelections(prev => ({
-                                          ...prev,
-                                          [scheme.id]: { 
-                                            productId, 
-                                            quantity: prev[scheme.id]?.quantity || 1 
-                                          }
-                                        }));
-                                      }}
-                                      data-testid={`select-free-product-${scheme.id}`}
-                                    >
-                                      <SelectTrigger className="h-8">
-                                        <SelectValue placeholder="Select Product" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {products
-                                          ?.filter((product: any) => {
-                                            // If scheme has specific products, only show those
-                                            if (scheme.productIds && scheme.productIds.length > 0) {
-                                              return scheme.productIds.includes(product.id);
-                                            }
-                                            // Otherwise show all products
-                                            return true;
-                                          })
-                                          ?.map((product: any) => (
-                                            <SelectItem
-                                              key={product.id}
-                                              value={product.id}
-                                            >
-                                              {product.name}
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
+                      {schemes
+                        .filter((s: any) => s.isActive && !s.productId)
+                        .map((scheme: any) => {
+                          const totalQty = calculateTotalQuantity();
+                          const timesTriggered = Math.floor(
+                            totalQty / scheme.buyQuantity
+                          );
+                          const freeQuantityEarned =
+                            timesTriggered * scheme.freeQuantity;
+                          const isTriggered = timesTriggered > 0;
+
+                          return (
+                            <div
+                              key={scheme.id}
+                              className="border border-border rounded-lg p-3 mb-3 bg-background"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <div className="font-semibold text-foreground">
+                                    {scheme.name}
                                   </div>
-                                  <div className="col-span-3">
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      max={freeQuantityEarned - getUsedFreeQuantity(scheme.id)}
-                                      value={schemePendingSelections[scheme.id]?.quantity || 1}
-                                      onChange={(e) => {
-                                        const quantity = parseInt(e.target.value) || 1;
-                                        setSchemePendingSelections(prev => ({
-                                          ...prev,
-                                          [scheme.id]: { 
-                                            productId: prev[scheme.id]?.productId || "", 
-                                            quantity 
-                                          }
-                                        }));
-                                      }}
-                                      placeholder="Qty"
-                                      className="h-8"
-                                      data-testid={`input-free-quantity-${scheme.id}`}
-                                    />
-                                  </div>
-                                  <div className="col-span-4">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      onClick={() => {
-                                        const pending = schemePendingSelections[scheme.id];
-                                        if (pending?.productId && pending?.quantity > 0) {
-                                          const remaining = freeQuantityEarned - getUsedFreeQuantity(scheme.id);
-                                          if (pending.quantity <= remaining) {
-                                            addManualFreeItem(pending.productId, scheme.id, pending.quantity);
-                                          } else {
-                                            toast({
-                                              title: "Invalid Quantity",
-                                              description: `Only ${remaining} items remaining`,
-                                              variant: "destructive"
-                                            });
-                                          }
-                                        }
-                                      }}
-                                      className="h-8 w-full"
-                                      data-testid={`button-add-free-item-${scheme.id}`}
-                                    >
-                                      <Plus size={14} className="mr-1" /> Add
-                                    </Button>
+                                  <div className="text-xs text-muted-foreground">
+                                    Buy {scheme.buyQuantity} Get{" "}
+                                    {scheme.freeQuantity} Free
                                   </div>
                                 </div>
-                              )}
-                              
-                              {/* Show added items for this scheme */}
-                              {manualFreeItems.filter(item => item.schemeId === scheme.id).length > 0 && (
-                                <div className="space-y-1">
-                                  <div className="text-xs font-medium text-foreground">Selected Free Items:</div>
-                                  {manualFreeItems
-                                    .map((item, index) => ({ item, index }))
-                                    .filter(({ item }) => item.schemeId === scheme.id)
-                                    .map(({ item, index }) => (
-                                      <div key={index} className="flex items-center justify-between bg-accent/10 rounded px-2 py-1.5">
-                                        <div className="flex items-center gap-2">
-                                          <Gift className="text-accent" size={14} />
-                                          <span className="text-xs font-medium">{item.description}</span>
-                                          <span className="text-xs text-muted-foreground">x{item.quantity}</span>
-                                        </div>
+                                {isTriggered && (
+                                  <div className="text-accent font-bold">
+                                    {freeQuantityEarned} Free Items Available
+                                  </div>
+                                )}
+                              </div>
+
+                              {isTriggered && (
+                                <div className="mt-3 space-y-3">
+                                  {/* Show remaining quantity */}
+                                  <div className="text-xs text-muted-foreground">
+                                    Available:{" "}
+                                    {freeQuantityEarned -
+                                      getUsedFreeQuantity(scheme.id)}{" "}
+                                    of {freeQuantityEarned} free items
+                                  </div>
+
+                                  {/* Only show selector if there are remaining free items */}
+                                  {freeQuantityEarned -
+                                    getUsedFreeQuantity(scheme.id) >
+                                    0 && (
+                                    <div className="grid grid-cols-12 gap-2">
+                                      <div className="col-span-5">
+                                        <Select
+                                          value={
+                                            schemePendingSelections[scheme.id]
+                                              ?.productId || ""
+                                          }
+                                          onValueChange={(productId) => {
+                                            setSchemePendingSelections(
+                                              (prev) => ({
+                                                ...prev,
+                                                [scheme.id]: {
+                                                  productId,
+                                                  quantity:
+                                                    prev[scheme.id]?.quantity ||
+                                                    1,
+                                                },
+                                              })
+                                            );
+                                          }}
+                                          data-testid={`select-free-product-${scheme.id}`}
+                                        >
+                                          <SelectTrigger className="h-8">
+                                            <SelectValue placeholder="Select Product" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {products
+                                              ?.filter((product: any) => {
+                                                // If scheme has specific products, only show those
+                                                if (
+                                                  scheme.productIds &&
+                                                  scheme.productIds.length > 0
+                                                ) {
+                                                  return scheme.productIds.includes(
+                                                    product.id
+                                                  );
+                                                }
+                                                // Otherwise show all products
+                                                return true;
+                                              })
+                                              ?.map((product: any) => (
+                                                <SelectItem
+                                                  key={product.id}
+                                                  value={product.id}
+                                                >
+                                                  {product.name}
+                                                </SelectItem>
+                                              ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="col-span-3">
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          max={
+                                            freeQuantityEarned -
+                                            getUsedFreeQuantity(scheme.id)
+                                          }
+                                          value={
+                                            schemePendingSelections[scheme.id]
+                                              ?.quantity || 1
+                                          }
+                                          onChange={(e) => {
+                                            const quantity =
+                                              parseInt(e.target.value) || 1;
+                                            setSchemePendingSelections(
+                                              (prev) => ({
+                                                ...prev,
+                                                [scheme.id]: {
+                                                  productId:
+                                                    prev[scheme.id]
+                                                      ?.productId || "",
+                                                  quantity,
+                                                },
+                                              })
+                                            );
+                                          }}
+                                          placeholder="Qty"
+                                          className="h-8"
+                                          data-testid={`input-free-quantity-${scheme.id}`}
+                                        />
+                                      </div>
+                                      <div className="col-span-4">
                                         <Button
                                           type="button"
-                                          variant="ghost"
                                           size="sm"
-                                          onClick={() => removeManualFreeItem(index)}
-                                          className="h-5 px-1"
-                                          data-testid={`button-remove-free-item-${index}`}
+                                          onClick={() => {
+                                            const pending =
+                                              schemePendingSelections[
+                                                scheme.id
+                                              ];
+                                            if (
+                                              pending?.productId &&
+                                              pending?.quantity > 0
+                                            ) {
+                                              const remaining =
+                                                freeQuantityEarned -
+                                                getUsedFreeQuantity(scheme.id);
+                                              if (
+                                                pending.quantity <= remaining
+                                              ) {
+                                                addManualFreeItem(
+                                                  pending.productId,
+                                                  scheme.id,
+                                                  pending.quantity
+                                                );
+                                              } else {
+                                                toast({
+                                                  title: "Invalid Quantity",
+                                                  description: `Only ${remaining} items remaining`,
+                                                  variant: "destructive",
+                                                });
+                                              }
+                                            }
+                                          }}
+                                          className="h-8 w-full"
+                                          data-testid={`button-add-free-item-${scheme.id}`}
                                         >
-                                          <Trash2 size={12} />
+                                          <Plus size={14} className="mr-1" />{" "}
+                                          Add
                                         </Button>
                                       </div>
-                                    ))}
+                                    </div>
+                                  )}
+
+                                  {/* Show added items for this scheme */}
+                                  {manualFreeItems.filter(
+                                    (item) => item.schemeId === scheme.id
+                                  ).length > 0 && (
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-medium text-foreground">
+                                        Selected Free Items:
+                                      </div>
+                                      {manualFreeItems
+                                        .map((item, index) => ({ item, index }))
+                                        .filter(
+                                          ({ item }) =>
+                                            item.schemeId === scheme.id
+                                        )
+                                        .map(({ item, index }) => (
+                                          <div
+                                            key={index}
+                                            className="flex items-center justify-between bg-accent/10 rounded px-2 py-1.5"
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <Gift
+                                                className="text-accent"
+                                                size={14}
+                                              />
+                                              <span className="text-xs font-medium">
+                                                {item.description}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                x{item.quantity}
+                                              </span>
+                                            </div>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                removeManualFreeItem(index)
+                                              }
+                                              className="h-5 px-1"
+                                              data-testid={`button-remove-free-item-${index}`}
+                                            >
+                                              <Trash2 size={12} />
+                                            </Button>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {!isTriggered && (
+                                <div className="text-xs text-muted-foreground mt-2">
+                                  Add{" "}
+                                  {scheme.buyQuantity -
+                                    (totalQty % scheme.buyQuantity)}{" "}
+                                  more items to trigger this scheme
                                 </div>
                               )}
                             </div>
-                          )}
-                          
-                          {!isTriggered && (
-                            <div className="text-xs text-muted-foreground mt-2">
-                              Add {scheme.buyQuantity - (totalQty % scheme.buyQuantity)} more items to trigger this scheme
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          );
+                        })}
+                    </div>
+                  )}
 
                 {/* Invoice Total */}
                 <div className="border-t border-border pt-4 mt-6">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Subtotal:</span>
-                      <span className="font-medium" data-testid="invoice-subtotal">
+                      <span
+                        className="font-medium"
+                        data-testid="invoice-subtotal"
+                      >
                         ${calculateTotal().toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Freight:</span>
-                      <span className="font-medium" data-testid="invoice-freight-display">
+                      <span
+                        className="font-medium"
+                        data-testid="invoice-freight-display"
+                      >
                         ${(form.watch("freight") || 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Discount ({(form.watch("discount") || 0).toFixed(2)}%):</span>
-                      <span className="font-medium text-red-600" data-testid="invoice-discount-display">
-                        -${((calculateTotal() * (form.watch("discount") || 0)) / 100).toFixed(2)}
+                      <span className="text-muted-foreground">
+                        Discount ({(form.watch("discount") || 0).toFixed(2)}%):
+                      </span>
+                      <span
+                        className="font-medium text-red-600"
+                        data-testid="invoice-discount-display"
+                      >
+                        -$
+                        {(
+                          (calculateTotal() * (form.watch("discount") || 0)) /
+                          100
+                        ).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t">
@@ -1595,7 +1819,13 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="text-2xl font-bold text-primary"
                         data-testid="invoice-total"
                       >
-                        ${(calculateTotal() + (form.watch("freight") || 0) - ((calculateTotal() * (form.watch("discount") || 0)) / 100)).toFixed(2)}
+                        $
+                        {(
+                          calculateTotal() +
+                          (form.watch("freight") || 0) -
+                          (calculateTotal() * (form.watch("discount") || 0)) /
+                            100
+                        ).toFixed(2)}
                       </span>
                     </div>
                   </div>
