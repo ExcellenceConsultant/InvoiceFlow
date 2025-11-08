@@ -407,6 +407,44 @@ export class QuickBooksService {
     }
   }
 
+  async findItemBySKU(
+    accessToken: string,
+    companyId: string,
+    sku: string
+  ): Promise<any> {
+    try {
+      const escapedSKU = sku.replace(/'/g, "''");
+      console.log(`Searching for item with SKU: "${sku}"`);
+      
+      const response = await axios.get(
+        `${this.getBaseUrl()}/v3/company/${companyId}/query?query=SELECT * FROM Item WHERE Sku = '${escapedSKU}'`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const items = response.data.QueryResponse?.Item || [];
+      if (items.length > 0) {
+        console.log(`Found item by SKU match:`, {
+          Id: items[0].Id,
+          Name: items[0].Name,
+          Sku: items[0].Sku,
+          Type: items[0].Type
+        });
+        return items[0];
+      }
+
+      console.log(`Item with SKU "${sku}" not found in QuickBooks`);
+      return null;
+    } catch (error) {
+      console.error('QuickBooks item search by SKU failed:', error);
+      return null;
+    }
+  }
+
   async findItemByName(
     accessToken: string,
     companyId: string,
