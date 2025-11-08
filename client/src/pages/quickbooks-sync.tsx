@@ -221,10 +221,24 @@ export default function QuickBooksSync() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">QuickBooks Sync Manager</h1>
-        <p className="text-muted-foreground">
-          Sync your customers, products, and invoices to QuickBooks in the correct order.
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">QuickBooks Sync Manager</h1>
+            <p className="text-muted-foreground">
+              Sync your customers, products, and invoices to QuickBooks in the correct order.
+            </p>
+          </div>
+          <Button
+            onClick={() => syncAllMutation.mutate()}
+            disabled={syncAllMutation.isPending || !canEditSync}
+            size="lg"
+            className="bg-primary hover:bg-primary/90"
+            data-testid="button-sync-all"
+          >
+            <RefreshCw className={`mr-2 h-5 w-5 ${syncAllMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncAllMutation.isPending ? "Syncing..." : "Sync All"}
+          </Button>
+        </div>
         
         {/* Restricted User Notice */}
         {isRestrictedUser && (
@@ -468,6 +482,105 @@ export default function QuickBooksSync() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sync Results Dialog */}
+      <Dialog open={showSyncResults} onOpenChange={setShowSyncResults}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sync Results - Failed Items</DialogTitle>
+            <DialogDescription>
+              The following items failed to sync to QuickBooks. Please try syncing them individually.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {syncResults.failedCustomers.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-destructive" />
+                  Failed Customers ({syncResults.failedCustomers.length})
+                </h3>
+                <div className="space-y-2">
+                  {syncResults.failedCustomers.map((customer: any) => (
+                    <div
+                      key={customer.id}
+                      className="flex items-center justify-between p-3 border border-destructive/20 rounded-lg bg-destructive/5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                        <div>
+                          <p className="font-medium">{customer.name}</p>
+                          <p className="text-sm text-muted-foreground">{customer.email}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          syncCustomerMutation.mutate(customer.id);
+                          setShowSyncResults(false);
+                        }}
+                        disabled={syncCustomerMutation.isPending}
+                        data-testid={`retry-sync-customer-${customer.id}`}
+                      >
+                        <Upload className="h-4 w-4 mr-1" />
+                        Retry
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {syncResults.failedProducts.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                  <Package className="h-5 w-5 text-destructive" />
+                  Failed Products ({syncResults.failedProducts.length})
+                </h3>
+                <div className="space-y-2">
+                  {syncResults.failedProducts.map((product: any) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between p-3 border border-destructive/20 rounded-lg bg-destructive/5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">${product.basePrice}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          syncProductMutation.mutate(product.id);
+                          setShowSyncResults(false);
+                        }}
+                        disabled={syncProductMutation.isPending}
+                        data-testid={`retry-sync-product-${product.id}`}
+                      >
+                        <Upload className="h-4 w-4 mr-1" />
+                        Retry
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <Button
+              onClick={() => setShowSyncResults(false)}
+              data-testid="button-close-sync-results"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
