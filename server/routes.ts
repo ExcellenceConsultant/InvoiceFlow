@@ -2144,6 +2144,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Post actual invoice/bill to QuickBooks (not journal entry)
+  app.post(
+    "/api/invoices/:id/post-to-quickbooks",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const invoice = await storage.getInvoice(req.params.id);
+        if (!invoice) {
+          return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Get system-wide QuickBooks config
+        const qbConfig = await storage.getSystemSetting("quickbooks_config");
+        if (!qbConfig || !qbConfig.accessToken || !qbConfig.companyId) {
+          return res.status(400).json({ message: "QuickBooks not connected" });
+        }
+
+        // Ensure tokens are valid and refresh if needed
+        const validQbConfig = await ensureValidTokens();
+
+        // Get line items
+        const lineItems = await storage.getInvoiceLineItems(invoice.id);
+        
+        // Sync all products first - fail fast if any product sync fails
+        const failedProducts: string[] = [];
+        for (const item of lineItems) {
+          if (!item.productId) continue;
+          const product = await storage.getProduct(item.productId);
+          if (product && !product.quickbooksItemId) {
+            try {
+              // Try to find existing item by name
+              const existingItem = await quickBooksService.findItemByName(
+                validQbConfig.accessToken,
+                validQbConfig.companyId,
+                product.name
+              );
+
+              if (existingItem) {
+                // Update local product with existing QB item ID
+                await storage.updateProduct(product.id, {
+                  quickbooksItemId: existingItem.Id
+                });
+              } else {
+                // Create new item in QuickBooks
+                const qbItemData = {
+                  Name: product.name,
+                  Type: "Service",
+                };
+
+                const qbItem = await quickBooksService.createItem(
+                  validQbConfig.accessToken,
+                  validQbConfig.companyId,
+                  qbItemData
+                );
+
+                // Update local product with QB item ID
+                await storage.updateProduct(product.id, {
+                  quickbooksItemId: qbItem.Id
+                });
+              }
+            } catch (itemError: any) {
+              console.error(`Failed to sync product ${product.name}:`, itemError);
+              failedProducts.push(product.name);
+            }
+          }
+        }
+
+        // If any products failed to sync, return error immediately
+        if (failedProducts.length > 0) {
+          return res.status(500).json({
+            message: `Failed to sync ${failedProducts.length} product(s) to QuickBooks. Please sync these products first: ${failedProducts.join(", ")}`,
+            failedProducts
+          });
+        }
+
+        // Check invoice type
+        const invoiceType = (invoice as any).invoiceType || "receivable";
+
+        if (invoiceType === "receivable") {
+          // Handle AR invoice
+          const customer = await storage.getCustomer(invoice.customerId!);
+          if (!customer) {
+            return res.status(400).json({ message: "Customer not found" });
+          }
+
+          // Find or create customer
+          const qbCustomer = await findOrCreateCustomer(
+            validQbConfig,
+            customer.name,
+            customer.id,
+            storage
+          );
+
+          // Build invoice line items
+          const qbLineItems = [];
+          for (const item of lineItems) {
+            if (!item.productId) continue;
+            const product = await storage.getProduct(item.productId);
+            if (product && product.quickbooksItemId) {
+              qbLineItems.push({
+                Amount: parseFloat(item.lineTotal),
+                DetailType: "SalesItemLineDetail",
+                SalesItemLineDetail: {
+                  ItemRef: {
+                    value: product.quickbooksItemId,
+                    name: product.name
+                  },
+                  UnitPrice: parseFloat(item.unitPrice),
+                  Qty: parseFloat(String(item.quantity))
+                }
+              });
+            }
+          }
+
+          // Validate that we have at least one line item
+          if (qbLineItems.length === 0) {
+            return res.status(400).json({
+              message: "No valid line items found. Please ensure all products are synced to QuickBooks."
+            });
+          }
+
+          const invoiceData = {
+            CustomerRef: { value: qbCustomer.Id, name: qbCustomer.DisplayName },
+            TxnDate: invoice.invoiceDate.toISOString().split("T")[0],
+            DocNumber: invoice.invoiceNumber,
+            PrivateNote: `Invoice from InvoiceFlow`,
+            Line: qbLineItems
+          };
+
+          const qbInvoice = await quickBooksService.createInvoice(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            invoiceData
+          );
+
+          // Update local invoice with QB invoice ID
+          await storage.updateInvoice(invoice.id, {
+            quickbooksInvoiceId: qbInvoice.Id
+          });
+
+          return res.json({
+            success: true,
+            message: "AR Invoice posted to QuickBooks",
+            docNumber: qbInvoice.DocNumber,
+            quickbooksId: qbInvoice.Id
+          });
+
+        } else if (invoiceType === "payable") {
+          // Handle AP bill
+          const vendor = await storage.getCustomer(invoice.customerId!);
+          if (!vendor) {
+            return res.status(400).json({ message: "Vendor not found" });
+          }
+
+          // Find or create vendor
+          const qbVendor = await findOrCreateVendor(
+            validQbConfig,
+            vendor.name,
+            vendor.id,
+            storage
+          );
+
+          // Build bill line items with COGS account
+          const qbLineItems = [];
+          for (const item of lineItems) {
+            qbLineItems.push({
+              Amount: parseFloat(item.lineTotal),
+              DetailType: "AccountBasedExpenseLineDetail",
+              AccountBasedExpenseLineDetail: {
+                AccountRef: { value: "173", name: "Cost of Goods Sold" }
+              }
+            });
+          }
+
+          // Validate that we have at least one line item
+          if (qbLineItems.length === 0) {
+            return res.status(400).json({
+              message: "No line items found in this invoice."
+            });
+          }
+
+          const billData = {
+            VendorRef: { value: qbVendor.Id, name: qbVendor.DisplayName },
+            TxnDate: invoice.invoiceDate.toISOString().split("T")[0],
+            DocNumber: invoice.invoiceNumber,
+            PrivateNote: `Bill from InvoiceFlow`,
+            Line: qbLineItems
+          };
+
+          const qbBill = await quickBooksService.createBill(
+            validQbConfig.accessToken,
+            validQbConfig.companyId,
+            billData
+          );
+
+          // Update local invoice with QB bill ID
+          await storage.updateInvoice(invoice.id, {
+            quickbooksInvoiceId: qbBill.Id
+          });
+
+          return res.json({
+            success: true,
+            message: "AP Bill posted to QuickBooks",
+            docNumber: qbBill.DocNumber,
+            quickbooksId: qbBill.Id
+          });
+        } else {
+          return res.status(400).json({
+            message: "Invalid invoice type"
+          });
+        }
+      } catch (error: any) {
+        console.error("Invoice post error:", error);
+        
+        // Extract QuickBooks error details if available
+        const qbError = error.response?.data?.Fault?.Error?.[0];
+        const errorMessage = qbError?.Detail || qbError?.Message || error.message || "Failed to post invoice to QuickBooks";
+        
+        return res.status(500).json({
+          message: errorMessage,
+          errorDetails: qbError ? {
+            code: qbError.code,
+            detail: qbError.Detail,
+            element: qbError.element
+          } : null
+        });
+      }
+    }
+  );
+
   // Helper function to find or create customer
   async function findOrCreateCustomer(
     qbConfig: any,
