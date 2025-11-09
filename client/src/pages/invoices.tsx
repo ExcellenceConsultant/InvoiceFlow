@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
@@ -315,6 +316,7 @@ export default function Invoices() {
   const permissions = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState<"AR" | "AP">("AR");
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
@@ -576,6 +578,10 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     const filtered = invoices.filter((invoice: any) => {
+      // Filter by invoice type based on active tab
+      const matchesTab = invoice.invoiceType === activeTab;
+      if (!matchesTab) return false;
+
       const customerName = getCustomerName(invoice.customerId);
       const displayStatus = getDisplayStatus(invoice);
       const matchesStatus =
@@ -716,6 +722,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     invoices,
     searchTerm,
     statusFilter,
+    activeTab,
     sortConfig,
     customers,
     selectedDateRange,
@@ -1271,14 +1278,28 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       </Card>
 
       {/* Invoices List */}
-      <Card data-testid="invoices-list-card">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="mr-2 text-primary" size={20} />
-            Invoices ({filteredInvoices.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Tabs value={activeTab} onValueChange={(value) => {
+        setActiveTab(value as "AR" | "AP");
+        setSelectedInvoices([]); // Clear selection when switching tabs
+      }} data-testid="invoice-tabs">
+        <Card data-testid="invoices-list-card">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 text-primary" size={20} />
+                {activeTab === "AR" ? "AR Invoices" : "AP Bills"} ({filteredInvoices.length})
+              </CardTitle>
+              <TabsList data-testid="tabs-list">
+                <TabsTrigger value="AR" data-testid="tab-ar-invoices">
+                  AR Invoices
+                </TabsTrigger>
+                <TabsTrigger value="AP" data-testid="tab-ap-bills">
+                  AP Bills
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </CardHeader>
+          <CardContent>
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -1645,6 +1666,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           )}
         </CardContent>
       </Card>
+      </Tabs>
 
       {/* Invoice Form Modal */}
       {showInvoiceForm && (
