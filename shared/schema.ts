@@ -220,7 +220,7 @@ export const insertInvoiceSchema = createInsertSchema(invoices)
       .string()
       .optional()
       .transform((str) => (str ? new Date(str) : null)),
-    purchaseOrder: z.string().optional(),
+    purchaseOrder: z.union([z.string(), z.null()]).optional(),
   });
 
 export const insertInvoiceLineItemSchema = createInsertSchema(
