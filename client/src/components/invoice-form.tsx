@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gift, NotebookPen, Plus, Save, Trash2, X } from "lucide-react";
@@ -1380,7 +1381,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                               Amount
                             </label>
                             <Input
-                              value={item.lineTotal.toFixed(2)}
+                              value={formatCurrency(item.lineTotal)}
                               readOnly
                               className="h-8"
                               data-testid={`input-line-total-${index}`}
@@ -1784,7 +1785,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="font-medium"
                         data-testid="invoice-subtotal"
                       >
-                        ${calculateTotal().toFixed(2)}
+                        {formatCurrency(calculateTotal())}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
@@ -1793,7 +1794,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="font-medium"
                         data-testid="invoice-freight-display"
                       >
-                        ${(form.watch("freight") || 0).toFixed(2)}
+                        {formatCurrency(form.watch("freight") || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
@@ -1804,11 +1805,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="font-medium text-red-600"
                         data-testid="invoice-discount-display"
                       >
-                        -$
-                        {(
-                          (calculateTotal() * (form.watch("discount") || 0)) /
-                          100
-                        ).toFixed(2)}
+                        -{formatCurrency((calculateTotal() * (form.watch("discount") || 0)) / 100)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t">
@@ -1819,13 +1816,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         className="text-2xl font-bold text-primary"
                         data-testid="invoice-total"
                       >
-                        $
-                        {(
-                          calculateTotal() +
-                          (form.watch("freight") || 0) -
-                          (calculateTotal() * (form.watch("discount") || 0)) /
-                            100
-                        ).toFixed(2)}
+                        {formatCurrency(calculateTotal() + (form.watch("freight") || 0) - (calculateTotal() * (form.watch("discount") || 0)) / 100)}
                       </span>
                     </div>
                   </div>

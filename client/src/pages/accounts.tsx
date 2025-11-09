@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import CustomerVendorForm from "@/components/customer-vendor-form";
 import { usePermissions } from "@/hooks/usePermissions";
+import { formatCurrency } from "@/lib/utils";
 
 export default function Accounts() {
   const permissions = usePermissions();
@@ -541,7 +542,7 @@ export default function Accounts() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-customer-${customer.id}`}>
-                            ${getOpenBalanceValue(customer.id, "customer").toFixed(2)}
+                            {formatCurrency(getOpenBalanceValue(customer.id, "customer"))}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
@@ -646,7 +647,7 @@ export default function Accounts() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Value</p>
-                    <p className="text-lg font-semibold text-chart-1" data-testid="customer-invoice-value">${customerInvoiceValue.toFixed(2)}</p>
+                    <p className="text-lg font-semibold text-chart-1" data-testid="customer-invoice-value">{formatCurrency(customerInvoiceValue)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -667,7 +668,7 @@ export default function Accounts() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Revenue Generated</p>
-                    <p className="text-lg font-semibold text-chart-3" data-testid="customer-revenue">${customerInvoiceValue.toFixed(2)}</p>
+                    <p className="text-lg font-semibold text-chart-3" data-testid="customer-revenue">{formatCurrency(customerInvoiceValue)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -778,7 +779,7 @@ export default function Accounts() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-vendor-${vendor.id}`}>
-                            ${getOpenBalanceValue(vendor.id, "vendor").toFixed(2)}
+                            {formatCurrency(getOpenBalanceValue(vendor.id, "vendor"))}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
@@ -883,7 +884,7 @@ export default function Accounts() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Value</p>
-                    <p className="text-lg font-semibold text-chart-1" data-testid="vendor-invoice-value">${vendorInvoiceValue.toFixed(2)}</p>
+                    <p className="text-lg font-semibold text-chart-1" data-testid="vendor-invoice-value">{formatCurrency(vendorInvoiceValue)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -904,7 +905,7 @@ export default function Accounts() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Spent</p>
-                    <p className="text-lg font-semibold text-chart-3" data-testid="vendor-spent">${vendorInvoiceValue.toFixed(2)}</p>
+                    <p className="text-lg font-semibold text-chart-3" data-testid="vendor-spent">{formatCurrency(vendorInvoiceValue)}</p>
                   </div>
                 </div>
               </CardContent>

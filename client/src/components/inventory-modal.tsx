@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_USER_ID } from "@/lib/constants";
+import { formatCurrency } from "@/lib/utils";
 
 interface Props {
   onClose: () => void;
@@ -132,7 +133,7 @@ export default function InventoryModal({ onClose }: Props) {
                           {variant.stockQuantity || 0}
                         </td>
                         <td className="py-3 px-4 text-sm text-foreground" data-testid={`variant-price-${variant.id}`}>
-                          ${parseFloat(variant.price).toFixed(2)}
+                          {formatCurrency(variant.price)}
                         </td>
                         <td className="py-3 px-4">
                           <Badge className={stockStatus.className} data-testid={`variant-status-${variant.id}`}>

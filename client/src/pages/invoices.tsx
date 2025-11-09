@@ -29,7 +29,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
 import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -1473,7 +1473,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                           className="py-3 px-4 text-sm font-medium text-foreground"
                           data-testid={`invoice-amount-${invoice.id}`}
                         >
-                          ${parseFloat(invoice.total).toFixed(2)}
+                          {formatCurrency(invoice.total)}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex flex-col items-center">

@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { INVOICE_STATUS_COLORS } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/utils";
+import { User, Invoice } from "@shared/schema";
 import StatsCards from "@/components/stats-cards";
 import InvoiceForm from "@/components/invoice-form";
 import SchemeModal from "@/components/scheme-modal";
@@ -24,26 +26,26 @@ export default function Dashboard() {
   const permissions = usePermissions();
 
   // Use default queryFn which includes auth headers from queryClient
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
 
-  const { data: allInvoices } = useQuery({
+  const { data: allInvoices } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
   });
 
   // Get only the 3 most recent invoices for dashboard display
   const recentInvoices = allInvoices?.slice(0, 3);
 
-  const { data: schemes } = useQuery({
+  const { data: schemes } = useQuery<any[]>({
     queryKey: ["/api/schemes"],
   });
 
-  const { data: products } = useQuery({
+  const { data: products } = useQuery<any[]>({
     queryKey: ["/api/products"],
   });
 
-  const { data: journalEntryCount } = useQuery({
+  const { data: journalEntryCount } = useQuery<{ count: number }>({
     queryKey: ["/api/quickbooks/journal-entry-count"],
   });
 
@@ -204,7 +206,7 @@ export default function Dashboard() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-foreground" data-testid={`invoice-total-${invoice.id}`}>
-                          ${invoice.total}
+                          {formatCurrency(invoice.total)}
                         </p>
                         <Badge className={INVOICE_STATUS_COLORS[invoice.status as keyof typeof INVOICE_STATUS_COLORS]} data-testid={`invoice-status-${invoice.id}`}>
                           {invoice.status}

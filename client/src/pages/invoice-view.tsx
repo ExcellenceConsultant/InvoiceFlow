@@ -2,19 +2,12 @@
 import { Button } from "@/components/ui/button";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import { formatDateUS } from "@/lib/dateUtils";
+import { formatCurrency } from "@/lib/utils";
 import { Invoice, InvoiceLineItem } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Package, Printer, Tag } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation, useParams } from "wouter";
-
-function formatCurrency(num: number) {
-  if (Number.isNaN(num) || num === null || num === undefined) return "$0.00";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(num);
-}
 function toNumber(v: any) {
   const n = typeof v === "number" ? v : parseFloat(String(v || "0"));
   return Number.isFinite(n) ? n : 0;

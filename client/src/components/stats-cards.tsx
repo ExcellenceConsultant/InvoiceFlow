@@ -1,9 +1,19 @@
 import { DollarSign, FileText, Package, Gift, TrendingUp, AlertTriangle, ShoppingCart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
+import { formatCurrency } from "@/lib/utils";
+
+interface DashboardStats {
+  totalRevenue: string;
+  totalPurchase: string;
+  activeInvoices: number;
+  productsInStock: number;
+  lowStockCount: number;
+  activeSchemes: number;
+}
 
 export default function StatsCards() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
 
@@ -26,7 +36,7 @@ export default function StatsCards() {
   const statsData = [
     {
       title: "Total Revenue",
-      value: `$${stats?.totalRevenue || "0.00"}`,
+      value: formatCurrency(stats?.totalRevenue || 0),
       change: "AR Invoices",
       changeText: "",
       icon: DollarSign,
@@ -36,7 +46,7 @@ export default function StatsCards() {
     },
     {
       title: "Total Purchase",
-      value: `$${stats?.totalPurchase || "0.00"}`,
+      value: formatCurrency(stats?.totalPurchase || 0),
       change: "AP Invoices",
       changeText: "",
       icon: ShoppingCart,
@@ -46,7 +56,7 @@ export default function StatsCards() {
     },
     {
       title: "Active Invoices",
-      value: stats?.activeInvoices || 0,
+      value: String(stats?.activeInvoices || 0),
       change: stats?.activeInvoices ? "All up to date" : "No active invoices",
       changeText: "",
       icon: FileText,
@@ -56,7 +66,7 @@ export default function StatsCards() {
     },
     {
       title: "Products in Stock",
-      value: stats?.productsInStock || 0,
+      value: String(stats?.productsInStock || 0),
       change: stats?.lowStockCount ? `${stats.lowStockCount} low stock` : "All stocked well",
       changeText: "",
       icon: Package,
@@ -67,7 +77,7 @@ export default function StatsCards() {
     },
     {
       title: "Active Schemes",
-      value: stats?.activeSchemes || 0,
+      value: String(stats?.activeSchemes || 0),
       change: stats?.activeSchemes ? `${stats.activeSchemes} scheme${stats.activeSchemes === 1 ? '' : 's'} active` : "No active schemes",
       changeText: "",
       icon: Gift,

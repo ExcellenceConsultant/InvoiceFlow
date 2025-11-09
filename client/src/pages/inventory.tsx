@@ -12,6 +12,7 @@ import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { ProductForm } from "@/components/product-form";
 import { usePermissions } from "@/hooks/usePermissions";
+import { formatCurrency } from "@/lib/utils";
 
 export default function Inventory() {
   const permissions = usePermissions();
@@ -673,7 +674,7 @@ export default function Inventory() {
               <div>
                 <p className="text-muted-foreground text-sm font-medium">Inventory Value</p>
                 <p className="text-2xl font-bold text-foreground" data-testid="inventory-value">
-                  ${totalValue.toFixed(2)}
+                  {formatCurrency(totalValue)}
                 </p>
               </div>
               <div className="w-12 h-12 bg-chart-1/10 rounded-lg flex items-center justify-center">
@@ -692,7 +693,7 @@ export default function Inventory() {
               <div>
                 <p className="text-muted-foreground text-sm font-medium">Average Price</p>
                 <p className="text-2xl font-bold text-foreground" data-testid="avg-price">
-                  ${totalProducts > 0 ? (totalValue / totalProducts).toFixed(2) : '0.00'}
+                  {formatCurrency(totalProducts > 0 ? totalValue / totalProducts : 0)}
                 </p>
               </div>
               <div className="w-12 h-12 bg-yellow-500/10 rounded-lg flex items-center justify-center">
