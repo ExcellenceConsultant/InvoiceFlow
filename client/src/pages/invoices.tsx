@@ -579,7 +579,9 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
 
     const filtered = invoices.filter((invoice: any) => {
       // Filter by invoice type based on active tab
-      const matchesTab = invoice.invoiceType === activeTab;
+      // Database stores "receivable" and "payable", tabs use "AR" and "AP"
+      const invoiceTypeFromTab = activeTab === "AR" ? "receivable" : "payable";
+      const matchesTab = invoice.invoiceType === invoiceTypeFromTab;
       if (!matchesTab) return false;
 
       const customerName = getCustomerName(invoice.customerId);
