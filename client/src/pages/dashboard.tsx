@@ -1,20 +1,20 @@
-import { useState } from "react";
-import { Plus, Download, Link as LinkIcon, DollarSign, History, Gift, Warehouse, Package } from "lucide-react";
+import InventoryModal from "@/components/inventory-modal";
+import InvoiceForm from "@/components/invoice-form";
+import SchemeModal from "@/components/scheme-modal";
+import StatsCards from "@/components/stats-cards";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { usePermissions } from "@/hooks/usePermissions";
 import { INVOICE_STATUS_COLORS } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
-import { User, Invoice } from "@shared/schema";
-import StatsCards from "@/components/stats-cards";
-import InvoiceForm from "@/components/invoice-form";
-import SchemeModal from "@/components/scheme-modal";
-import InventoryModal from "@/components/inventory-modal";
-import { usePermissions } from "@/hooks/usePermissions";
+import { Invoice, User } from "@shared/schema";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DollarSign, History, Link as LinkIcon, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -34,16 +34,48 @@ export default function Dashboard() {
     queryKey: ["/api/invoices"],
   });
 
-  // Get only the 3 most recent invoices for dashboard display
-  const recentInvoices = allInvoices?.slice(0, 3);
-
-  const { data: schemes } = useQuery<any[]>({
-    queryKey: ["/api/schemes"],
+  const { data: customers } = useQuery<any[]>({
+    queryKey: ["/api/customers"],
   });
 
-  const { data: products } = useQuery<any[]>({
-    queryKey: ["/api/products"],
-  });
+  const customerNameMap = useMemo(() => {
+    if (!customers) return {};
+    return customers.reduce(
+      (acc: Record<string, string>, customer: any) => {
+        const name =
+          customer.name ||
+          customer.companyName ||
+          customer.displayName ||
+          customer.businessName ||
+          customer.contactName ||
+          "";
+        if (customer.id) {
+          acc[customer.id] = name;
+        }
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  }, [customers]);
+
+  // Get only the 3 most recent invoices for dashboard display (sorted by latest date)
+  const recentInvoices = useMemo(() => {
+    if (!allInvoices) return [];
+
+    const parseDate = (invoice: any) => {
+      const dateSource =
+        invoice.invoiceDate ||
+        invoice.dueDate ||
+        invoice.createdAt ||
+        invoice.updatedAt;
+      const dateValue = dateSource ? new Date(dateSource).getTime() : 0;
+      return Number.isFinite(dateValue) ? dateValue : 0;
+    };
+
+    return [...allInvoices]
+      .sort((a, b) => parseDate(b) - parseDate(a))
+      .slice(0, 3);
+  }, [allInvoices]);
 
   const { data: journalEntryCount } = useQuery<{ count: number }>({
     queryKey: ["/api/quickbooks/journal-entry-count"],
@@ -54,8 +86,8 @@ export default function Dashboard() {
   const disconnectMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("User not authenticated");
-      
-      await apiRequest('PATCH', `/api/users/${user.id}`, {
+
+      await apiRequest("PATCH", `/api/users/${user.id}`, {
         quickbooksAccessToken: null,
         quickbooksRefreshToken: null,
         quickbooksCompanyId: null,
@@ -84,7 +116,11 @@ export default function Dashboard() {
   };
 
   const handleDisconnectQuickBooks = () => {
-    if (confirm("Are you sure you want to disconnect your QuickBooks account? This will stop all synchronization.")) {
+    if (
+      confirm(
+        "Are you sure you want to disconnect your QuickBooks account? This will stop all synchronization.",
+      )
+    ) {
       disconnectMutation.mutate();
     }
   };
@@ -94,8 +130,15 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Manage invoices, inventory, and product schemes</p>
+          <h1
+            className="text-3xl font-bold text-foreground"
+            data-testid="page-title"
+          >
+            Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage invoices, inventory, and product schemes
+          </p>
         </div>
       </div>
 
@@ -103,157 +146,200 @@ export default function Dashboard() {
       <StatsCards />
 
       <div className="space-y-8">
-          
-          {/* QuickBooks Status */}
-          <Card data-testid="quickbooks-integration-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <LinkIcon className="mr-2 text-primary" size={18} />
-                QuickBooks Integration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">QB</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground" data-testid="quickbooks-company-name">
-                      {isQuickBooksConnected ? (user?.quickbooksCompanyName || "Connected") : "Not Connected"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Company ID: <span data-testid="quickbooks-company-id">
-                        {user?.quickbooksCompanyId || "Not Available"}
-                      </span>
-                    </p>
-                  </div>
+        {/* QuickBooks Status */}
+        <Card data-testid="quickbooks-integration-card">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <LinkIcon className="mr-2 text-primary" size={18} />
+              QuickBooks Integration
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">QB</span>
                 </div>
-                {isQuickBooksConnected ? (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-destructive border-destructive hover:bg-destructive/10" 
-                    data-testid="button-disconnect-quickbooks"
-                    onClick={handleDisconnectQuickBooks}
-                    disabled={!permissions.canManageDashboard}
+                <div>
+                  <p
+                    className="font-medium text-foreground"
+                    data-testid="quickbooks-company-name"
                   >
-                    Disconnect
-                  </Button>
-                ) : (
-                  <Button 
-                    size="sm" 
-                    data-testid="button-connect-quickbooks"
-                    onClick={handleConnectQuickBooks}
-                    disabled={!permissions.canManageDashboard}
-                  >
-                    Connect
-                  </Button>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-accent/5 rounded-lg">
-                  <p className="text-2xl font-bold text-accent" data-testid="quickbooks-journal-entry-sync">
-                    {journalEntryCount?.count !== undefined ? journalEntryCount.count : '...'}
+                    {isQuickBooksConnected
+                      ? user?.quickbooksCompanyName || "Connected"
+                      : "Not Connected"}
                   </p>
-                  <p className="text-sm text-muted-foreground">Journal Entry Sync</p>
-                </div>
-                <div className="text-center p-3 bg-primary/5 rounded-lg">
-                  <p className="text-2xl font-bold text-primary" data-testid="quickbooks-last-sync">2 min ago</p>
-                  <p className="text-sm text-muted-foreground">Last Sync</p>
+                  <p className="text-sm text-muted-foreground">
+                    Company ID:{" "}
+                    <span data-testid="quickbooks-company-id">
+                      {user?.quickbooksCompanyId || "Not Available"}
+                    </span>
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Invoices */}
-          <Card data-testid="recent-invoices-card">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <History className="mr-2 text-primary" size={18} />
-                  Recent Invoices
-                </CardTitle>
-                <Button 
-                  variant="link" 
-                  size="sm" 
-                  data-testid="button-view-all-invoices"
-                  onClick={() => setLocation("/invoices")}
+              {isQuickBooksConnected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive hover:bg-destructive/10"
+                  data-testid="button-disconnect-quickbooks"
+                  onClick={handleDisconnectQuickBooks}
                   disabled={!permissions.canManageDashboard}
                 >
-                  View All
+                  Disconnect
                 </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  data-testid="button-connect-quickbooks"
+                  onClick={handleConnectQuickBooks}
+                  disabled={!permissions.canManageDashboard}
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-accent/5 rounded-lg">
+                <p
+                  className="text-2xl font-bold text-accent"
+                  data-testid="quickbooks-journal-entry-sync"
+                >
+                  {journalEntryCount?.count ?? "..."}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Journal Entry Sync
+                </p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentInvoices?.length ? (
-                  recentInvoices.map((invoice: any) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors" data-testid={`invoice-item-${invoice.id}`}>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <DollarSign className="text-primary" size={14} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground" data-testid={`invoice-number-${invoice.id}`}>
-                            {invoice.invoiceNumber}
-                          </p>
-                          <p className="text-sm text-muted-foreground" data-testid={`invoice-customer-${invoice.id}`}>
-                            Customer #{invoice.customerId}
-                          </p>
-                        </div>
+              <div className="text-center p-3 bg-primary/5 rounded-lg">
+                <p
+                  className="text-2xl font-bold text-primary"
+                  data-testid="quickbooks-last-sync"
+                >
+                  2 min ago
+                </p>
+                <p className="text-sm text-muted-foreground">Last Sync</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Invoices */}
+        <Card data-testid="recent-invoices-card">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center">
+                <History className="mr-2 text-primary" size={18} />
+                Recent Invoices
+              </CardTitle>
+              <Button
+                variant="link"
+                size="sm"
+                data-testid="button-view-all-invoices"
+                onClick={() => setLocation("/invoices")}
+                disabled={!permissions.canManageDashboard}
+              >
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentInvoices?.length ? (
+                recentInvoices.map((invoice: any) => (
+                  <div
+                    key={invoice.id}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                    data-testid={`invoice-item-${invoice.id}`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <DollarSign className="text-primary" size={14} />
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-foreground" data-testid={`invoice-total-${invoice.id}`}>
-                          {formatCurrency(invoice.total)}
+                      <div>
+                        <p
+                          className="font-medium text-foreground"
+                          data-testid={`invoice-number-${invoice.id}`}
+                        >
+                          {invoice.invoiceNumber}
                         </p>
-                        <Badge className={INVOICE_STATUS_COLORS[invoice.status as keyof typeof INVOICE_STATUS_COLORS]} data-testid={`invoice-status-${invoice.id}`}>
-                          {invoice.status}
-                        </Badge>
+                        <p
+                          className="text-sm text-muted-foreground"
+                          data-testid={`invoice-customer-${invoice.id}`}
+                        >
+                          {(invoice.customer?.name ??
+                            (invoice.customerId
+                              ? customerNameMap[invoice.customerId]
+                              : undefined)) ||
+                            (invoice.customerId
+                              ? `Customer #${invoice.customerId}`
+                              : "Customer")}
+                        </p>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <DollarSign className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                    <h3 className="mt-2 text-sm font-medium text-foreground">No invoices yet</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">Create your first invoice to get started.</p>
-                    <Button 
-                      className="mt-4" 
-                      onClick={() => setShowInvoiceForm(true)} 
-                      disabled={!permissions.canCreateInvoice}
-                      data-testid="button-create-first-invoice"
-                    >
-                      <Plus className="mr-2" size={16} />
-                      Create Invoice
-                    </Button>
+                    <div className="text-right">
+                      <p
+                        className="font-medium text-foreground"
+                        data-testid={`invoice-total-${invoice.id}`}
+                      >
+                        {formatCurrency(invoice.total)}
+                      </p>
+                      <Badge
+                        className={
+                          INVOICE_STATUS_COLORS[
+                            invoice.status as keyof typeof INVOICE_STATUS_COLORS
+                          ]
+                        }
+                        data-testid={`invoice-status-${invoice.id}`}
+                      >
+                        {invoice.status}
+                      </Badge>
+                    </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <DollarSign className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                  <h3 className="mt-2 text-sm font-medium text-foreground">
+                    No invoices yet
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Create your first invoice to get started.
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => setShowInvoiceForm(true)}
+                    disabled={!permissions.canCreateInvoice}
+                    data-testid="button-create-first-invoice"
+                  >
+                    <Plus className="mr-2" size={16} />
+                    Create Invoice
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Modals */}
       {showInvoiceForm && (
-        <InvoiceForm 
-          onClose={() => setShowInvoiceForm(false)} 
+        <InvoiceForm
+          onClose={() => setShowInvoiceForm(false)}
           onSuccess={() => setShowInvoiceForm(false)}
         />
       )}
-      
+
       {showSchemeModal && (
-        <SchemeModal 
+        <SchemeModal
           onClose={() => setShowSchemeModal(false)}
           onSuccess={() => setShowSchemeModal(false)}
         />
       )}
-      
+
       {showInventoryModal && (
-        <InventoryModal 
-          onClose={() => setShowInventoryModal(false)}
-        />
+        <InventoryModal onClose={() => setShowInventoryModal(false)} />
       )}
     </div>
   );

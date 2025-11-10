@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { INVOICE_STATUS_COLORS, INVOICE_STATUSES } from "@/lib/constants";
@@ -409,7 +409,8 @@ export default function Invoices() {
       const errorData = error.response?.data || error;
       toast({
         title: "Failed to Post Invoice",
-        description: errorData.message || "Failed to post invoice to QuickBooks",
+        description:
+          errorData.message || "Failed to post invoice to QuickBooks",
         variant: "destructive",
       });
     },
@@ -1015,20 +1016,18 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         const displayStatus = getDisplayStatus(invoice);
 
         return {
-          "Invoice #": invoice.invoiceNumber || "",
-          Type: invoice.invoiceType === "receivable" ? "AR" : "AP",
-          "Customer/Vendor": customer?.name || "Unknown",
           "Invoice Date": invoice.invoiceDate
             ? formatDateWithoutTimezone(invoice.invoiceDate)
             : "",
+          "Invoice #": invoice.invoiceNumber || "",
+          Type: invoice.invoiceType === "receivable" ? "AR" : "AP",
+          "Customer/Vendor": customer?.name || "Unknown",
           Subtotal: parseFloat(invoice.subtotal || 0).toFixed(2),
           Freight: parseFloat(invoice.freight || 0).toFixed(2),
           Discount: parseFloat(invoice.discount || 0).toFixed(2),
           "Total Amount": parseFloat(invoice.totalAmount || 0).toFixed(2),
           Status: displayStatus,
-          "Invoice Post": invoice.quickbooksInvoiceId
-            ? "Posted"
-            : "Not Posted",
+          "Invoice Post": invoice.quickbooksInvoiceId ? "Posted" : "Not Posted",
           "QB Invoice ID": invoice.quickbooksInvoiceId || "",
         };
       });
@@ -1280,16 +1279,21 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
       </Card>
 
       {/* Invoices List */}
-      <Tabs value={activeTab} onValueChange={(value) => {
-        setActiveTab(value as "AR" | "AP");
-        setSelectedInvoices([]); // Clear selection when switching tabs
-      }} data-testid="invoice-tabs">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value as "AR" | "AP");
+          setSelectedInvoices([]); // Clear selection when switching tabs
+        }}
+        data-testid="invoice-tabs"
+      >
         <Card data-testid="invoices-list-card">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center">
                 <FileText className="mr-2 text-primary" size={20} />
-                {activeTab === "AR" ? "AR Invoices" : "AP Bills"} ({filteredInvoices.length})
+                {activeTab === "AR" ? "AR Invoices" : "AP Bills"} (
+                {filteredInvoices.length})
               </CardTitle>
               <TabsList data-testid="tabs-list">
                 <TabsTrigger value="AR" data-testid="tab-ar-invoices">
@@ -1302,252 +1306,236 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
             </div>
           </CardHeader>
           <CardContent>
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className="h-20 bg-muted/30 rounded-lg animate-pulse"
-                  data-testid={`invoice-skeleton-${i}`}
-                />
-              ))}
-            </div>
-          ) : filteredInvoices.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full" data-testid="invoices-table">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredInvoices.length > 0 &&
-                          selectedInvoices.length === filteredInvoices.length
-                        }
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 cursor-pointer"
-                        data-testid="checkbox-select-all"
-                      />
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("invoiceNumber")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Invoice #</span>
-                        {renderSortIcon("invoiceNumber")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("invoiceType")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Type</span>
-                        {renderSortIcon("invoiceType")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("customer")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Customer</span>
-                        {renderSortIcon("customer")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("invoiceDate")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Date</span>
-                        {renderSortIcon("invoiceDate")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("amount")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Amount</span>
-                        {renderSortIcon("amount")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("status")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Status</span>
-                        {renderSortIcon("status")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("journalEntry")}
-                        className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                      >
-                        <span>Invoice Post</span>
-                        {renderSortIcon("journalEntry")}
-                      </button>
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredInvoices.map((invoice: any) => {
-                    const displayStatus = getDisplayStatus(invoice);
-                    const dueStatusMessage = getDueStatusMessage(
-                      invoice,
-                      displayStatus,
-                    );
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="h-20 bg-muted/30 rounded-lg animate-pulse"
+                    data-testid={`invoice-skeleton-${i}`}
+                  />
+                ))}
+              </div>
+            ) : filteredInvoices.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full" data-testid="invoices-table">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredInvoices.length > 0 &&
+                            selectedInvoices.length === filteredInvoices.length
+                          }
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 cursor-pointer"
+                          data-testid="checkbox-select-all"
+                        />
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("invoiceDate")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Date</span>
+                          {renderSortIcon("invoiceDate")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("invoiceNumber")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Invoice #</span>
+                          {renderSortIcon("invoiceNumber")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("invoiceType")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Type</span>
+                          {renderSortIcon("invoiceType")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("customer")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Customer</span>
+                          {renderSortIcon("customer")}
+                        </button>
+                      </th>
 
-                    return (
-                      <tr
-                        key={invoice.id}
-                        className="border-b border-border hover:bg-muted/20 transition-colors"
-                        data-testid={`invoice-row-${invoice.id}`}
-                      >
-                        <td className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedInvoices.includes(invoice.id)}
-                            onChange={() => handleSelectInvoice(invoice.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-4 h-4 cursor-pointer"
-                            data-testid={`checkbox-invoice-${invoice.id}`}
-                          />
-                        </td>
-                        <td
-                          className="py-3 px-4 text-sm font-medium text-foreground"
-                          data-testid={`invoice-number-${invoice.id}`}
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("amount")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
                         >
-                          {invoice.invoiceNumber}
-                        </td>
-                        <td
-                          className="py-3 px-4"
-                          data-testid={`invoice-type-${invoice.id}`}
+                          <span>Amount</span>
+                          {renderSortIcon("amount")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("status")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
                         >
-                          <Badge
-                            className={
-                              invoice.invoiceType === "payable"
-                                ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100"
-                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                            }
+                          <span>Status</span>
+                          {renderSortIcon("status")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("journalEntry")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Invoice Post</span>
+                          {renderSortIcon("journalEntry")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredInvoices.map((invoice: any) => {
+                      const displayStatus = getDisplayStatus(invoice);
+                      const dueStatusMessage = getDueStatusMessage(
+                        invoice,
+                        displayStatus,
+                      );
+
+                      return (
+                        <tr
+                          key={invoice.id}
+                          className="border-b border-border hover:bg-muted/20 transition-colors"
+                          data-testid={`invoice-row-${invoice.id}`}
+                        >
+                          <td className="py-3 px-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedInvoices.includes(invoice.id)}
+                              onChange={() => handleSelectInvoice(invoice.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 cursor-pointer"
+                              data-testid={`checkbox-invoice-${invoice.id}`}
+                            />
+                          </td>
+                          <td
+                            className="py-3 px-4 text-sm text-muted-foreground"
+                            data-testid={`invoice-date-${invoice.id}`}
                           >
-                            <div className="flex items-center">
-                              <div
-                                className={`w-2 h-2 rounded-full mr-2 ${
-                                  invoice.invoiceType === "payable"
-                                    ? "bg-orange-500"
-                                    : "bg-green-500"
-                                }`}
-                              ></div>
-                              {invoice.invoiceType === "payable" ? "AP" : "AR"}
-                            </div>
-                          </Badge>
-                        </td>
-                        <td
-                          className="py-3 px-4 text-sm text-foreground"
-                          data-testid={`invoice-customer-${invoice.id}`}
-                        >
-                          {getCustomerName(invoice.customerId)}
-                        </td>
-                        <td
-                          className="py-3 px-4 text-sm text-muted-foreground"
-                          data-testid={`invoice-date-${invoice.id}`}
-                        >
-                          {formatDateWithoutTimezone(invoice.invoiceDate)}
-                        </td>
-                        <td
-                          className="py-3 px-4 text-sm font-medium text-foreground"
-                          data-testid={`invoice-amount-${invoice.id}`}
-                        >
-                          {formatCurrency(invoice.total)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex flex-col items-center">
+                            {formatDateWithoutTimezone(invoice.invoiceDate)}
+                          </td>
+                          <td
+                            className="py-3 px-4 text-sm font-medium text-foreground"
+                            data-testid={`invoice-number-${invoice.id}`}
+                          >
+                            {invoice.invoiceNumber}
+                          </td>
+                          <td
+                            className="py-3 px-4"
+                            data-testid={`invoice-type-${invoice.id}`}
+                          >
                             <Badge
                               className={
-                                INVOICE_STATUS_COLORS[
-                                  displayStatus as keyof typeof INVOICE_STATUS_COLORS
-                                ]
+                                invoice.invoiceType === "payable"
+                                  ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100"
+                                  : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
                               }
-                              data-testid={`invoice-status-${invoice.id}`}
                             >
-                              {displayStatus.charAt(0).toUpperCase() +
-                                displayStatus.slice(1)}
+                              <div className="flex items-center">
+                                <div
+                                  className={`w-2 h-2 rounded-full mr-2 ${
+                                    invoice.invoiceType === "payable"
+                                      ? "bg-orange-500"
+                                      : "bg-green-500"
+                                  }`}
+                                ></div>
+                                {invoice.invoiceType === "payable"
+                                  ? "AP"
+                                  : "AR"}
+                              </div>
                             </Badge>
-                            {dueStatusMessage && (
-                              <span className="mt-1 text-xs text-muted-foreground">
-                                {dueStatusMessage}
-                              </span>
+                          </td>
+                          <td
+                            className="py-3 px-4 text-sm text-foreground"
+                            data-testid={`invoice-customer-${invoice.id}`}
+                          >
+                            {getCustomerName(invoice.customerId)}
+                          </td>
+                          <td
+                            className="py-3 px-4 text-sm font-medium text-foreground"
+                            data-testid={`invoice-amount-${invoice.id}`}
+                          >
+                            {formatCurrency(invoice.total)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-col items-center">
+                              <Badge
+                                className={
+                                  INVOICE_STATUS_COLORS[
+                                    displayStatus as keyof typeof INVOICE_STATUS_COLORS
+                                  ]
+                                }
+                                data-testid={`invoice-status-${invoice.id}`}
+                              >
+                                {displayStatus.charAt(0).toUpperCase() +
+                                  displayStatus.slice(1)}
+                              </Badge>
+                              {dueStatusMessage && (
+                                <span className="mt-1 text-xs text-muted-foreground">
+                                  {dueStatusMessage}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            {invoice.quickbooksInvoiceId ? (
+                              <Badge
+                                className="bg-accent text-accent-foreground"
+                                data-testid={`quickbooks-synced-${invoice.id}`}
+                              >
+                                Invoice Posted
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                data-testid={`quickbooks-not-synced-${invoice.id}`}
+                              >
+                                No Invoice Post
+                              </Badge>
                             )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          {invoice.quickbooksInvoiceId ? (
-                            <Badge
-                              className="bg-accent text-accent-foreground"
-                              data-testid={`quickbooks-synced-${invoice.id}`}
-                            >
-                              Invoice Posted
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              data-testid={`quickbooks-not-synced-${invoice.id}`}
-                            >
-                              No Invoice Post
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() =>
-                                setLocation(`/invoices/${invoice.id}`)
-                              }
-                              data-testid={`button-view-invoice-${invoice.id}`}
-                            >
-                              <Eye size={14} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleEditInvoice(invoice, e);
-                              }}
-                              disabled={!canEditInvoice(invoice)}
-                              data-testid={`button-edit-invoice-${invoice.id}`}
-                            >
-                              <Edit size={14} />
-                            </Button>
-                            {invoice.status !== "paid" && (
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-green-600 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                                className="h-8 w-8 p-0"
+                                onClick={() =>
+                                  setLocation(`/invoices/${invoice.id}`)
+                                }
+                                data-testid={`button-view-invoice-${invoice.id}`}
+                              >
+                                <Eye size={14} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -1555,119 +1543,138 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  handleMarkAsPaid(invoice.id, e);
+                                  handleEditInvoice(invoice, e);
+                                }}
+                                disabled={!canEditInvoice(invoice)}
+                                data-testid={`button-edit-invoice-${invoice.id}`}
+                              >
+                                <Edit size={14} />
+                              </Button>
+                              {invoice.status !== "paid" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-600 dark:text-green-400 dark:hover:text-green-400"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleMarkAsPaid(invoice.id, e);
+                                  }}
+                                  disabled={
+                                    markAsPaidMutation.isPending ||
+                                    !permissions.canEditInvoice
+                                  }
+                                  data-testid={`button-mark-paid-${invoice.id}`}
+                                  title="Mark as Paid"
+                                >
+                                  <Check size={14} />
+                                </Button>
+                              )}
+                              {!invoice.quickbooksInvoiceId && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-400"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handlePostToQuickBooks(invoice.id, e);
+                                    }}
+                                    disabled={
+                                      postToQuickBooksMutation.isPending ||
+                                      !permissions.canPostToQuickBooks
+                                    }
+                                    data-testid={`button-post-to-quickbooks-${invoice.id}`}
+                                    title="Post actual invoice/bill to QuickBooks"
+                                  >
+                                    <FileDown size={14} />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-primary hover:text-primary"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleSyncToQuickBooks(invoice.id, e);
+                                    }}
+                                    disabled={
+                                      syncToQuickBooksMutation.isPending ||
+                                      !permissions.canPostToQuickBooks
+                                    }
+                                    data-testid={`button-sync-quickbooks-${invoice.id}`}
+                                    title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
+                                  >
+                                    <Send size={14} />
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteInvoice(invoice.id, e);
                                 }}
                                 disabled={
-                                  markAsPaidMutation.isPending ||
-                                  !permissions.canEditInvoice
+                                  deleteInvoiceMutation.isPending ||
+                                  !permissions.canDeleteInvoice
                                 }
-                                data-testid={`button-mark-paid-${invoice.id}`}
-                                title="Mark as Paid"
+                                data-testid={`button-delete-invoice-${invoice.id}`}
                               >
-                                <Check size={14} />
+                                <Trash2 size={14} />
                               </Button>
-                            )}
-                            {!invoice.quickbooksInvoiceId && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-400"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handlePostToQuickBooks(invoice.id, e);
-                                  }}
-                                  disabled={
-                                    postToQuickBooksMutation.isPending ||
-                                    !permissions.canPostToQuickBooks
-                                  }
-                                  data-testid={`button-post-to-quickbooks-${invoice.id}`}
-                                  title="Post actual invoice/bill to QuickBooks"
-                                >
-                                  <FileDown size={14} />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-primary hover:text-primary"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleSyncToQuickBooks(invoice.id, e);
-                                  }}
-                                  disabled={
-                                    syncToQuickBooksMutation.isPending ||
-                                    !permissions.canPostToQuickBooks
-                                  }
-                                  data-testid={`button-sync-quickbooks-${invoice.id}`}
-                                  title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
-                                >
-                                  <Send size={14} />
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleDeleteInvoice(invoice.id, e);
-                              }}
-                              disabled={
-                                deleteInvoiceMutation.isPending ||
-                                !permissions.canDeleteInvoice
-                              }
-                              data-testid={`button-delete-invoice-${invoice.id}`}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-2 text-sm font-medium text-foreground">
-                No invoices found
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm || statusFilter !== "all"
-                  ? "Try adjusting your search or filter criteria."
-                  : "Create your first invoice to get started."}
-              </p>
-              <Button
-                className="mt-4"
-                onClick={() => setShowInvoiceForm(true)}
-                disabled={!permissions.canCreateInvoice}
-                data-testid="button-create-first-invoice"
-              >
-                <Plus className="mr-2" size={16} />
-                Create Invoice
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                <h3 className="mt-2 text-sm font-medium text-foreground">
+                  No invoices found
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {searchTerm || statusFilter !== "all"
+                    ? "Try adjusting your search or filter criteria."
+                    : "Create your first invoice to get started."}
+                </p>
+                <Button
+                  className="mt-4"
+                  onClick={() => setShowInvoiceForm(true)}
+                  disabled={!permissions.canCreateInvoice}
+                  data-testid="button-create-first-invoice"
+                >
+                  <Plus className="mr-2" size={16} />
+                  Create Invoice
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </Tabs>
 
       {/* Invoice Form Modal */}
