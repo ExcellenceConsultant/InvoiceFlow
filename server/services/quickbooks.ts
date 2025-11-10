@@ -413,8 +413,9 @@ export class QuickBooksService {
     sku: string
   ): Promise<any> {
     try {
-      const escapedSKU = sku.replace(/'/g, "''");
-      console.log(`Searching for item with SKU: "${sku}"`);
+      const trimmedSKU = sku.trim();
+      const escapedSKU = trimmedSKU.replace(/'/g, "''");
+      console.log(`Searching for item with SKU: "${trimmedSKU}"`);
       
       const response = await axios.get(
         `${this.getBaseUrl()}/v3/company/${companyId}/query?query=SELECT * FROM Item WHERE Sku = '${escapedSKU}'`,
