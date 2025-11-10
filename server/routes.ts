@@ -2302,10 +2302,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             storage
           );
 
-          // Build invoice line items
+          // Build invoice line items (exclude 0-quantity scheme placeholders)
           const qbLineItems = [];
           for (const item of lineItems) {
             if (!item.productId) continue;
+            if (parseFloat(String(item.quantity)) <= 0) continue;
             const product = await storage.getProduct(item.productId);
             if (product && product.quickbooksItemId) {
               qbLineItems.push({
@@ -2371,10 +2372,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             storage
           );
 
-          // Build bill line items with item references
+          // Build bill line items with item references (exclude 0-quantity scheme placeholders)
           const qbLineItems = [];
           for (const item of lineItems) {
             if (!item.productId) continue;
+            if (parseFloat(String(item.quantity)) <= 0) continue;
             const product = await storage.getProduct(item.productId);
             if (product && product.quickbooksItemId) {
               qbLineItems.push({
