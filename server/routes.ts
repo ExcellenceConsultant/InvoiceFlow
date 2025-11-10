@@ -42,8 +42,8 @@ const upload = multer({
     } else {
       cb(
         new Error(
-          "Invalid file type. Only Excel (.xlsx, .xls) and CSV files are allowed.",
-        ),
+          "Invalid file type. Only Excel (.xlsx, .xls) and CSV files are allowed."
+        )
       );
     }
   },
@@ -199,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const tokens = await quickBooksService.exchangeCodeForTokens(
         code as string,
-        realmId as string,
+        realmId as string
       );
 
       console.log("QuickBooks tokens exchanged successfully");
@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const companyInfo = await quickBooksService.getCompanyInfo(
           tokens.accessToken,
-          tokens.companyId,
+          tokens.companyId
         );
         companyName =
           companyInfo?.CompanyName || companyInfo?.LegalName || null;
@@ -262,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const encodedMessage = encodeURIComponent(errorMessage);
       res.redirect(
-        `${origin}/#/quickbooks/auth#error=${errorType}&message=${encodedMessage}`,
+        `${origin}/#/quickbooks/auth#error=${errorType}&message=${encodedMessage}`
       );
     }
   });
@@ -280,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("QuickBooks disconnect error:", error);
         res.status(500).json({ message: "Failed to disconnect QuickBooks" });
       }
-    },
+    }
   );
 
   // Customer routes
@@ -336,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         res.status(500).json({ message: "Failed to update customer" });
       }
-    },
+    }
   );
 
   app.delete(
@@ -353,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         res.status(500).json({ message: "Failed to delete customer" });
       }
-    },
+    }
   );
 
   // Export customers/vendors to Excel
@@ -382,11 +382,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filename = "accounts.xlsx";
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${filename}"`,
+        `attachment; filename="${filename}"`
       );
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       );
       res.send(buffer);
     } catch (error) {
@@ -457,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               results.errors.push(
                 `Row ${i + 2}: ${validation.error.errors
                   .map((e) => e.message)
-                  .join(", ")}`,
+                  .join(", ")}`
               );
               continue;
             }
@@ -478,7 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Import error:", error);
         res.status(500).json({ message: "Failed to import data" });
       }
-    },
+    }
   );
 
   // Inventory movement report - Must be before other product routes
@@ -516,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const product of products) {
           // Get all line items for this product
           const productLineItems = allLineItems.filter(
-            (item: any) => item.productId === product.id,
+            (item: any) => item.productId === product.id
           );
 
           if (productLineItems.length > 0) {
@@ -576,11 +576,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Content-Disposition",
           `attachment; filename="Inventory_Movement_Report_${
             new Date().toISOString().split("T")[0]
-          }.xlsx"`,
+          }.xlsx"`
         );
         res.setHeader(
           "Content-Type",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
         res.send(buffer);
       } catch (error) {
@@ -589,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .status(500)
           .json({ message: "Failed to generate inventory movement report" });
       }
-    },
+    }
   );
 
   // Product routes
@@ -651,7 +651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const product = await storage.updateProduct(
         req.params.id,
-        validation.data,
+        validation.data
       );
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -705,7 +705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         res.status(500).json({ message: "Failed to fetch product variants" });
       }
-    },
+    }
   );
 
   app.post("/api/variants", isAuthenticated, async (req, res) => {
@@ -819,7 +819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Filter for AR invoices only
       const arInvoices = invoices.filter(
-        (inv) => inv.invoiceType === "receivable",
+        (inv) => inv.invoiceType === "receivable"
       );
 
       if (arInvoices.length === 0) {
@@ -856,7 +856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(
         "Creating invoice with data:",
-        JSON.stringify(req.body, null, 2),
+        JSON.stringify(req.body, null, 2)
       );
       const { invoice, lineItems } = req.body;
 
@@ -872,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!invoiceValidation.success) {
         console.error(
           "Invoice validation failed:",
-          invoiceValidation.error.errors,
+          invoiceValidation.error.errors
         );
         return res.status(400).json({
           message: "Invalid invoice data",
@@ -900,7 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (error) {
               console.error(
                 `Failed to check inventory for product ${item.productId}:`,
-                error,
+                error
               );
             }
           }
@@ -920,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create line items with scheme application
       const createdLineItems = [];
       const hasFrontendFreeItems = lineItems.some(
-        (li: any) => li.isFreeFromScheme,
+        (li: any) => li.isFreeFromScheme
       );
 
       for (const item of lineItems) {
@@ -937,7 +937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (lineItemValidation.success) {
           const lineItem = await storage.createLineItem(
-            lineItemValidation.data,
+            lineItemValidation.data
           );
           createdLineItems.push(lineItem);
 
@@ -948,7 +948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               (scheme) =>
                 scheme.productId === item.productId &&
                 scheme.isActive &&
-                item.quantity >= scheme.buyQuantity,
+                item.quantity >= scheme.buyQuantity
             );
 
             if (applicableScheme) {
@@ -977,7 +977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "Line item validation failed:",
             lineItemValidation.error.errors,
             "for item:",
-            item,
+            item
           );
         }
       }
@@ -994,7 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (invoice.invoiceType === "receivable") {
                 newQty = Math.max(0, currentProduct.qty - item.quantity);
                 console.log(
-                  `Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`,
+                  `Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`
                 );
 
                 // Update only quantity, keep prices as manually set in inventory
@@ -1007,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else if (invoice.invoiceType === "payable") {
                 newQty = currentProduct.qty + item.quantity;
                 console.log(
-                  `Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`,
+                  `Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (purchased ${item.quantity})`
                 );
 
                 // Update only quantity, keep prices as manually set in inventory
@@ -1023,7 +1023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (inventoryError) {
             console.error(
               `Failed to update inventory for product ${item.productId}:`,
-              inventoryError,
+              inventoryError
             );
             // Don't fail the entire invoice creation if inventory update fails
           }
@@ -1042,17 +1042,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (currentProduct) {
               const newQty = Math.max(
                 0,
-                currentProduct.qty - lineItem.quantity,
+                currentProduct.qty - lineItem.quantity
               );
               console.log(
-                `Reducing inventory for free scheme item ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (free quantity ${lineItem.quantity})`,
+                `Reducing inventory for free scheme item ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (free quantity ${lineItem.quantity})`
               );
               await storage.updateProduct(lineItem.productId, { qty: newQty });
             }
           } catch (inventoryError) {
             console.error(
               `Failed to update inventory for free scheme item ${lineItem.productId}:`,
-              inventoryError,
+              inventoryError
             );
           }
         }
@@ -1115,22 +1115,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Separate and sort invoices by type
       const otherApInvoices = allInvoices
         .filter(
-          (inv) => inv.invoiceType === "payable" && inv.id !== req.params.id,
+          (inv) => inv.invoiceType === "payable" && inv.id !== req.params.id
         )
         .sort(
           (a, b) =>
             new Date(b.invoiceDate).getTime() -
-            new Date(a.invoiceDate).getTime(),
+            new Date(a.invoiceDate).getTime()
         );
 
       const otherArInvoices = allInvoices
         .filter(
-          (inv) => inv.invoiceType === "receivable" && inv.id !== req.params.id,
+          (inv) => inv.invoiceType === "receivable" && inv.id !== req.params.id
         )
         .sort(
           (a, b) =>
             new Date(b.invoiceDate).getTime() -
-            new Date(a.invoiceDate).getTime(),
+            new Date(a.invoiceDate).getTime()
         );
 
       // Cache line items for all relevant invoices to avoid repeated queries
@@ -1165,7 +1165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const otherInv of otherApInvoices) {
             const cachedItems = lineItemsCache.get(otherInv.id) || [];
             const matchingItem = cachedItems.find(
-              (li) => li.productId === productId,
+              (li) => li.productId === productId
             );
             if (matchingItem) {
               latestBasePrice = matchingItem.unitPrice;
@@ -1175,7 +1175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error) {
           console.error(
             `Error finding Base Price for product ${productId}:`,
-            error,
+            error
           );
         }
 
@@ -1185,7 +1185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const otherInv of otherArInvoices) {
             const cachedItems = lineItemsCache.get(otherInv.id) || [];
             const matchingItem = cachedItems.find(
-              (li) => li.productId === productId,
+              (li) => li.productId === productId
             );
             if (matchingItem) {
               latestSalesPrice = matchingItem.unitPrice;
@@ -1195,7 +1195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error) {
           console.error(
             `Error finding Sales Price for product ${productId}:`,
-            error,
+            error
           );
         }
 
@@ -1217,14 +1217,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const latestBasePrice = priceInfo?.basePrice || "0.00";
 
                 console.log(
-                  `Reverting AP invoice deletion: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
+                  `Reverting AP invoice deletion: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`
                 );
                 console.log(
                   `Updating Base Price for product ${
                     currentProduct.name
                   } to $${parseFloat(latestBasePrice).toFixed(
-                    2,
-                  )} after AP invoice deletion`,
+                    2
+                  )} after AP invoice deletion`
                 );
 
                 await storage.updateProduct(item.productId, {
@@ -1235,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (inventoryError) {
               console.error(
                 `Failed to revert inventory for product ${item.productId}:`,
-                inventoryError,
+                inventoryError
               );
             }
           }
@@ -1254,14 +1254,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const latestSalesPrice = priceInfo?.salesPrice || "0.00";
 
                 console.log(
-                  `Reverting AR invoice deletion: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${item.quantity})`,
+                  `Reverting AR invoice deletion: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${item.quantity})`
                 );
                 console.log(
                   `Updating Sales Price for product ${
                     currentProduct.name
                   } to $${parseFloat(latestSalesPrice).toFixed(
-                    2,
-                  )} after AR invoice deletion`,
+                    2
+                  )} after AR invoice deletion`
                 );
 
                 await storage.updateProduct(item.productId, {
@@ -1272,7 +1272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (inventoryError) {
               console.error(
                 `Failed to revert inventory for product ${item.productId}:`,
-                inventoryError,
+                inventoryError
               );
             }
           }
@@ -1313,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(
         "Updating invoice with data:",
-        JSON.stringify(req.body, null, 2),
+        JSON.stringify(req.body, null, 2)
       );
       const { invoice: invoiceData, lineItems } = req.body;
       const invoiceId = req.params.id;
@@ -1340,23 +1340,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (oldItem.productId && oldItem.productId.trim() !== "") {
             try {
               const currentProduct = await storage.getProduct(
-                oldItem.productId,
+                oldItem.productId
               );
               if (currentProduct) {
                 // Subtract the old quantity
                 const newQty = Math.max(
                   0,
-                  currentProduct.qty - oldItem.quantity,
+                  currentProduct.qty - oldItem.quantity
                 );
                 console.log(
-                  `Reverting old AP line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${oldItem.quantity})`,
+                  `Reverting old AP line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${oldItem.quantity})`
                 );
                 await storage.updateProduct(oldItem.productId, { qty: newQty });
               }
             } catch (inventoryError) {
               console.error(
                 `Failed to revert inventory for product ${oldItem.productId}:`,
-                inventoryError,
+                inventoryError
               );
             }
           }
@@ -1369,20 +1369,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (oldItem.productId && oldItem.productId.trim() !== "") {
             try {
               const currentProduct = await storage.getProduct(
-                oldItem.productId,
+                oldItem.productId
               );
               if (currentProduct) {
                 // Add back the old quantity
                 const newQty = currentProduct.qty + oldItem.quantity;
                 console.log(
-                  `Reverting old AR line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${oldItem.quantity})`,
+                  `Reverting old AR line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${oldItem.quantity})`
                 );
                 await storage.updateProduct(oldItem.productId, { qty: newQty });
               }
             } catch (inventoryError) {
               console.error(
                 `Failed to revert inventory for product ${oldItem.productId}:`,
-                inventoryError,
+                inventoryError
               );
             }
           }
@@ -1425,7 +1425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (lineItemValidation.success) {
           const lineItem = await storage.createLineItem(
-            lineItemValidation.data,
+            lineItemValidation.data
           );
           createdLineItems.push(lineItem);
         } else {
@@ -1433,7 +1433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "Line item validation failed:",
             lineItemValidation.error.errors,
             "for item:",
-            item,
+            item
           );
         }
       }
@@ -1448,7 +1448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Add the new quantity
                 const newQty = currentProduct.qty + item.quantity;
                 console.log(
-                  `Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`,
+                  `Applying new AP line item: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding ${item.quantity})`
                 );
 
                 // Update only quantity, keep prices as manually set in inventory
@@ -1459,7 +1459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (inventoryError) {
               console.error(
                 `Failed to update inventory for product ${item.productId}:`,
-                inventoryError,
+                inventoryError
               );
             }
           }
@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Subtract the new quantity
                 const newQty = Math.max(0, currentProduct.qty - item.quantity);
                 console.log(
-                  `Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
+                  `Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`
                 );
 
                 // Update only quantity, keep prices as manually set in inventory
@@ -1487,7 +1487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (inventoryError) {
               console.error(
                 `Failed to update inventory for product ${item.productId}:`,
-                inventoryError,
+                inventoryError
               );
             }
           }
@@ -1531,7 +1531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           qbCustomer = await quickBooksService.findCustomerByDisplayName(
             validQbConfig.accessToken,
             validQbConfig.companyId,
-            customer.name,
+            customer.name
           );
 
           if (qbCustomer) {
@@ -1544,11 +1544,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (lookupError: any) {
           console.error(
             "Customer lookup failed:",
-            lookupError.response?.data || lookupError.message,
+            lookupError.response?.data || lookupError.message
           );
           console.error(
             "Lookup error details:",
-            JSON.stringify(lookupError.response?.data, null, 2),
+            JSON.stringify(lookupError.response?.data, null, 2)
           );
           // Continue to creation if lookup fails
           qbCustomer = null;
@@ -1557,7 +1557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Step 2: If customer doesn't exist, create it
         if (!qbCustomer) {
           console.log(
-            `Customer "${customer.name}" not found in QuickBooks. Creating new customer...`,
+            `Customer "${customer.name}" not found in QuickBooks. Creating new customer...`
           );
 
           const qbCustomerData = {
@@ -1568,7 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             qbCustomer = await quickBooksService.createCustomer(
               validQbConfig.accessToken,
               validQbConfig.companyId,
-              qbCustomerData,
+              qbCustomerData
             );
 
             console.log(`Successfully created new customer in QuickBooks:`, {
@@ -1579,11 +1579,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (createError: any) {
             console.error(
               "Customer creation failed:",
-              createError.response?.data || createError.message,
+              createError.response?.data || createError.message
             );
             console.error(
               "Creation error details:",
-              JSON.stringify(createError.response?.data, null, 2),
+              JSON.stringify(createError.response?.data, null, 2)
             );
             const errorMessage =
               createError.response?.data?.Fault?.Error?.[0]?.Detail ||
@@ -1610,11 +1610,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const err = error as any;
         console.error(
           "QuickBooks customer sync error:",
-          err.response?.data || err.message,
+          err.response?.data || err.message
         );
         console.error(
           "Full error details:",
-          JSON.stringify(err.response?.data, null, 2),
+          JSON.stringify(err.response?.data, null, 2)
         );
         const errorMessage =
           err.response?.data?.Fault?.Error?.[0]?.Detail ||
@@ -1622,7 +1622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Failed to sync customer with QuickBooks";
         res.status(500).json({ message: errorMessage });
       }
-    },
+    }
   );
 
   app.post(
@@ -1689,7 +1689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           qbItem = await quickBooksService.createItem(
             validQbConfig.accessToken,
             validQbConfig.companyId,
-            qbItemData,
+            qbItemData
           );
         }
 
@@ -1698,24 +1698,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quickbooksItemId: qbItem.Id,
         });
 
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           quickbooksItemId: qbItem.Id,
           action: existingItem ? "found" : "created",
-          itemType: qbItem.Type
+          itemType: qbItem.Type,
         });
       } catch (error: unknown) {
         const err = error as any;
         console.error(
           "QuickBooks product sync error:",
-          err.response?.data || err.message,
+          err.response?.data || err.message
         );
         const errorMessage =
           err.response?.data?.Fault?.Error?.[0]?.Detail ||
           "Failed to sync product with QuickBooks";
         res.status(500).json({ message: errorMessage });
       }
-    },
+    }
   );
 
   // Helper function to ensure valid QuickBooks tokens (system-wide)
@@ -1724,7 +1724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     if (!qbConfig || !qbConfig.refreshToken) {
       throw new Error(
-        "No refresh token available. Please reconnect to QuickBooks.",
+        "No refresh token available. Please reconnect to QuickBooks."
       );
     }
 
@@ -1740,7 +1740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("QuickBooks token expired or expiring soon, refreshing...");
       try {
         const refreshedTokens = await quickBooksService.refreshAccessToken(
-          qbConfig.refreshToken,
+          qbConfig.refreshToken
         );
 
         // Update system settings with new tokens
@@ -1758,7 +1758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (tokenError) {
         console.error("Failed to refresh QuickBooks tokens:", tokenError);
         throw new Error(
-          "QuickBooks token refresh failed. Please reconnect to QuickBooks.",
+          "QuickBooks token refresh failed. Please reconnect to QuickBooks."
         );
       }
     }
@@ -1795,7 +1795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invoice,
             validQbConfig,
             storage,
-            res,
+            res
           );
         } else if (invoiceType === "payable") {
           // Handle Accounts Payable (AP) Invoice (Bill)
@@ -1803,7 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invoice,
             validQbConfig,
             storage,
-            res,
+            res
           );
         } else {
           return res.status(400).json({
@@ -1814,11 +1814,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const err = error as any;
         console.error(
           "QuickBooks invoice sync error:",
-          err.response?.data || err.message,
+          err.response?.data || err.message
         );
         console.error(
           "Full error details:",
-          JSON.stringify(err.response?.data, null, 2),
+          JSON.stringify(err.response?.data, null, 2)
         );
 
         // Extract detailed error information
@@ -1844,7 +1844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errorDetails: fullErrorDetails,
         });
       }
-    },
+    }
   );
 
   // Helper function to handle AR invoice sync - Creates Journal Entry instead of Invoice
@@ -1853,10 +1853,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     invoice: any,
     qbConfig: any,
     storage: any,
-    res: any,
+    res: any
   ) {
     console.log(
-      `Creating QuickBooks Journal Entry for AP invoice ${invoice.invoiceNumber}`,
+      `Creating QuickBooks Journal Entry for AP invoice ${invoice.invoiceNumber}`
     );
 
     // Find or create vendor in QuickBooks
@@ -1871,7 +1871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       qbConfig,
       customer.name,
       customer.id,
-      storage,
+      storage
     );
 
     // Get invoice line items to calculate total
@@ -1901,7 +1901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Ensure we have a valid amount
     if (totalAmount === 0) {
       throw new Error(
-        "AP Invoice total amount is 0. Cannot create journal entry.",
+        "AP Invoice total amount is 0. Cannot create journal entry."
       );
     }
 
@@ -1950,14 +1950,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     console.log(
       "Creating AP QuickBooks Journal Entry with data:",
-      JSON.stringify(journalEntryData, null, 2),
+      JSON.stringify(journalEntryData, null, 2)
     );
 
     // Call QuickBooks API to create journal entry
     const qbJournalEntry = await quickBooksService.createJournalEntry(
       qbConfig.accessToken,
       qbConfig.companyId,
-      journalEntryData,
+      journalEntryData
     );
 
     // Update invoice with QuickBooks Journal Entry ID
@@ -1980,13 +1980,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     invoice: any,
     qbConfig: any,
     storage: any,
-    res: any,
+    res: any
   ) {
     const isUpdate = !!invoice.quickbooksInvoiceId;
     console.log(
       `${
         isUpdate ? "Updating" : "Creating"
-      } QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`,
+      } QuickBooks Journal Entry for AR invoice ${invoice.invoiceNumber}`
     );
 
     // Find or create customer in QuickBooks
@@ -2001,7 +2001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       qbConfig,
       customer.name,
       customer.id,
-      storage,
+      storage
     );
 
     // Get amounts from invoice
@@ -2023,7 +2023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Ensure we have a valid total amount
     if (total === 0) {
       throw new Error(
-        "Invoice total amount is 0. Cannot create journal entry.",
+        "Invoice total amount is 0. Cannot create journal entry."
       );
     }
 
@@ -2111,12 +2111,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (isUpdate) {
       // Get existing journal entry to retrieve SyncToken
       console.log(
-        `Retrieving existing journal entry ${invoice.quickbooksInvoiceId} for update`,
+        `Retrieving existing journal entry ${invoice.quickbooksInvoiceId} for update`
       );
       const existingJE = await quickBooksService.getJournalEntry(
         qbConfig.accessToken,
         qbConfig.companyId,
-        invoice.quickbooksInvoiceId,
+        invoice.quickbooksInvoiceId
       );
 
       const journalEntryData = {
@@ -2129,13 +2129,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(
         "Updating QuickBooks Journal Entry with data:",
-        JSON.stringify(journalEntryData, null, 2),
+        JSON.stringify(journalEntryData, null, 2)
       );
 
       qbJournalEntry = await quickBooksService.updateJournalEntry(
         qbConfig.accessToken,
         qbConfig.companyId,
-        journalEntryData,
+        journalEntryData
       );
     } else {
       const journalEntryData = {
@@ -2146,13 +2146,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(
         "Creating QuickBooks Journal Entry with data:",
-        JSON.stringify(journalEntryData, null, 2),
+        JSON.stringify(journalEntryData, null, 2)
       );
 
       qbJournalEntry = await quickBooksService.createJournalEntry(
         qbConfig.accessToken,
         qbConfig.companyId,
-        journalEntryData,
+        journalEntryData
       );
 
       // Update invoice with QuickBooks journal entry ID for first time
@@ -2207,7 +2207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Get line items
         const lineItems = await storage.getInvoiceLineItems(invoice.id);
-        
+
         // Sync all products first - fail fast if any product sync fails
         const failedProducts: string[] = [];
         for (const item of lineItems) {
@@ -2237,7 +2237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (existingItem) {
                 // Update local product with existing QB item ID
                 await storage.updateProduct(product.id, {
-                  quickbooksItemId: existingItem.Id
+                  quickbooksItemId: existingItem.Id,
                 });
               } else {
                 // Create new item - use inventory type with SKU if item code exists
@@ -2255,7 +2255,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   qbItemData.AssetAccountRef = { value: "81" }; // Inventory Asset
                   qbItemData.TrackQtyOnHand = true;
                   qbItemData.QtyOnHand = 0;
-                  qbItemData.InvStartDate = new Date().toISOString().split("T")[0];
+                  qbItemData.InvStartDate = new Date()
+                    .toISOString()
+                    .split("T")[0];
                 }
 
                 const qbItem = await quickBooksService.createItem(
@@ -2266,11 +2268,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 // Update local product with QB item ID
                 await storage.updateProduct(product.id, {
-                  quickbooksItemId: qbItem.Id
+                  quickbooksItemId: qbItem.Id,
                 });
               }
             } catch (itemError: any) {
-              console.error(`Failed to sync product ${product.name}:`, itemError);
+              console.error(
+                `Failed to sync product ${product.name}:`,
+                itemError
+              );
               failedProducts.push(product.name);
             }
           }
@@ -2279,8 +2284,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If any products failed to sync, return error immediately
         if (failedProducts.length > 0) {
           return res.status(500).json({
-            message: `Failed to sync ${failedProducts.length} product(s) to QuickBooks. Please sync these products first: ${failedProducts.join(", ")}`,
-            failedProducts
+            message: `Failed to sync ${
+              failedProducts.length
+            } product(s) to QuickBooks. Please sync these products first: ${failedProducts.join(
+              ", "
+            )}`,
+            failedProducts,
           });
         }
 
@@ -2315,11 +2324,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 SalesItemLineDetail: {
                   ItemRef: {
                     value: product.quickbooksItemId,
-                    name: product.name
+                    name: product.name,
                   },
                   UnitPrice: parseFloat(item.unitPrice),
-                  Qty: parseFloat(String(item.quantity))
-                }
+                  Qty: parseFloat(String(item.quantity)),
+                },
               });
             }
           }
@@ -2327,7 +2336,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Validate that we have at least one line item
           if (qbLineItems.length === 0) {
             return res.status(400).json({
-              message: "No valid line items found. Please ensure all products are synced to QuickBooks."
+              message:
+                "No valid line items found. Please ensure all products are synced to QuickBooks.",
             });
           }
 
@@ -2336,7 +2346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             TxnDate: invoice.invoiceDate.toISOString().split("T")[0],
             DocNumber: invoice.invoiceNumber,
             PrivateNote: `Invoice from InvoiceFlow`,
-            Line: qbLineItems
+            Line: qbLineItems,
           };
 
           const qbInvoice = await quickBooksService.createInvoice(
@@ -2345,18 +2355,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invoiceData
           );
 
-          // Update local invoice with QB invoice ID
-          await storage.updateInvoice(invoice.id, {
-            quickbooksInvoiceId: qbInvoice.Id
-          });
+          // Update local invoice with QB invoice ID (and mark as sent if it was draft)
+          const invoiceUpdates: Record<string, any> = {
+            quickbooksInvoiceId: qbInvoice.Id,
+          };
+          if ((invoice as any).status === "draft") {
+            invoiceUpdates.status = "sent";
+          }
+          await storage.updateInvoice(invoice.id, invoiceUpdates);
 
           return res.json({
             success: true,
             message: "AR Invoice posted to QuickBooks",
             docNumber: qbInvoice.DocNumber,
-            quickbooksId: qbInvoice.Id
+            quickbooksId: qbInvoice.Id,
           });
-
         } else if (invoiceType === "payable") {
           // Handle AP bill
           const vendor = await storage.getCustomer(invoice.customerId!);
@@ -2385,11 +2398,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ItemBasedExpenseLineDetail: {
                   ItemRef: {
                     value: product.quickbooksItemId,
-                    name: product.name
+                    name: product.name,
                   },
                   UnitPrice: parseFloat(item.unitPrice),
-                  Qty: parseFloat(String(item.quantity))
-                }
+                  Qty: parseFloat(String(item.quantity)),
+                },
               });
             }
           }
@@ -2397,7 +2410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Validate that we have at least one line item
           if (qbLineItems.length === 0) {
             return res.status(400).json({
-              message: "No line items found in this invoice."
+              message: "No line items found in this invoice.",
             });
           }
 
@@ -2406,7 +2419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             TxnDate: invoice.invoiceDate.toISOString().split("T")[0],
             DocNumber: invoice.invoiceNumber,
             PrivateNote: `Bill from InvoiceFlow`,
-            Line: qbLineItems
+            Line: qbLineItems,
           };
 
           const qbBill = await quickBooksService.createBill(
@@ -2415,36 +2428,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             billData
           );
 
-          // Update local invoice with QB bill ID
-          await storage.updateInvoice(invoice.id, {
-            quickbooksInvoiceId: qbBill.Id
-          });
+          // Update local invoice with QB bill ID (and mark as sent if it was draft)
+          const billUpdates: Record<string, any> = {
+            quickbooksInvoiceId: qbBill.Id,
+          };
+          if ((invoice as any).status === "draft") {
+            billUpdates.status = "sent";
+          }
+          await storage.updateInvoice(invoice.id, billUpdates);
 
           return res.json({
             success: true,
             message: "AP Bill posted to QuickBooks",
             docNumber: qbBill.DocNumber,
-            quickbooksId: qbBill.Id
+            quickbooksId: qbBill.Id,
           });
         } else {
           return res.status(400).json({
-            message: "Invalid invoice type"
+            message: "Invalid invoice type",
           });
         }
       } catch (error: any) {
         console.error("Invoice post error:", error);
-        
+
         // Extract QuickBooks error details if available
         const qbError = error.response?.data?.Fault?.Error?.[0];
-        const errorMessage = qbError?.Detail || qbError?.Message || error.message || "Failed to post invoice to QuickBooks";
-        
+        const errorMessage =
+          qbError?.Detail ||
+          qbError?.Message ||
+          error.message ||
+          "Failed to post invoice to QuickBooks";
+
         return res.status(500).json({
           message: errorMessage,
-          errorDetails: qbError ? {
-            code: qbError.code,
-            detail: qbError.Detail,
-            element: qbError.element
-          } : null
+          errorDetails: qbError
+            ? {
+                code: qbError.code,
+                detail: qbError.Detail,
+                element: qbError.element,
+              }
+            : null,
         });
       }
     }
@@ -2455,17 +2478,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     qbConfig: any,
     customerName: string,
     customerId: string,
-    storage: any,
+    storage: any
   ) {
     // Trim customer name to avoid leading/trailing space issues
     const trimmedName = customerName.trim();
-    
+
     let qbCustomer;
     try {
       qbCustomer = await quickBooksService.findCustomerByDisplayName(
         qbConfig.accessToken,
         qbConfig.companyId,
-        trimmedName,
+        trimmedName
       );
 
       if (qbCustomer) {
@@ -2478,7 +2501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (lookupError: any) {
       console.error(
         "Customer lookup failed:",
-        lookupError.response?.data || lookupError.message,
+        lookupError.response?.data || lookupError.message
       );
     }
 
@@ -2491,7 +2514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     qbCustomer = await quickBooksService.createCustomer(
       qbConfig.accessToken,
       qbConfig.companyId,
-      qbCustomerData,
+      qbCustomerData
     );
 
     // Update local customer record with QuickBooks ID
@@ -2506,17 +2529,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     qbConfig: any,
     vendorName: string,
     customerId: string,
-    storage: any,
+    storage: any
   ) {
     // Trim vendor name to avoid leading/trailing space issues
     const trimmedName = vendorName.trim();
-    
+
     let qbVendor;
     try {
       qbVendor = await quickBooksService.findVendorByDisplayName(
         qbConfig.accessToken,
         qbConfig.companyId,
-        trimmedName,
+        trimmedName
       );
 
       if (qbVendor) {
@@ -2529,7 +2552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (lookupError: any) {
       console.error(
         "Vendor lookup failed:",
-        lookupError.response?.data || lookupError.message,
+        lookupError.response?.data || lookupError.message
       );
     }
 
@@ -2542,7 +2565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     qbVendor = await quickBooksService.createVendor(
       qbConfig.accessToken,
       qbConfig.companyId,
-      qbVendorData,
+      qbVendorData
     );
 
     // Update local customer record with QuickBooks Vendor ID (for AP invoices, customer record holds vendor info)
@@ -2567,7 +2590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const accounts = await quickBooksService.getAccounts(
         validQbConfig.accessToken,
-        validQbConfig.companyId,
+        validQbConfig.companyId
       );
 
       // Format accounts for easy reading
@@ -2604,35 +2627,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate total revenue from AR (receivable) invoices only
       const receivableInvoices = invoices.filter(
-        (invoice) => invoice.invoiceType === "receivable",
+        (invoice) => invoice.invoiceType === "receivable"
       );
       const totalRevenue = receivableInvoices.reduce(
         (sum, invoice) => sum + parseFloat(invoice.total),
-        0,
+        0
       );
       console.log(
         `[STATS] AR Invoices: ${
           receivableInvoices.length
-        }, Total Revenue: $${totalRevenue.toFixed(2)}`,
+        }, Total Revenue: $${totalRevenue.toFixed(2)}`
       );
 
       // Calculate total purchase from AP (payable) invoices only
       const payableInvoices = invoices.filter(
-        (invoice) => invoice.invoiceType === "payable",
+        (invoice) => invoice.invoiceType === "payable"
       );
       const totalPurchase = payableInvoices.reduce(
         (sum, invoice) => sum + parseFloat(invoice.total),
-        0,
+        0
       );
       console.log(
         `[STATS] AP Invoices: ${
           payableInvoices.length
-        }, Total Purchase: $${totalPurchase.toFixed(2)}`,
+        }, Total Purchase: $${totalPurchase.toFixed(2)}`
       );
 
       // Count active invoices (sent or draft status)
       const activeInvoices = invoices.filter(
-        (invoice) => invoice.status === "sent" || invoice.status === "draft",
+        (invoice) => invoice.status === "sent" || invoice.status === "draft"
       ).length;
 
       // Count products in stock using product.qty field
@@ -2681,7 +2704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (invoice) =>
             invoice.quickbooksInvoiceId !== null &&
             invoice.quickbooksInvoiceId !== undefined &&
-            invoice.quickbooksInvoiceId !== "",
+            invoice.quickbooksInvoiceId !== ""
         ).length;
 
         res.json({ count: journalEntryCount });
@@ -2691,7 +2714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .status(500)
           .json({ message: "Failed to fetch journal entry count" });
       }
-    },
+    }
   );
 
   // Migration endpoint: Recalculate all inventory quantities from invoices
@@ -2703,7 +2726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = (req as any).user?.userId;
 
         console.log(
-          "Starting optimized inventory recalculation from invoices...",
+          "Starting optimized inventory recalculation from invoices..."
         );
 
         // Get all products
@@ -2730,12 +2753,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (invoice.invoiceType === "payable") {
                 productQuantityMap.set(
                   item.productId,
-                  currentQty + item.quantity,
+                  currentQty + item.quantity
                 );
               } else if (invoice.invoiceType === "receivable") {
                 productQuantityMap.set(
                   item.productId,
-                  currentQty - item.quantity,
+                  currentQty - item.quantity
                 );
               }
             }
@@ -2743,7 +2766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         console.log(
-          `Calculated quantities for ${productQuantityMap.size} products`,
+          `Calculated quantities for ${productQuantityMap.size} products`
         );
 
         // Update all products
@@ -2755,7 +2778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (product.qty !== finalQty) {
             console.log(
-              `Updating ${product.name}: ${product.qty} → ${finalQty}`,
+              `Updating ${product.name}: ${product.qty} → ${finalQty}`
             );
 
             await storage.updateProduct(product.id, {
@@ -2767,7 +2790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         console.log(
-          `Recalculation complete: Updated ${updatedProductsCount} products`,
+          `Recalculation complete: Updated ${updatedProductsCount} products`
         );
 
         res.json({
@@ -2784,7 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: err.message,
         });
       }
-    },
+    }
   );
 
   // Migration endpoint: Update Sales Price from existing AR invoices
@@ -2796,13 +2819,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = (req as any).user?.userId;
 
         console.log(
-          "Starting Sales Price migration from existing AR invoices...",
+          "Starting Sales Price migration from existing AR invoices..."
         );
 
         // Get all AR invoices
         const allInvoices = await storage.getInvoices(userId);
         const arInvoices = allInvoices.filter(
-          (invoice) => invoice.invoiceType === "receivable",
+          (invoice) => invoice.invoiceType === "receivable"
         );
 
         console.log(`Found ${arInvoices.length} AR invoices to process`);
@@ -2848,7 +2871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(
               `Updating Sales Price for product ${
                 update.productName
-              }: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`,
+              }: $${currentSalesPrice.toFixed(2)} → $${newRate.toFixed(2)}`
             );
 
             await storage.updateProduct(update.productId, {
@@ -2860,7 +2883,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         console.log(
-          `Migration complete: Updated Sales Price for ${updatedProductsCount} products`,
+          `Migration complete: Updated Sales Price for ${updatedProductsCount} products`
         );
 
         res.json({
@@ -2876,7 +2899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: err.message,
         });
       }
-    },
+    }
   );
 
   const httpServer = createServer(app);
