@@ -2457,12 +2457,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     customerId: string,
     storage: any,
   ) {
+    // Trim customer name to avoid leading/trailing space issues
+    const trimmedName = customerName.trim();
+    
     let qbCustomer;
     try {
       qbCustomer = await quickBooksService.findCustomerByDisplayName(
         qbConfig.accessToken,
         qbConfig.companyId,
-        customerName,
+        trimmedName,
       );
 
       if (qbCustomer) {
@@ -2480,9 +2483,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // Create customer if not found
-    console.log(`Creating customer "${customerName}" in QuickBooks...`);
+    console.log(`Creating customer "${trimmedName}" in QuickBooks...`);
     const qbCustomerData = {
-      DisplayName: customerName,
+      DisplayName: trimmedName,
     };
 
     qbCustomer = await quickBooksService.createCustomer(
@@ -2505,12 +2508,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     customerId: string,
     storage: any,
   ) {
+    // Trim vendor name to avoid leading/trailing space issues
+    const trimmedName = vendorName.trim();
+    
     let qbVendor;
     try {
       qbVendor = await quickBooksService.findVendorByDisplayName(
         qbConfig.accessToken,
         qbConfig.companyId,
-        vendorName,
+        trimmedName,
       );
 
       if (qbVendor) {
@@ -2528,9 +2534,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // Create vendor if not found
-    console.log(`Creating vendor "${vendorName}" in QuickBooks...`);
+    console.log(`Creating vendor "${trimmedName}" in QuickBooks...`);
     const qbVendorData = {
-      DisplayName: vendorName,
+      DisplayName: trimmedName,
     };
 
     qbVendor = await quickBooksService.createVendor(
