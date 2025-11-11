@@ -30,52 +30,20 @@ export default function Dashboard() {
     queryKey: ["/api/auth/user"],
   });
 
-  const { data: allInvoices } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices"],
-  });
+  // Mock data for recent invoices
+  const invoices = [
+    { id: 1217, client: "Manan Yadav", amount: 35.33, status: "draft" },
+    { id: 1216, client: "Patel Brothers - Hamilton", amount: 3522.44, status: "draft" },
+    { id: 1215, client: "Patel Brothers - North Brunswick", amount: 3413.39, status: "sent" },
+    { id: 1214, client: "XYZ Imports", amount: 1245.00, status: "paid" },
+  ];
 
-  const { data: customers } = useQuery<any[]>({
-    queryKey: ["/api/customers"],
-  });
-
-  const customerNameMap = useMemo(() => {
-    if (!customers) return {};
-    return customers.reduce(
-      (acc: Record<string, string>, customer: any) => {
-        const name =
-          customer.name ||
-          customer.companyName ||
-          customer.displayName ||
-          customer.businessName ||
-          customer.contactName ||
-          "";
-        if (customer.id) {
-          acc[customer.id] = name;
-        }
-        return acc;
-      },
-      {} as Record<string, string>,
-    );
-  }, [customers]);
-
-  // Get only the 3 most recent invoices for dashboard display (sorted by latest date)
+  // Get only the 3 most recent invoices (sorted by highest ID)
   const recentInvoices = useMemo(() => {
-    if (!allInvoices) return [];
-
-    const parseDate = (invoice: any) => {
-      const dateSource =
-        invoice.invoiceDate ||
-        invoice.dueDate ||
-        invoice.createdAt ||
-        invoice.updatedAt;
-      const dateValue = dateSource ? new Date(dateSource).getTime() : 0;
-      return Number.isFinite(dateValue) ? dateValue : 0;
-    };
-
-    return [...allInvoices]
-      .sort((a, b) => parseDate(b) - parseDate(a))
+    return [...invoices]
+      .sort((a, b) => b.id - a.id)
       .slice(0, 3);
-  }, [allInvoices]);
+  }, []);
 
   const { data: journalEntryCount } = useQuery<{ count: number }>({
     queryKey: ["/api/quickbooks/journal-entry-count"],
@@ -247,7 +215,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-3">
               {recentInvoices?.length ? (
-                recentInvoices.map((invoice: any) => (
+                recentInvoices.map((invoice) => (
                   <div
                     key={invoice.id}
                     className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
@@ -262,19 +230,13 @@ export default function Dashboard() {
                           className="font-medium text-foreground"
                           data-testid={`invoice-number-${invoice.id}`}
                         >
-                          {invoice.invoiceNumber}
+                          #{invoice.id}
                         </p>
                         <p
                           className="text-sm text-muted-foreground"
                           data-testid={`invoice-customer-${invoice.id}`}
                         >
-                          {(invoice.customer?.name ??
-                            (invoice.customerId
-                              ? customerNameMap[invoice.customerId]
-                              : undefined)) ||
-                            (invoice.customerId
-                              ? `Customer #${invoice.customerId}`
-                              : "Customer")}
+                          {invoice.client}
                         </p>
                       </div>
                     </div>
@@ -283,13 +245,15 @@ export default function Dashboard() {
                         className="font-medium text-foreground"
                         data-testid={`invoice-total-${invoice.id}`}
                       >
-                        {formatCurrency(invoice.total)}
+                        {formatCurrency(invoice.amount)}
                       </p>
                       <Badge
                         className={
-                          INVOICE_STATUS_COLORS[
-                            invoice.status as keyof typeof INVOICE_STATUS_COLORS
-                          ]
+                          invoice.status === "sent"
+                            ? "bg-green-500 text-white hover:bg-green-600"
+                            : invoice.status === "paid"
+                            ? "bg-blue-500 text-white hover:bg-blue-600"
+                            : "bg-gray-500 text-white hover:bg-gray-600"
                         }
                         data-testid={`invoice-status-${invoice.id}`}
                       >
