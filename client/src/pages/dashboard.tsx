@@ -32,10 +32,10 @@ export default function Dashboard() {
 
   // Mock data for recent invoices
   const invoices = [
-    { id: 1217, client: "Manan Yadav", amount: 35.33, status: "draft" },
-    { id: 1216, client: "Patel Brothers - Hamilton", amount: 3522.44, status: "draft" },
-    { id: 1215, client: "Patel Brothers - North Brunswick", amount: 3413.39, status: "sent" },
-    { id: 1214, client: "XYZ Imports", amount: 1245.00, status: "paid" },
+    { id: 1228, client: "Manan Yadav", amount: 35.33, status: "draft" },
+    { id: 1227, client: "Patel Brothers - Hamilton", amount: 3522.44, status: "draft" },
+    { id: 1226, client: "Patel Brothers - North Brunswick", amount: 3413.39, status: "sent" },
+    { id: 1225, client: "XYZ Imports", amount: 1245.00, status: "paid" },
   ];
 
   // Get only the 3 most recent invoices (sorted by highest ID)
