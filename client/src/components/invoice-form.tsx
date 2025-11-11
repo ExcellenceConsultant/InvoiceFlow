@@ -108,6 +108,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   }>({});
   const [productSearchTerm, setProductSearchTerm] = useState<string>("");
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
+  const [invoiceNumberError, setInvoiceNumberError] = useState<string>("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -195,6 +196,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     enabled: !isEditMode, // Only fetch when creating new invoice
   });
 
+  // Fetch all invoices to check for duplicates
+  const { data: allInvoices } = useQuery<any[]>({
+    queryKey: ["/api/invoices"],
+  });
+
   // Set invoice number based on invoice type (only for new invoices)
   useEffect(() => {
     if (!isEditMode) {
@@ -219,14 +225,48 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
             nextInvoiceNumberData?.nextNumber
           ) {
             form.setValue("invoiceNumber", nextInvoiceNumberData.nextNumber);
+            setInvoiceNumberError(""); // Clear error when switching to AR
           } else if (value.invoiceType === "payable") {
             form.setValue("invoiceNumber", "");
+            setInvoiceNumberError(""); // Clear error when switching to AP
           }
         }
       });
       return () => subscription.unsubscribe();
     }
   }, [isEditMode, nextInvoiceNumberData, form]);
+
+  // Watch invoice number for duplicate detection (AR invoices only)
+  useEffect(() => {
+    if (!isEditMode && allInvoices) {
+      const subscription = form.watch((value, { name }) => {
+        if (name === "invoiceNumber" || name === "invoiceType") {
+          const invoiceType = value.invoiceType;
+          const invoiceNumber = value.invoiceNumber?.trim() || "";
+
+          // Only check duplicates for AR invoices
+          if (invoiceType === "receivable" && invoiceNumber) {
+            // Check if invoice number already exists in AR invoices
+            const arInvoices = allInvoices.filter(
+              (inv: any) => inv.invoiceType === "receivable"
+            );
+            const duplicate = arInvoices.find(
+              (inv: any) => inv.invoiceNumber.trim() === invoiceNumber
+            );
+
+            if (duplicate) {
+              setInvoiceNumberError("Invoice number already exists for AR invoice.");
+            } else {
+              setInvoiceNumberError("");
+            }
+          } else {
+            setInvoiceNumberError("");
+          }
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, [isEditMode, allInvoices, form]);
 
   // Load existing line items when editing
   useEffect(() => {
@@ -889,9 +929,19 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                 ? "Enter invoice number"
                                 : ""
                             }
+                            className={
+                              invoiceNumberError
+                                ? "border-red-500 focus-visible:ring-red-500"
+                                : ""
+                            }
                             data-testid="input-invoice-number"
                           />
                         </FormControl>
+                        {invoiceNumberError && (
+                          <p className="text-sm text-red-500 mt-1" data-testid="invoice-number-error">
+                            {invoiceNumberError}
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     );
@@ -1827,12 +1877,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   <Button
                     type="submit"
                     className="flex-1"
-                    disabled={createInvoiceMutation.isPending}
+                    disabled={createInvoiceMutation.isPending || !!invoiceNumberError}
                     data-testid="button-save-draft"
                   >
                     <Save className="mr-2" size={16} />
                     {createInvoiceMutation.isPending
                       ? "Saving..."
+                      : invoiceNumberError
+                      ? "Duplicate Invoice Number"
                       : "Save Draft"}
                   </Button>
                   <Button
