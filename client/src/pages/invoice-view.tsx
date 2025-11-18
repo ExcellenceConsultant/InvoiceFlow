@@ -177,6 +177,7 @@ function InvoiceView() {
   .invoice-table { margin: 0 !important; padding: 0 !important; }
   .summary-section { margin: 0 !important; padding: 5px 0 !important; }
   .notes-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 10px !important; }
+  .bank-details-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 10px !important; }
   .footer-section { margin: 0 !important; padding: 0 !important; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
@@ -334,6 +335,24 @@ function InvoiceView() {
   min-width: 18px;
 }
 
+.bank-details-section {
+  margin-bottom: 30px;
+}
+
+.bank-details-label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+
+.bank-details-box {
+  padding: 0;
+  min-height: 40px;
+  font-size: 11px;
+  color: #000;
+  line-height: 1.6;
+}
+
 .footer-section {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -385,6 +404,14 @@ function InvoiceView() {
     align-items: flex-start !important;
     gap: 8px !important;
     margin-bottom: 8px !important;
+  }
+
+  .bank-details-box {
+    background-color: white !important;
+    background: white !important;
+    border: none !important;
+    padding: 0 !important;
+    min-height: 0 !important;
   }
 
   .notes-number {
@@ -936,6 +963,23 @@ function InvoiceView() {
                     })}
                 </div>
               </div>
+
+              {/* Bank Details Section */}
+              {(invoice as any).bankDetails && (invoice as any).bankDetails.trim() && (
+                <div className="bank-details-section">
+                  <div className="bank-details-label">BANK DETAILS:</div>
+                  <div className="bank-details-box">
+                    {((invoice as any).bankDetails || "")
+                      .split("\n")
+                      .filter((line: string) => line.trim())
+                      .map((line: string, idx: number) => (
+                        <div key={idx} style={{ marginBottom: "4px" }}>
+                          {line}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               {/* Footer */}
               <div className="footer-section">

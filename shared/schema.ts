@@ -135,6 +135,7 @@ export const invoices = pgTable("invoices", {
   dueDate: timestamp("due_date"),
   paymentTerms: integer("payment_terms").default(30).notNull(),
   notes: text("notes"),
+  bankDetails: text("bank_details"),
   quickbooksInvoiceId: text("quickbooks_invoice_id"),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

@@ -48,6 +48,7 @@ const invoiceSchema = z
     freight: z.number().min(0, "Freight must be non-negative").default(0),
     discount: z.number().min(0, "Discount must be non-negative").default(0),
     notes: z.string().optional(),
+    bankDetails: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -132,6 +133,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           freight: parseFloat(invoice.freight || 0),
           discount: parseFloat(invoice.discount || 0),
           notes: invoice.notes || DEFAULT_NOTES,
+          bankDetails: invoice.bankDetails || "",
         }
       : {
           customerId: "",
@@ -143,6 +145,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           freight: 0,
           discount: 0,
           notes: DEFAULT_NOTES,
+          bankDetails: "",
         },
   });
 
@@ -165,6 +168,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         freight: parseFloat(invoice.freight || 0),
         discount: parseFloat(invoice.discount || 0),
         notes: invoice.notes || DEFAULT_NOTES,
+        bankDetails: invoice.bankDetails || "",
       });
     }
   }, [isEditMode, invoice, form]);
@@ -738,6 +742,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         invoiceDate: data.invoiceDate,
         dueDate: dueDateString,
         purchaseOrder: purchaseOrderValue,
+        notes: data.notes,
+        bankDetails: data.bankDetails,
       },
       lineItems: allLineItems,
     };
@@ -1075,6 +1081,25 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         placeholder="Enter invoice notes..."
                         rows={6}
                         data-testid="input-notes"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="bankDetails"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bank Details</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Enter bank details..."
+                        rows={4}
+                        data-testid="input-bank-details"
                       />
                     </FormControl>
                     <FormMessage />
