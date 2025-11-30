@@ -1,13 +1,26 @@
-import { useState, useRef } from "react";
-import { Plus, User, Building, Users, FileText, Package, Download, Upload, Edit, Trash2, Power, X } from "lucide-react";
+import CustomerVendorForm from "@/components/customer-vendor-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import CustomerVendorForm from "@/components/customer-vendor-form";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency } from "@/lib/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Building,
+  Download,
+  Edit,
+  FileText,
+  Package,
+  Plus,
+  Power,
+  Trash2,
+  Upload,
+  User,
+  Users,
+  X,
+} from "lucide-react";
+import { useRef, useState } from "react";
 
 export default function Accounts() {
   const permissions = usePermissions();
@@ -29,19 +42,23 @@ export default function Accounts() {
     queryKey: ["/api/invoices"],
   });
 
+  const { data: creditMemos } = useQuery<any[]>({
+    queryKey: ["/api/credit-memos"],
+  });
+
   // Fetch all line items for calculating quantities
   const { data: allLineItems } = useQuery({
     queryKey: ["/api/invoices/line-items"],
     queryFn: async () => {
       const invoiceList = invoices || [];
       if (invoiceList.length === 0) return [];
-      
+
       const lineItemsPromises = invoiceList.map((inv: any) =>
         fetch(`/api/invoices/${inv.id}/line-items`)
-          .then(res => res.ok ? res.json() : [])
-          .catch(() => [])
+          .then((res) => (res.ok ? res.json() : []))
+          .catch(() => []),
       );
-      
+
       const lineItemsArrays = await Promise.all(lineItemsPromises);
       return lineItemsArrays.flat();
     },
@@ -49,40 +66,89 @@ export default function Accounts() {
   });
 
   // Filter customers and vendors by type
-  const customerList = (customers || []).filter((c: any) => c.type === "customer");
+  const customerList = (customers || []).filter(
+    (c: any) => c.type === "customer",
+  );
   const vendorList = (customers || []).filter((c: any) => c.type === "vendor");
 
   // Calculate customer stats
-  const customerInvoices = (invoices || []).filter((inv: any) => inv.invoiceType === "receivable");
+  const customerInvoices = (invoices || []).filter(
+    (inv: any) => inv.invoiceType === "receivable",
+  );
   const customerInvoiceCount = customerInvoices.length;
-  const customerInvoiceValue = customerInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
-  const activeCustomers = customerList.filter((c: any) => c.isActive !== false).length;
+  const customerInvoiceValue = customerInvoices.reduce(
+    (sum: number, inv: any) => sum + parseFloat(inv.total || 0),
+    0,
+  );
+  const activeCustomers = customerList.filter(
+    (c: any) => c.isActive !== false,
+  ).length;
 
   // Calculate total quantity sold (from customer/AR invoices)
   const customerInvoiceIds = customerInvoices.map((inv: any) => inv.id);
-  const customerLineItems = (allLineItems || []).filter((item: any) => customerInvoiceIds.includes(item.invoiceId));
-  const totalQtySold = customerLineItems.reduce((sum: number, item: any) => sum + parseInt(item.quantity || 0), 0);
+  const customerLineItems = (allLineItems || []).filter((item: any) =>
+    customerInvoiceIds.includes(item.invoiceId),
+  );
+  const totalQtySold = customerLineItems.reduce(
+    (sum: number, item: any) => sum + parseInt(item.quantity || 0),
+    0,
+  );
 
   // Calculate vendor stats
-  const vendorInvoices = (invoices || []).filter((inv: any) => inv.invoiceType === "payable");
+  const vendorInvoices = (invoices || []).filter(
+    (inv: any) => inv.invoiceType === "payable",
+  );
   const vendorInvoiceCount = vendorInvoices.length;
-  const vendorInvoiceValue = vendorInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
-  const activeVendors = vendorList.filter((v: any) => v.isActive !== false).length;
+  const vendorInvoiceValue = vendorInvoices.reduce(
+    (sum: number, inv: any) => sum + parseFloat(inv.total || 0),
+    0,
+  );
+  const activeVendors = vendorList.filter(
+    (v: any) => v.isActive !== false,
+  ).length;
 
   // Calculate total quantity purchased (from vendor/AP invoices)
   const vendorInvoiceIds = vendorInvoices.map((inv: any) => inv.id);
-  const vendorLineItems = (allLineItems || []).filter((item: any) => vendorInvoiceIds.includes(item.invoiceId));
-  const totalQtyPurchased = vendorLineItems.reduce((sum: number, item: any) => sum + parseInt(item.quantity || 0), 0);
+  const vendorLineItems = (allLineItems || []).filter((item: any) =>
+    vendorInvoiceIds.includes(item.invoiceId),
+  );
+  const totalQtyPurchased = vendorLineItems.reduce(
+    (sum: number, item: any) => sum + parseInt(item.quantity || 0),
+    0,
+  );
 
   // Helper function to get open balance total value for a customer/vendor
-  const getOpenBalanceValue = (customerId: string, type: "customer" | "vendor") => {
-    const relevantInvoices = (invoices || []).filter((inv: any) => 
-      inv.customerId === customerId && 
-      inv.invoiceType === (type === "customer" ? "receivable" : "payable") &&
-      inv.status !== "paid"
+  const getOpenBalanceValue = (
+    customerId: string,
+    type: "customer" | "vendor",
+  ) => {
+    const invoiceType = type === "customer" ? "receivable" : "payable";
+
+    // Sum of unpaid invoices
+    const relevantInvoices = (invoices || []).filter(
+      (inv: any) =>
+        inv.customerId === customerId &&
+        inv.invoiceType === invoiceType &&
+        inv.status !== "paid",
     );
-    const totalValue = relevantInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total || 0), 0);
-    return totalValue;
+    const invoiceTotal = relevantInvoices.reduce(
+      (sum: number, inv: any) => sum + parseFloat(inv.total || 0),
+      0,
+    );
+
+    // Subtract credit memos (credit memos reduce the balance)
+    const relevantCreditMemos = (creditMemos || []).filter(
+      (cm: any) =>
+        cm.customerId === customerId && cm.invoiceType === invoiceType,
+    );
+    const creditMemoTotal = relevantCreditMemos.reduce(
+      (sum: number, cm: any) => sum + parseFloat(cm.total || 0),
+      0,
+    );
+
+    // Open balance = invoices - credit memos
+    const totalValue = invoiceTotal - creditMemoTotal;
+    return Math.max(0, totalValue); // Ensure non-negative balance for display
   };
 
   // Export handler
@@ -95,7 +161,7 @@ export default function Accounts() {
       }
       const response = await fetch(`/api/customers/export`, { headers });
       if (!response.ok) throw new Error("Export failed");
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -105,7 +171,7 @@ export default function Accounts() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       toast({
         title: "Success",
         description: "Accounts exported successfully",
@@ -124,24 +190,24 @@ export default function Accounts() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      
+
       const token = localStorage.getItem("token");
       const headers: Record<string, string> = {};
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      
+
       const response = await fetch("/api/customers/import", {
         method: "POST",
         headers,
         body: formData,
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Import failed");
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
@@ -188,7 +254,9 @@ export default function Accounts() {
         headers,
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: "Delete failed" }));
+        const error = await response
+          .json()
+          .catch(() => ({ message: "Delete failed" }));
         throw new Error(error.message || "Delete failed");
       }
       return response.json();
@@ -203,9 +271,10 @@ export default function Accounts() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message === "Forbidden" 
-          ? "You don't have permission to delete accounts" 
-          : error.message || "Failed to delete account",
+        description:
+          error.message === "Forbidden"
+            ? "You don't have permission to delete accounts"
+            : error.message || "Failed to delete account",
         variant: "destructive",
       });
     },
@@ -227,7 +296,9 @@ export default function Accounts() {
         body: JSON.stringify({ isActive: !isActive }),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: "Update failed" }));
+        const error = await response
+          .json()
+          .catch(() => ({ message: "Update failed" }));
         throw new Error(error.message || "Update failed");
       }
       return response.json();
@@ -242,9 +313,10 @@ export default function Accounts() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message === "Forbidden" 
-          ? "You don't have permission to update account status" 
-          : error.message || "Failed to update account status",
+        description:
+          error.message === "Forbidden"
+            ? "You don't have permission to update account status"
+            : error.message || "Failed to update account status",
         variant: "destructive",
       });
     },
@@ -257,7 +329,11 @@ export default function Accounts() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete ${name}? This action cannot be undone.`,
+      )
+    ) {
       deleteMutation.mutate(id);
     }
   };
@@ -280,20 +356,26 @@ export default function Accounts() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      const promises = ids.map(id => 
-        fetch(`/api/customers/${id}`, { method: "DELETE", headers })
-          .then(async res => {
+      const promises = ids.map((id) =>
+        fetch(`/api/customers/${id}`, { method: "DELETE", headers }).then(
+          async (res) => {
             if (!res.ok) {
-              const error = await res.json().catch(() => ({ message: "Delete failed" }));
+              const error = await res
+                .json()
+                .catch(() => ({ message: "Delete failed" }));
               throw new Error(error.message || "Delete failed");
             }
             return res.json();
-          })
+          },
+        ),
       );
       const results = await Promise.allSettled(promises);
-      const failed = results.filter(r => r.status === "rejected");
+      const failed = results.filter((r) => r.status === "rejected");
       if (failed.length > 0) {
-        const firstError = failed[0].status === "rejected" ? (failed[0].reason as Error).message : "Unknown error";
+        const firstError =
+          failed[0].status === "rejected"
+            ? (failed[0].reason as Error).message
+            : "Unknown error";
         if (firstError === "Forbidden") {
           throw new Error("You don't have permission to delete accounts");
         }
@@ -321,10 +403,10 @@ export default function Accounts() {
 
   // Customer selection handlers
   const handleSelectCustomer = (customerId: string) => {
-    setSelectedCustomers(prev => 
-      prev.includes(customerId) 
-        ? prev.filter(id => id !== customerId)
-        : [...prev, customerId]
+    setSelectedCustomers((prev) =>
+      prev.includes(customerId)
+        ? prev.filter((id) => id !== customerId)
+        : [...prev, customerId],
     );
   };
 
@@ -346,10 +428,10 @@ export default function Accounts() {
 
   // Vendor selection handlers
   const handleSelectVendor = (vendorId: string) => {
-    setSelectedVendors(prev => 
-      prev.includes(vendorId) 
-        ? prev.filter(id => id !== vendorId)
-        : [...prev, vendorId]
+    setSelectedVendors((prev) =>
+      prev.includes(vendorId)
+        ? prev.filter((id) => id !== vendorId)
+        : [...prev, vendorId],
     );
   };
 
@@ -375,23 +457,32 @@ export default function Accounts() {
       <div className="mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground" data-testid="page-title">Accounts</h1>
-            <p className="text-muted-foreground mt-1">Manage customers, vendors, and account information</p>
+            <h1
+              className="text-3xl font-bold text-foreground"
+              data-testid="page-title"
+            >
+              Accounts
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage customers, vendors, and account information
+            </p>
           </div>
-          
+
           <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               onClick={handleExport}
               data-testid="button-export-accounts"
             >
               <Download className="mr-2" size={16} />
               Export
             </Button>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               onClick={() => fileInputRef.current?.click()}
-              disabled={importMutation.isPending || !permissions.canManageCustomers}
+              disabled={
+                importMutation.isPending || !permissions.canManageCustomers
+              }
               data-testid="button-import-accounts"
             >
               <Upload className="mr-2" size={16} />
@@ -405,8 +496,8 @@ export default function Accounts() {
               style={{ display: "none" }}
               data-testid="input-import-file"
             />
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowCustomerForm(true)}
               disabled={!permissions.canManageCustomers}
               data-testid="button-create-customer"
@@ -414,8 +505,8 @@ export default function Accounts() {
               <User className="mr-2" size={16} />
               Add Customer
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowVendorForm(true)}
               disabled={!permissions.canManageCustomers}
               data-testid="button-create-vendor"
@@ -453,8 +544,8 @@ export default function Accounts() {
                     <span className="text-sm text-muted-foreground">
                       {selectedCustomers.length} selected
                     </span>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0"
                       onClick={() => setSelectedCustomers([])}
@@ -463,8 +554,8 @@ export default function Accounts() {
                     >
                       <X size={14} />
                     </Button>
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
                       size="sm"
                       onClick={handleBulkDeleteCustomers}
                       disabled={bulkDeleteMutation.isPending}
@@ -481,7 +572,10 @@ export default function Accounts() {
               {customersLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-20 bg-muted/30 rounded-lg animate-pulse" />
+                    <div
+                      key={i}
+                      className="h-20 bg-muted/30 rounded-lg animate-pulse"
+                    />
                   ))}
                 </div>
               ) : customerList.length > 0 ? (
@@ -490,31 +584,46 @@ export default function Accounts() {
                     <thead>
                       <tr className="border-b border-border">
                         <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
-                          <input 
+                          <input
                             type="checkbox"
-                            checked={customerList.length > 0 && selectedCustomers.length === customerList.length}
+                            checked={
+                              customerList.length > 0 &&
+                              selectedCustomers.length === customerList.length
+                            }
                             onChange={handleSelectAllCustomers}
                             className="w-4 h-4 cursor-pointer"
                             data-testid="checkbox-select-all-customers"
                           />
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Open Balance</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Name
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Email
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Phone
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Status
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Open Balance
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {customerList.map((customer: any) => (
-                        <tr 
-                          key={customer.id} 
+                        <tr
+                          key={customer.id}
                           className="border-b border-border hover:bg-muted/20 transition-colors"
                           data-testid={`customer-row-${customer.id}`}
                         >
                           <td className="py-3 px-4">
-                            <input 
+                            <input
                               type="checkbox"
                               checked={selectedCustomers.includes(customer.id)}
                               onChange={() => handleSelectCustomer(customer.id)}
@@ -533,22 +642,31 @@ export default function Accounts() {
                             {customer.phone || "N/A"}
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              customer.isActive !== false 
-                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" 
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
-                            }`}>
-                              {customer.isActive !== false ? "Active" : "Inactive"}
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                customer.isActive !== false
+                                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
+                              }`}
+                            >
+                              {customer.isActive !== false
+                                ? "Active"
+                                : "Inactive"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-customer-${customer.id}`}>
-                            {formatCurrency(getOpenBalanceValue(customer.id, "customer"))}
+                          <td
+                            className="py-3 px-4 text-sm font-medium text-foreground"
+                            data-testid={`open-balance-customer-${customer.id}`}
+                          >
+                            {formatCurrency(
+                              getOpenBalanceValue(customer.id, "customer"),
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0"
                                 onClick={() => handleEdit(customer)}
                                 disabled={!permissions.canManageCustomers}
@@ -557,25 +675,44 @@ export default function Accounts() {
                               >
                                 <Edit size={14} />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className={`h-8 w-8 p-0 ${
-                                  customer.isActive !== false ? "text-orange-600" : "text-green-600"
+                                  customer.isActive !== false
+                                    ? "text-orange-600"
+                                    : "text-green-600"
                                 }`}
-                                onClick={() => handleToggleActive(customer.id, customer.isActive !== false)}
-                                disabled={toggleActiveMutation.isPending || !permissions.canManageCustomers}
+                                onClick={() =>
+                                  handleToggleActive(
+                                    customer.id,
+                                    customer.isActive !== false,
+                                  )
+                                }
+                                disabled={
+                                  toggleActiveMutation.isPending ||
+                                  !permissions.canManageCustomers
+                                }
                                 data-testid={`button-toggle-active-customer-${customer.id}`}
-                                title={customer.isActive !== false ? "Mark as Inactive" : "Mark as Active"}
+                                title={
+                                  customer.isActive !== false
+                                    ? "Mark as Inactive"
+                                    : "Mark as Active"
+                                }
                               >
                                 <Power size={14} />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(customer.id, customer.name)}
-                                disabled={deleteMutation.isPending || !permissions.canManageCustomers}
+                                onClick={() =>
+                                  handleDelete(customer.id, customer.name)
+                                }
+                                disabled={
+                                  deleteMutation.isPending ||
+                                  !permissions.canManageCustomers
+                                }
                                 data-testid={`button-delete-customer-${customer.id}`}
                                 title="Delete"
                               >
@@ -591,13 +728,15 @@ export default function Accounts() {
               ) : (
                 <div className="text-center py-12">
                   <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                  <h3 className="mt-2 text-sm font-medium text-foreground">No customers found</h3>
+                  <h3 className="mt-2 text-sm font-medium text-foreground">
+                    No customers found
+                  </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Create your first customer to get started.
                   </p>
-                  <Button 
-                    className="mt-4" 
-                    onClick={() => setShowCustomerForm(true)} 
+                  <Button
+                    className="mt-4"
+                    onClick={() => setShowCustomerForm(true)}
                     disabled={!permissions.canManageCustomers}
                     data-testid="button-create-first-customer"
                   >
@@ -621,12 +760,26 @@ export default function Accounts() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Total Customers</p>
-                    <p className="text-xl font-bold" data-testid="total-customers">{customerList.length}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Total Customers
+                    </p>
+                    <p
+                      className="text-xl font-bold"
+                      data-testid="total-customers"
+                    >
+                      {customerList.length}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Active Customers</p>
-                    <p className="text-lg font-semibold text-accent" data-testid="active-customers">{activeCustomers}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Active Customers
+                    </p>
+                    <p
+                      className="text-lg font-semibold text-accent"
+                      data-testid="active-customers"
+                    >
+                      {activeCustomers}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -642,12 +795,24 @@ export default function Accounts() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Total AR Invoices</p>
-                    <p className="text-xl font-bold" data-testid="customer-invoice-count">{customerInvoiceCount}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Total AR Invoices
+                    </p>
+                    <p
+                      className="text-xl font-bold"
+                      data-testid="customer-invoice-count"
+                    >
+                      {customerInvoiceCount}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Value</p>
-                    <p className="text-lg font-semibold text-chart-1" data-testid="customer-invoice-value">{formatCurrency(customerInvoiceValue)}</p>
+                    <p
+                      className="text-lg font-semibold text-chart-1"
+                      data-testid="customer-invoice-value"
+                    >
+                      {formatCurrency(customerInvoiceValue)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -663,12 +828,26 @@ export default function Accounts() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Products Sold</p>
-                    <p className="text-xl font-bold" data-testid="customer-products-sold">{totalQtySold}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Products Sold
+                    </p>
+                    <p
+                      className="text-xl font-bold"
+                      data-testid="customer-products-sold"
+                    >
+                      {totalQtySold}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Revenue Generated</p>
-                    <p className="text-lg font-semibold text-chart-3" data-testid="customer-revenue">{formatCurrency(customerInvoiceValue)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Revenue Generated
+                    </p>
+                    <p
+                      className="text-lg font-semibold text-chart-3"
+                      data-testid="customer-revenue"
+                    >
+                      {formatCurrency(customerInvoiceValue)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -690,8 +869,8 @@ export default function Accounts() {
                     <span className="text-sm text-muted-foreground">
                       {selectedVendors.length} selected
                     </span>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0"
                       onClick={() => setSelectedVendors([])}
@@ -700,8 +879,8 @@ export default function Accounts() {
                     >
                       <X size={14} />
                     </Button>
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
                       size="sm"
                       onClick={handleBulkDeleteVendors}
                       disabled={bulkDeleteMutation.isPending}
@@ -718,7 +897,10 @@ export default function Accounts() {
               {customersLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-20 bg-muted/30 rounded-lg animate-pulse" />
+                    <div
+                      key={i}
+                      className="h-20 bg-muted/30 rounded-lg animate-pulse"
+                    />
                   ))}
                 </div>
               ) : vendorList.length > 0 ? (
@@ -727,31 +909,46 @@ export default function Accounts() {
                     <thead>
                       <tr className="border-b border-border">
                         <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12">
-                          <input 
+                          <input
                             type="checkbox"
-                            checked={vendorList.length > 0 && selectedVendors.length === vendorList.length}
+                            checked={
+                              vendorList.length > 0 &&
+                              selectedVendors.length === vendorList.length
+                            }
                             onChange={handleSelectAllVendors}
                             className="w-4 h-4 cursor-pointer"
                             data-testid="checkbox-select-all-vendors"
                           />
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Open Balance</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Name
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Email
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Phone
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Status
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Open Balance
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {vendorList.map((vendor: any) => (
-                        <tr 
-                          key={vendor.id} 
+                        <tr
+                          key={vendor.id}
                           className="border-b border-border hover:bg-muted/20 transition-colors"
                           data-testid={`vendor-row-${vendor.id}`}
                         >
                           <td className="py-3 px-4">
-                            <input 
+                            <input
                               type="checkbox"
                               checked={selectedVendors.includes(vendor.id)}
                               onChange={() => handleSelectVendor(vendor.id)}
@@ -770,22 +967,31 @@ export default function Accounts() {
                             {vendor.phone || "N/A"}
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              vendor.isActive !== false 
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" 
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
-                            }`}>
-                              {vendor.isActive !== false ? "Active" : "Inactive"}
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                vendor.isActive !== false
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
+                              }`}
+                            >
+                              {vendor.isActive !== false
+                                ? "Active"
+                                : "Inactive"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-sm font-medium text-foreground" data-testid={`open-balance-vendor-${vendor.id}`}>
-                            {formatCurrency(getOpenBalanceValue(vendor.id, "vendor"))}
+                          <td
+                            className="py-3 px-4 text-sm font-medium text-foreground"
+                            data-testid={`open-balance-vendor-${vendor.id}`}
+                          >
+                            {formatCurrency(
+                              getOpenBalanceValue(vendor.id, "vendor"),
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0"
                                 onClick={() => handleEdit(vendor)}
                                 disabled={!permissions.canManageCustomers}
@@ -794,25 +1000,44 @@ export default function Accounts() {
                               >
                                 <Edit size={14} />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className={`h-8 w-8 p-0 ${
-                                  vendor.isActive !== false ? "text-orange-600" : "text-green-600"
+                                  vendor.isActive !== false
+                                    ? "text-orange-600"
+                                    : "text-green-600"
                                 }`}
-                                onClick={() => handleToggleActive(vendor.id, vendor.isActive !== false)}
-                                disabled={toggleActiveMutation.isPending || !permissions.canManageCustomers}
+                                onClick={() =>
+                                  handleToggleActive(
+                                    vendor.id,
+                                    vendor.isActive !== false,
+                                  )
+                                }
+                                disabled={
+                                  toggleActiveMutation.isPending ||
+                                  !permissions.canManageCustomers
+                                }
                                 data-testid={`button-toggle-active-vendor-${vendor.id}`}
-                                title={vendor.isActive !== false ? "Mark as Inactive" : "Mark as Active"}
+                                title={
+                                  vendor.isActive !== false
+                                    ? "Mark as Inactive"
+                                    : "Mark as Active"
+                                }
                               >
                                 <Power size={14} />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(vendor.id, vendor.name)}
-                                disabled={deleteMutation.isPending || !permissions.canManageCustomers}
+                                onClick={() =>
+                                  handleDelete(vendor.id, vendor.name)
+                                }
+                                disabled={
+                                  deleteMutation.isPending ||
+                                  !permissions.canManageCustomers
+                                }
                                 data-testid={`button-delete-vendor-${vendor.id}`}
                                 title="Delete"
                               >
@@ -828,13 +1053,15 @@ export default function Accounts() {
               ) : (
                 <div className="text-center py-12">
                   <Building className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                  <h3 className="mt-2 text-sm font-medium text-foreground">No vendors found</h3>
+                  <h3 className="mt-2 text-sm font-medium text-foreground">
+                    No vendors found
+                  </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Create your first vendor to get started.
                   </p>
-                  <Button 
-                    className="mt-4" 
-                    onClick={() => setShowVendorForm(true)} 
+                  <Button
+                    className="mt-4"
+                    onClick={() => setShowVendorForm(true)}
                     disabled={!permissions.canManageCustomers}
                     data-testid="button-create-first-vendor"
                   >
@@ -858,12 +1085,26 @@ export default function Accounts() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Total Vendors</p>
-                    <p className="text-xl font-bold" data-testid="total-vendors">{vendorList.length}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Total Vendors
+                    </p>
+                    <p
+                      className="text-xl font-bold"
+                      data-testid="total-vendors"
+                    >
+                      {vendorList.length}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Active Vendors</p>
-                    <p className="text-lg font-semibold text-accent" data-testid="active-vendors">{activeVendors}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Active Vendors
+                    </p>
+                    <p
+                      className="text-lg font-semibold text-accent"
+                      data-testid="active-vendors"
+                    >
+                      {activeVendors}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -879,12 +1120,24 @@ export default function Accounts() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Total AP Invoices</p>
-                    <p className="text-xl font-bold" data-testid="vendor-invoice-count">{vendorInvoiceCount}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Total AP Invoices
+                    </p>
+                    <p
+                      className="text-xl font-bold"
+                      data-testid="vendor-invoice-count"
+                    >
+                      {vendorInvoiceCount}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Value</p>
-                    <p className="text-lg font-semibold text-chart-1" data-testid="vendor-invoice-value">{formatCurrency(vendorInvoiceValue)}</p>
+                    <p
+                      className="text-lg font-semibold text-chart-1"
+                      data-testid="vendor-invoice-value"
+                    >
+                      {formatCurrency(vendorInvoiceValue)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -900,12 +1153,24 @@ export default function Accounts() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Products Purchased</p>
-                    <p className="text-xl font-bold" data-testid="vendor-products-purchased">{totalQtyPurchased}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Products Purchased
+                    </p>
+                    <p
+                      className="text-xl font-bold"
+                      data-testid="vendor-products-purchased"
+                    >
+                      {totalQtyPurchased}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Total Spent</p>
-                    <p className="text-lg font-semibold text-chart-3" data-testid="vendor-spent">{formatCurrency(vendorInvoiceValue)}</p>
+                    <p
+                      className="text-lg font-semibold text-chart-3"
+                      data-testid="vendor-spent"
+                    >
+                      {formatCurrency(vendorInvoiceValue)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -916,20 +1181,20 @@ export default function Accounts() {
 
       {/* Customer Form Modal */}
       {showCustomerForm && (
-        <CustomerVendorForm 
+        <CustomerVendorForm
           type="customer"
           customer={editingCustomer}
-          onClose={handleCloseForm} 
+          onClose={handleCloseForm}
           onSuccess={handleCloseForm}
         />
       )}
 
       {/* Vendor Form Modal */}
       {showVendorForm && (
-        <CustomerVendorForm 
+        <CustomerVendorForm
           type="vendor"
           customer={editingCustomer}
-          onClose={handleCloseForm} 
+          onClose={handleCloseForm}
           onSuccess={handleCloseForm}
         />
       )}

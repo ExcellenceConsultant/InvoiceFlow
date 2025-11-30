@@ -11,6 +11,8 @@ import Invoices from "@/pages/invoices";
 import InvoiceView from "@/pages/invoice-view";
 import PackingList from "@/pages/packing-list";
 import ShippingLabel from "@/pages/shipping-label";
+import CreditMemos from "@/pages/credit-memos";
+import CreditMemoView from "@/pages/credit-memo-view";
 import Inventory from "@/pages/inventory";
 import Schemes from "@/pages/schemes";
 import Accounts from "@/pages/accounts";
@@ -40,7 +42,10 @@ function ProtectedRoute({ component: Component, ...rest }: { component: any }) {
 function Router() {
   const [location] = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
-  const isInvoiceView = (location.startsWith("/invoices/") && location !== "/invoices");
+  const isInvoiceView =
+    location.startsWith("/invoices/") && location !== "/invoices";
+  const isCreditMemoView =
+    location.startsWith("/credit-memos/") && location !== "/credit-memos";
 
   // Show loading state
   if (isLoading) {
@@ -49,14 +54,12 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20">
-      {isAuthenticated && !isInvoiceView && <Navbar />}
+      {isAuthenticated && !isInvoiceView && !isCreditMemoView && <Navbar />}
       <Switch>
         <Route path="/login">
           {isAuthenticated ? <Dashboard /> : <Login />}
         </Route>
-        <Route path="/">
-          {isAuthenticated ? <Dashboard /> : <Landing />}
-        </Route>
+        <Route path="/">{isAuthenticated ? <Dashboard /> : <Landing />}</Route>
         <Route path="/invoices">
           <ProtectedRoute component={Invoices} />
         </Route>
@@ -68,6 +71,14 @@ function Router() {
         </Route>
         <Route path="/invoices/:id/shipping-label">
           {(params) => <ProtectedRoute component={ShippingLabel} {...params} />}
+        </Route>
+        <Route path="/credit-memos">
+          <ProtectedRoute component={CreditMemos} />
+        </Route>
+        <Route path="/credit-memos/:id">
+          {(params) => (
+            <ProtectedRoute component={CreditMemoView} {...params} />
+          )}
         </Route>
         <Route path="/inventory">
           <ProtectedRoute component={Inventory} />

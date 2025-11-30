@@ -165,6 +165,53 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const creditMemos = pgTable("credit_memos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  creditMemoNumber: text("credit_memo_number").notNull(),
+  customerId: varchar("customer_id").references(() => customers.id),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  freight: decimal("freight", { precision: 10, scale: 2 })
+    .default("0")
+    .notNull(),
+  discount: decimal("discount", { precision: 10, scale: 2 })
+    .default("0")
+    .notNull(),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("draft"), // draft, sent, paid
+  invoiceType: text("invoice_type").notNull().default("receivable"), // receivable (AR), payable (AP)
+  creditMemoDate: timestamp("credit_memo_date").notNull(),
+  notes: text("notes"),
+  quickbooksCreditMemoId: text("quickbooks_credit_memo_id"),
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const creditMemoLineItems = pgTable("credit_memo_line_items", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  creditMemoId: varchar("credit_memo_id").references(() => creditMemos.id),
+  productId: varchar("product_id").references(() => products.id),
+  variantId: varchar("variant_id").references(() => productVariants.id),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  productCode: text("product_code"),
+  cartoonBarcode: text("cartoon_barcode"),
+  packingSize: text("packing_size"),
+  grossWeightKgs: decimal("gross_weight_kgs", { precision: 10, scale: 3 }),
+  netWeightKgs: decimal("net_weight_kgs", { precision: 10, scale: 3 }),
+  category: text("category"),
+  isFreeFromScheme: boolean("is_free_from_scheme").default(false),
+  isSchemeDescription: boolean("is_scheme_description").default(false),
+  schemeId: varchar("scheme_id").references(() => productSchemes.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -231,6 +278,24 @@ export const insertInvoiceLineItemSchema = createInsertSchema(
   createdAt: true,
 });
 
+export const insertCreditMemoSchema = createInsertSchema(creditMemos)
+  .omit({
+    id: true,
+    userId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .extend({
+    creditMemoDate: z.string().transform((str) => new Date(str)),
+  });
+
+export const insertCreditMemoLineItemSchema = createInsertSchema(
+  creditMemoLineItems,
+).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -246,3 +311,9 @@ export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
 export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
+export type CreditMemo = typeof creditMemos.$inferSelect;
+export type InsertCreditMemo = z.infer<typeof insertCreditMemoSchema>;
+export type CreditMemoLineItem = typeof creditMemoLineItems.$inferSelect;
+export type InsertCreditMemoLineItem = z.infer<
+  typeof insertCreditMemoLineItemSchema
+>;

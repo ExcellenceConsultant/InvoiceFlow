@@ -22,52 +22,26 @@ import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Gift, NotebookPen, Plus, Save, Trash2, X } from "lucide-react";
+import { NotebookPen, Plus, Save, Trash2, X, Gift } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-const DEFAULT_NOTES = `1. All matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related here to shall be adjudicated exclusively in the state or federal courts located in  Pennsylvania.
-2. Overdue balances subject to finance charge of 2 %  per month.
-3. I understand and accept that cheque image deposited through ACH debits are valid mode of payment.
-4. Final Sale`;
+const DEFAULT_NOTES = `1. All matters related to this credit memo or the goods shall be governed by the laws of Pennsylvania, and all disputes related here to shall be adjudicated exclusively in the state or federal courts located in  Pennsylvania.
+2. I understand and accept that cheque image deposited through ACH debits are valid mode of payment.
+3. Final Sale`;
 
-const DEFAULT_BANK_DETAILS = `BANK NAME : JPMORGAN CHASE BANK
-BANK ADDRESS : P O Box 182051, Columbus, OH 43218 - 2051.
-ACCOUNT NUMBER : 000000589988131
-ROUTING NUMBER : 083000137`;
-
-const invoiceSchema = z
-  .object({
-    customerId: z.string().min(1, "Customer is required"),
-    invoiceNumber: z.string(),
-    purchaseOrder: z.string().optional().default(""),
-    invoiceDate: z.string().min(1, "Invoice date is required"),
-    paymentTerms: z
-      .number()
-      .min(0, "Payment terms must be non-negative")
-      .default(30),
-    invoiceType: z.enum(["receivable", "payable"], {
-      required_error: "Please select invoice type",
-    }),
-    freight: z.number().min(0, "Freight must be non-negative").default(0),
-    discount: z.number().min(0, "Discount must be non-negative").default(0),
-    notes: z.string().optional(),
-    bankDetails: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      // Invoice number is required for both AR and AP invoices
-      if (!data.invoiceNumber || data.invoiceNumber.trim() === "") {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: "Invoice number is required",
-      path: ["invoiceNumber"],
-    },
-  );
+const creditMemoSchema = z.object({
+  customerId: z.string().min(1, "Customer is required"),
+  creditMemoNumber: z.string().min(1, "Credit memo number is required"),
+  creditMemoDate: z.string().min(1, "Credit memo date is required"),
+  invoiceType: z.enum(["receivable", "payable"], {
+    required_error: "Please select credit memo type",
+  }),
+  freight: z.number().min(0, "Freight must be non-negative").default(0),
+  discount: z.number().min(0, "Discount must be non-negative").default(0),
+  notes: z.string().optional(),
+});
 
 const lineItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -78,13 +52,17 @@ const lineItemSchema = z.object({
 });
 
 interface Props {
-  invoice?: any;
+  creditMemo?: any;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
-  const isEditMode = !!invoice;
+export default function CreditMemoForm({
+  creditMemo,
+  onClose,
+  onSuccess,
+}: Props) {
+  const isEditMode = !!creditMemo;
   const [lineItems, setLineItems] = useState([
     {
       productId: "",
@@ -98,95 +76,83 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       packingSize: "",
       grossWeightKgs: 0,
       netWeightKgs: 0,
-      category: "", // added category field to initial state
-      isSchemeDescription: false, // flag for scheme description line items
-      schemeDescription: "", // text for scheme description
-      stockQuantity: 0, // stock quantity for display
+      category: "",
+      isSchemeDescription: false,
+      schemeDescription: "",
+      stockQuantity: 0,
     },
   ]);
   const [showSchemeItems, setShowSchemeItems] = useState<{
     [key: number]: any[];
   }>({});
-  const [manualFreeItems, setManualFreeItems] = useState<any[]>([]); // For total quantity-based schemes
+  const [manualFreeItems, setManualFreeItems] = useState<any[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [schemePendingSelections, setSchemePendingSelections] = useState<{
     [schemeId: string]: { productId: string; quantity: number };
   }>({});
   const [productSearchTerm, setProductSearchTerm] = useState<string>("");
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
-  const [invoiceNumberError, setInvoiceNumberError] = useState<string>("");
+  const [creditMemoNumberError, setCreditMemoNumberError] =
+    useState<string>("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<z.infer<typeof invoiceSchema>>({
-    resolver: zodResolver(invoiceSchema),
+  const form = useForm<z.infer<typeof creditMemoSchema>>({
+    resolver: zodResolver(creditMemoSchema),
     defaultValues: isEditMode
       ? {
-          customerId: invoice.customerId || "",
-          invoiceNumber: invoice.invoiceNumber || "",
-          purchaseOrder:
-            invoice.purchaseOrder ||
-            invoice.purchaseOrderNo ||
-            invoice.poNumber ||
-            "",
-          invoiceDate: invoice.invoiceDate
-            ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0],
-          paymentTerms: 30,
-          invoiceType: invoice.invoiceType || "receivable",
-          freight: parseFloat(invoice.freight || 0),
-          discount: parseFloat(invoice.discount || 0),
-          notes: invoice.notes || DEFAULT_NOTES,
-          bankDetails: invoice.bankDetails || DEFAULT_BANK_DETAILS,
+          customerId: creditMemo.customerId || "",
+          creditMemoNumber:
+            creditMemo.creditMemoNumber || creditMemo.invoiceNumber || "",
+          creditMemoDate:
+            creditMemo.creditMemoDate || creditMemo.invoiceDate
+              ? new Date(creditMemo.creditMemoDate || creditMemo.invoiceDate)
+                  .toISOString()
+                  .split("T")[0]
+              : new Date().toISOString().split("T")[0],
+          invoiceType: creditMemo.invoiceType || "receivable",
+          freight: parseFloat(creditMemo.freight || 0),
+          discount: parseFloat(creditMemo.discount || 0),
+          notes: creditMemo.notes || DEFAULT_NOTES,
         }
       : {
           customerId: "",
-          invoiceNumber: "", // Will be set by useEffect for AR invoices
-          purchaseOrder: "",
-          invoiceDate: new Date().toISOString().split("T")[0],
-          paymentTerms: 30,
+          creditMemoNumber: "",
+          creditMemoDate: new Date().toISOString().split("T")[0],
           invoiceType: "receivable",
           freight: 0,
           discount: 0,
           notes: DEFAULT_NOTES,
-          bankDetails: DEFAULT_BANK_DETAILS,
         },
   });
 
-  // Reset form when invoice data changes (for edit mode)
+  // Reset form when credit memo data changes (for edit mode)
   useEffect(() => {
-    if (isEditMode && invoice) {
+    if (isEditMode && creditMemo) {
       form.reset({
-        customerId: invoice.customerId || "",
-        invoiceNumber: invoice.invoiceNumber || "",
-        purchaseOrder:
-          invoice.purchaseOrder ||
-          invoice.purchaseOrderNo ||
-          invoice.poNumber ||
-          "",
-        invoiceDate: invoice.invoiceDate
-          ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
-        paymentTerms: invoice.paymentTerms || 30,
-        invoiceType: invoice.invoiceType || "receivable",
-        freight: parseFloat(invoice.freight || 0),
-        discount: parseFloat(invoice.discount || 0),
-        notes: invoice.notes || DEFAULT_NOTES,
-        bankDetails: invoice.bankDetails || DEFAULT_BANK_DETAILS,
+        customerId: creditMemo.customerId || "",
+        creditMemoNumber:
+          creditMemo.creditMemoNumber || creditMemo.invoiceNumber || "",
+        creditMemoDate:
+          creditMemo.creditMemoDate || creditMemo.invoiceDate
+            ? new Date(creditMemo.creditMemoDate || creditMemo.invoiceDate)
+                .toISOString()
+                .split("T")[0]
+            : new Date().toISOString().split("T")[0],
+        invoiceType: creditMemo.invoiceType || "receivable",
+        freight: parseFloat(creditMemo.freight || 0),
+        discount: parseFloat(creditMemo.discount || 0),
+        notes: creditMemo.notes || DEFAULT_NOTES,
       });
     }
-  }, [isEditMode, invoice, form]);
+  }, [isEditMode, creditMemo, form]);
 
   const { data: customers } = useQuery<any[]>({
     queryKey: ["/api/customers"],
   });
 
-  const {
-    data: products,
-    isLoading: productsLoading,
-    error: productsError,
-  } = useQuery<any[]>({
+  const { data: products, isLoading: productsLoading } = useQuery<any[]>({
     queryKey: ["/api/products"],
   });
 
@@ -195,89 +161,41 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   });
 
   const { data: existingLineItems } = useQuery({
-    queryKey: [`/api/invoices/${invoice?.id || "placeholder"}/line-items`],
-    enabled: isEditMode && !!invoice?.id,
+    queryKey: [
+      `/api/credit-memos/${creditMemo?.id || "placeholder"}/line-items`,
+    ],
+    enabled: isEditMode && !!creditMemo?.id,
   });
 
-  // Fetch next AR invoice number (only when creating new AR invoice)
-  const { data: nextInvoiceNumberData } = useQuery<{ nextNumber: string }>({
-    queryKey: ["/api/invoices/next-number"],
-    enabled: !isEditMode, // Only fetch when creating new invoice
+  // Fetch all credit memos to check for duplicates
+  const { data: allCreditMemos } = useQuery<any[]>({
+    queryKey: ["/api/credit-memos"],
   });
 
-  // Fetch all invoices to check for duplicates
-  const { data: allInvoices } = useQuery<any[]>({
-    queryKey: ["/api/invoices"],
-  });
-
-  // Set invoice number based on invoice type (only for new invoices)
+  // Watch credit memo number for duplicate detection
   useEffect(() => {
-    if (!isEditMode) {
-      const invoiceType = form.watch("invoiceType");
-      if (invoiceType === "receivable" && nextInvoiceNumberData?.nextNumber) {
-        // Auto-populate with next sequential number for AR invoices
-        form.setValue("invoiceNumber", nextInvoiceNumberData.nextNumber);
-      } else if (invoiceType === "payable") {
-        // Clear invoice number for AP invoices (manual entry)
-        form.setValue("invoiceNumber", "");
-      }
-    }
-  }, [isEditMode, nextInvoiceNumberData, form]);
-
-  // Watch invoice type changes to update invoice number accordingly
-  useEffect(() => {
-    if (!isEditMode) {
+    if (!isEditMode && allCreditMemos) {
       const subscription = form.watch((value, { name }) => {
-        if (name === "invoiceType") {
-          if (
-            value.invoiceType === "receivable" &&
-            nextInvoiceNumberData?.nextNumber
-          ) {
-            form.setValue("invoiceNumber", nextInvoiceNumberData.nextNumber);
-            setInvoiceNumberError(""); // Clear error when switching to AR
-          } else if (value.invoiceType === "payable") {
-            form.setValue("invoiceNumber", "");
-            setInvoiceNumberError(""); // Clear error when switching to AP
-          }
-        }
-      });
-      return () => subscription.unsubscribe();
-    }
-  }, [isEditMode, nextInvoiceNumberData, form]);
-
-  // Watch invoice number for duplicate detection (AR invoices only)
-  useEffect(() => {
-    if (!isEditMode && allInvoices) {
-      const subscription = form.watch((value, { name }) => {
-        if (name === "invoiceNumber" || name === "invoiceType") {
-          const invoiceType = value.invoiceType;
-          const invoiceNumber = value.invoiceNumber?.trim() || "";
-
-          // Only check duplicates for AR invoices
-          if (invoiceType === "receivable" && invoiceNumber) {
-            // Check if invoice number already exists in AR invoices
-            const arInvoices = allInvoices.filter(
-              (inv: any) => inv.invoiceType === "receivable",
+        if (name === "creditMemoNumber") {
+          const creditMemoNumber = value.creditMemoNumber?.trim() || "";
+          if (creditMemoNumber) {
+            // Check if credit memo number already exists
+            const duplicate = allCreditMemos.find(
+              (cm: any) => cm.creditMemoNumber?.trim() === creditMemoNumber,
             );
-            const duplicate = arInvoices.find(
-              (inv: any) => inv.invoiceNumber.trim() === invoiceNumber,
-            );
-
             if (duplicate) {
-              setInvoiceNumberError(
-                "Invoice number already exists for AR invoice.",
-              );
+              setCreditMemoNumberError("Credit memo number already exists.");
             } else {
-              setInvoiceNumberError("");
+              setCreditMemoNumberError("");
             }
           } else {
-            setInvoiceNumberError("");
+            setCreditMemoNumberError("");
           }
         }
       });
       return () => subscription.unsubscribe();
     }
-  }, [isEditMode, allInvoices, form]);
+  }, [isEditMode, allCreditMemos, form]);
 
   // Load existing line items when editing
   useEffect(() => {
@@ -293,7 +211,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       let currentRegularIndex = -1;
 
       existingLineItems.forEach((item: any, idx: number) => {
-        // Format the item
         const formattedItem = {
           id: item.id,
           productId: item.productId || "",
@@ -314,14 +231,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           schemeId: item.schemeId || "",
         };
 
-        // Check if this is a scheme description line
         if (item.isSchemeDescription) {
           regularItems.push(formattedItem);
           currentRegularIndex++;
-        }
-        // Check if this is a free item from a product-specific scheme
-        else if (item.isFreeFromScheme && item.schemeId) {
-          // Check if this belongs to a product-specific scheme (associated with the previous regular item)
+        } else if (item.isFreeFromScheme && item.schemeId) {
           const prevItem = existingLineItems[idx - 1];
           if (
             prevItem &&
@@ -329,7 +242,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
             !prevItem.isSchemeDescription &&
             prevItem.productId === item.productId
           ) {
-            // This is a product-specific scheme free item - add to showSchemeItems
             if (!schemeItemsMap[currentRegularIndex]) {
               schemeItemsMap[currentRegularIndex] = [];
             }
@@ -343,12 +255,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
               category: formattedItem.category,
             });
           } else {
-            // This is a manual/total-quantity-based free item
             manualFreeItemsList.push(formattedItem);
           }
-        }
-        // Regular line item
-        else {
+        } else {
           regularItems.push(formattedItem);
           currentRegularIndex++;
         }
@@ -360,97 +269,73 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     }
   }, [isEditMode, existingLineItems]);
 
-  const createInvoiceMutation = useMutation({
+  const createCreditMemoMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log("Submitting invoice data:", data);
-      const response = await apiRequest("POST", "/api/invoices", data);
+      console.log("Submitting credit memo data:", data);
+      const response = await apiRequest("POST", "/api/credit-memos", data);
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Invoice creation failed:", errorData);
-        throw new Error(errorData.message || "Failed to create invoice");
+        console.error("Credit memo creation failed:", errorData);
+        throw new Error(errorData.message || "Failed to create credit memo");
       }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/credit-memos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
-        description: "Invoice created successfully",
+        description: "Credit memo created successfully",
       });
       onSuccess();
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create invoice",
+        description: error.message || "Failed to create credit memo",
         variant: "destructive",
       });
     },
   });
 
-  const updateInvoiceMutation = useMutation({
+  const updateCreditMemoMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log("Updating invoice data:", data);
+      console.log("Updating credit memo data:", data);
       const response = await apiRequest(
         "PUT",
-        `/api/invoices/${invoice.id}`,
+        `/api/credit-memos/${creditMemo.id}`,
         data,
       );
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Invoice update failed:", errorData);
-        throw new Error(errorData.message || "Failed to update invoice");
+        console.error("Credit memo update failed:", errorData);
+        throw new Error(errorData.message || "Failed to update credit memo");
       }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      if (invoice?.id) {
+      queryClient.invalidateQueries({ queryKey: ["/api/credit-memos"] });
+      if (creditMemo?.id) {
         queryClient.invalidateQueries({
-          queryKey: [`/api/invoices/${invoice.id}`],
+          queryKey: [`/api/credit-memos/${creditMemo.id}`],
         });
         queryClient.invalidateQueries({
-          queryKey: [`/api/invoices/${invoice.id}/line-items`],
+          queryKey: [`/api/credit-memos/${creditMemo.id}/line-items`],
         });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
-        description: "Invoice updated successfully",
+        description: "Credit memo updated successfully",
       });
       onSuccess();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update invoice",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const syncToQuickBooksMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/invoices/${invoiceId}/sync-quickbooks`,
-        {},
-      );
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Invoice synced to QuickBooks successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to sync invoice to QuickBooks",
+        description: "Failed to update credit memo",
         variant: "destructive",
       });
     },
@@ -460,13 +345,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     const updatedItems = [...lineItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
 
-    // Calculate line total
     if (field === "quantity" || field === "unitPrice") {
       updatedItems[index].lineTotal =
         updatedItems[index].quantity * updatedItems[index].unitPrice;
     }
 
-    // Check for applicable schemes when product or quantity changes
     if ((field === "productId" || field === "quantity") && schemes) {
       const productId = updatedItems[index].productId;
       const quantity = updatedItems[index].quantity;
@@ -478,7 +361,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           quantity >= scheme.buyQuantity,
       );
 
-      // If in edit mode and scheme items already exist for this line
       const hasExistingSchemeItems =
         showSchemeItems[index] && showSchemeItems[index].length > 0;
 
@@ -487,11 +369,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           Math.floor(quantity / applicableScheme.buyQuantity) *
           applicableScheme.freeQuantity;
 
-        // Only update scheme items if:
-        // 1. No existing scheme items (creating new), OR
-        // 2. Quantity changed and needs recalculation
         if (!hasExistingSchemeItems && freeQuantity > 0) {
-          // Create new scheme items
           setShowSchemeItems({
             ...showSchemeItems,
             [index]: [
@@ -507,20 +385,17 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
             ],
           });
         } else if (hasExistingSchemeItems && freeQuantity > 0) {
-          // Update existing scheme item quantity if it changed
           const updatedSchemeItems = { ...showSchemeItems };
           if (updatedSchemeItems[index] && updatedSchemeItems[index][0]) {
             updatedSchemeItems[index][0].quantity = freeQuantity;
           }
           setShowSchemeItems(updatedSchemeItems);
         } else if (hasExistingSchemeItems && freeQuantity === 0) {
-          // Remove scheme items if quantity dropped below threshold
           const updatedSchemeItems = { ...showSchemeItems };
           delete updatedSchemeItems[index];
           setShowSchemeItems(updatedSchemeItems);
         }
       } else {
-        // No applicable scheme - remove any existing scheme items
         if (hasExistingSchemeItems) {
           const updatedSchemeItems = { ...showSchemeItems };
           delete updatedSchemeItems[index];
@@ -547,20 +422,19 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         packingSize: "",
         grossWeightKgs: 0,
         netWeightKgs: 0,
-        category: "", // keep category empty initially
+        category: "",
         isSchemeDescription: false,
         schemeDescription: "",
         stockQuantity: 0,
       },
     ]);
-    setProductSearchTerm(""); // Clear search input when adding new item
+    setProductSearchTerm("");
   };
 
   const removeLineItem = (index: number) => {
     const updatedItems = lineItems.filter((_, i) => i !== index);
     setLineItems(updatedItems);
 
-    // Remove associated scheme items
     const updatedSchemeItems = { ...showSchemeItems };
     delete updatedSchemeItems[index];
     setShowSchemeItems(updatedSchemeItems);
@@ -611,7 +485,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
     setManualFreeItems([...manualFreeItems, newFreeItem]);
 
-    // Reset pending selection for this scheme
     setSchemePendingSelections((prev) => {
       const updated = { ...prev };
       delete updated[schemeId];
@@ -623,26 +496,21 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     setManualFreeItems(manualFreeItems.filter((_, i) => i !== index));
   };
 
-  const onSubmit = (data: z.infer<typeof invoiceSchema>) => {
+  const onSubmit = (data: z.infer<typeof creditMemoSchema>) => {
     const subtotal = calculateTotal();
     const freight = data.freight || 0;
     const discountPercent = data.discount || 0;
     const discountAmount = (subtotal * discountPercent) / 100;
     const total = subtotal + freight - discountAmount;
 
-    console.log("Current line items on submit:", lineItems);
-
-    // Validate that we have at least one valid line item
     const validLineItems = lineItems.filter(
       (item) =>
         item.productId &&
         item.productId.trim() !== "" &&
         item.description &&
         item.description.trim() !== "" &&
-        (item.quantity > 0 || item.isSchemeDescription), // Allow scheme description with 0 quantity
+        (item.quantity > 0 || item.isSchemeDescription),
     );
-
-    console.log("Valid line items:", validLineItems);
 
     if (validLineItems.length === 0) {
       toast({
@@ -676,7 +544,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         schemeId: null,
       });
 
-      // Add scheme items if any
       if (showSchemeItems[index]) {
         showSchemeItems[index].forEach((schemeItem) => {
           allLineItems.push({
@@ -703,7 +570,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       }
     });
 
-    // Add manual free items (from total quantity-based schemes)
     manualFreeItems.forEach((freeItem) => {
       allLineItems.push({
         productId: freeItem.productId,
@@ -728,60 +594,50 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       });
     });
 
-    // Calculate due date based on invoice date + payment terms
-    const invoiceDate = new Date(data.invoiceDate);
-    const dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + data.paymentTerms);
-    const dueDateString = dueDate.toISOString().split("T")[0];
-
-    const { purchaseOrder, ...invoiceFormData } = data;
-    const purchaseOrderValue = purchaseOrder?.trim() || null;
-
-    const invoiceData = {
-      invoice: {
-        ...invoiceFormData,
+    // Credit memo data
+    const creditMemoData = {
+      creditMemo: {
+        customerId: data.customerId,
+        creditMemoNumber: data.creditMemoNumber,
+        creditMemoDate: data.creditMemoDate,
         subtotal: subtotal.toString(),
         freight: freight.toString(),
         discount: discountPercent.toString(),
         total: total.toString(),
-        status: isEditMode ? invoice.status : "draft",
+        status: isEditMode ? creditMemo.status : "draft",
         invoiceType: data.invoiceType,
-        invoiceDate: data.invoiceDate,
-        dueDate: dueDateString,
-        purchaseOrder: purchaseOrderValue,
-        notes: data.notes,
-        bankDetails: data.bankDetails,
+        notes: data.notes || null,
       },
       lineItems: allLineItems,
     };
 
     if (isEditMode) {
-      updateInvoiceMutation.mutate(invoiceData);
+      updateCreditMemoMutation.mutate(creditMemoData);
     } else {
-      createInvoiceMutation.mutate(invoiceData);
+      createCreditMemoMutation.mutate(creditMemoData);
     }
   };
 
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      data-testid="invoice-form-modal"
+      data-testid="credit-memo-form-modal"
     >
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle
               className="flex items-center"
-              data-testid="invoice-form-title"
+              data-testid="credit-memo-form-title"
             >
               <NotebookPen className="mr-2 text-primary" size={20} />
-              {isEditMode ? "Edit" : "Create New"} Invoice
+              {isEditMode ? "Edit" : "Create New"} Credit Memo
             </CardTitle>
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              data-testid="button-close-invoice-form"
+              data-testid="button-close-credit-memo-form"
             >
               <X size={20} />
             </Button>
@@ -791,7 +647,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Invoice Type Selection */}
+              {/* Credit Memo Type Selection */}
               <div className="mb-6">
                 <FormField
                   control={form.control}
@@ -799,7 +655,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-base font-semibold">
-                        Invoice Type
+                        Credit Memo Type
                       </FormLabel>
                       <Select
                         onValueChange={field.onChange}
@@ -808,28 +664,28 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         <FormControl>
                           <SelectTrigger
                             className="w-full md:w-64"
-                            data-testid="select-invoice-type"
+                            data-testid="select-credit-memo-type"
                           >
-                            <SelectValue placeholder="Select Invoice Type" />
+                            <SelectValue placeholder="Select Credit Memo Type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem
                             value="receivable"
-                            data-testid="option-ar-invoice"
+                            data-testid="option-ar-credit-memo"
                           >
                             <div className="flex items-center">
                               <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                              Accounts Receivable (AR) - Customer Invoice
+                              Accounts Receivable (AR) - Customer Credit Memo
                             </div>
                           </SelectItem>
                           <SelectItem
                             value="payable"
-                            data-testid="option-ap-invoice"
+                            data-testid="option-ap-credit-memo"
                           >
                             <div className="flex items-center">
                               <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                              Accounts Payable (AP) - Vendor Bill
+                              Accounts Payable (AP) - Vendor Credit Memo
                             </div>
                           </SelectItem>
                         </SelectContent>
@@ -894,15 +750,15 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
 
                 <FormField
                   control={form.control}
-                  name="invoiceDate"
+                  name="creditMemoDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Invoice Date</FormLabel>
+                      <FormLabel>Credit Memo Date</FormLabel>
                       <FormControl>
                         <Input
                           type="date"
                           {...field}
-                          data-testid="input-invoice-date"
+                          data-testid="input-credit-memo-date"
                         />
                       </FormControl>
                       <FormMessage />
@@ -911,96 +767,38 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <FormField
                   control={form.control}
-                  name="invoiceNumber"
-                  render={({ field }) => {
-                    const invoiceType = form.watch("invoiceType");
-                    const isARInvoice = invoiceType === "receivable";
-
-                    return (
-                      <FormItem>
-                        <FormLabel>
-                          Invoice Number
-                          {!isEditMode && isARInvoice && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              (Auto-generated, editable)
-                            </span>
-                          )}
-                          {!isEditMode && !isARInvoice && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              (Required)
-                            </span>
-                          )}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder={
-                              !isEditMode && !isARInvoice
-                                ? "Enter invoice number"
-                                : ""
-                            }
-                            className={
-                              invoiceNumberError
-                                ? "border-red-500 focus-visible:ring-red-500"
-                                : ""
-                            }
-                            data-testid="input-invoice-number"
-                          />
-                        </FormControl>
-                        {invoiceNumberError && (
-                          <p
-                            className="text-sm text-red-500 mt-1"
-                            data-testid="invoice-number-error"
-                          >
-                            {invoiceNumberError}
-                          </p>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="purchaseOrder"
+                  name="creditMemoNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Purchase Order</FormLabel>
+                      <FormLabel>
+                        Credit Memo Number
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (Required)
+                        </span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Enter purchase order number"
-                          data-testid="input-purchase-order"
+                          placeholder="Enter credit memo number"
+                          className={
+                            creditMemoNumberError
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }
+                          data-testid="input-credit-memo-number"
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="paymentTerms"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Terms (days)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          data-testid="input-payment-terms"
-                          onBlur={(e) => {
-                            const value = Number(e.target.value);
-                            if (!Number.isFinite(value) || value < 0) {
-                              form.setValue("paymentTerms", 0);
-                            }
-                          }}
-                        />
-                      </FormControl>
+                      {creditMemoNumberError && (
+                        <p
+                          className="text-sm text-red-500 mt-1"
+                          data-testid="credit-memo-number-error"
+                        >
+                          {creditMemoNumberError}
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1088,7 +886,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Enter invoice notes..."
+                        placeholder="Enter credit memo notes..."
                         rows={6}
                         data-testid="input-notes"
                       />
@@ -1098,30 +896,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="bankDetails"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bank Details</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Enter bank details..."
-                        rows={4}
-                        data-testid="input-bank-details"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Line Items */}
+              {/* Line Items - Similar to invoice form */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <label className="text-sm font-medium text-foreground">
-                    Invoice Items
+                    Credit Memo Items
                   </label>
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-muted-foreground">
@@ -1161,7 +940,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                 <div className="space-y-3">
                   {lineItems.map((item, index) => (
                     <div key={index}>
-                      {/* Scheme Description Line Item (merged row) */}
                       {item.isSchemeDescription ? (
                         <div
                           className="grid grid-cols-12 gap-3 items-end p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border-l-4 border-blue-400"
@@ -1198,7 +976,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                           </div>
                         </div>
                       ) : (
-                        /* Normal Product Line Item */
                         <div
                           className="grid grid-cols-12 gap-3 items-end p-3 bg-muted/50 rounded-lg"
                           data-testid={`line-item-${index}`}
@@ -1210,15 +987,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                             <Select
                               value={item.productId}
                               onValueChange={(value) => {
-                                console.log("Product selected:", value);
                                 const product = products?.find(
                                   (p: any) => p.id === value,
                                 );
-                                console.log("Found product:", product);
 
                                 if (product) {
                                   let updatedItems = [...lineItems];
-                                  // Use salesPrice for AR (receivable) invoices, basePrice for AP (payable) invoices
                                   const invoiceType =
                                     form.getValues("invoiceType");
                                   const unitPrice =
@@ -1249,19 +1023,16 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                     stockQuantity: parseInt(product.qty) || 0,
                                   };
 
-                                  // Check if product has scheme description and add it as next line item
                                   if (
                                     product.schemeDescription &&
                                     product.schemeDescription.trim()
                                   ) {
-                                    // Check if next item is already a scheme description for this product
                                     const nextItem = updatedItems[index + 1];
                                     const isNextItemSchemeDesc =
                                       nextItem?.isSchemeDescription &&
                                       nextItem?.productId === value;
 
                                     if (!isNextItemSchemeDesc) {
-                                      // Insert scheme description line item after the product using array spread
                                       const schemeDescItem = {
                                         productId: value,
                                         variantId: "",
@@ -1280,7 +1051,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                           product.schemeDescription,
                                         stockQuantity: 0,
                                       };
-                                      // Create new array with scheme description inserted
                                       updatedItems = [
                                         ...updatedItems.slice(0, index + 1),
                                         schemeDescItem,
@@ -1290,10 +1060,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   }
 
                                   setLineItems(updatedItems);
-                                  console.log(
-                                    "Updated line items:",
-                                    updatedItems,
-                                  );
                                 }
                               }}
                             >
@@ -1322,7 +1088,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                   </SelectItem>
                                 ) : (
                                   (() => {
-                                    // Filter by category
                                     const categoryFiltered =
                                       categoryFilter === "all"
                                         ? products
@@ -1332,7 +1097,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                               categoryFilter,
                                           );
 
-                                    // Filter by search term (case-insensitive substring match)
                                     const filteredProducts =
                                       categoryFiltered?.filter(
                                         (product: any) =>
@@ -1353,7 +1117,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                             ),
                                       );
 
-                                    // always include the currently selected product if not in filtered list
                                     const currentProduct =
                                       products?.find(
                                         (p: any) => p.id === item.productId,
@@ -1555,7 +1318,6 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   ))}
                 </div>
 
-                {/* Add Item Button */}
                 <div className="mt-3">
                   <Button
                     type="button"
@@ -1569,306 +1331,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   </Button>
                 </div>
 
-                {/* Scheme Summary */}
-                {Object.keys(showSchemeItems).length > 0 && (
-                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Gift className="text-accent" size={20} />
-                      <h3 className="text-lg font-semibold text-accent">
-                        Promotional Schemes Applied
-                      </h3>
-                    </div>
-                    <div className="space-y-2">
-                      {Object.entries(showSchemeItems).map(
-                        ([lineIndex, schemeItems]: [string, any[]]) => (
-                          <div key={lineIndex} className="text-sm">
-                            <span className="font-medium text-foreground">
-                              {lineItems[parseInt(lineIndex)]?.description}:
-                            </span>
-                            <span className="text-accent ml-2">
-                              +
-                              {schemeItems.reduce(
-                                (total, item) => total + item.quantity,
-                                0,
-                              )}{" "}
-                              free items
-                            </span>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      Free items are automatically added when you meet scheme
-                      requirements
-                    </div>
-                  </div>
-                )}
-
-                {/* Total Quantity-Based Schemes */}
-                {schemes &&
-                  schemes.filter((s: any) => s.isActive && !s.productId)
-                    .length > 0 && (
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mt-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Gift className="text-primary" size={20} />
-                        <h3 className="text-lg font-semibold text-primary">
-                          Quantity-Based Promotional Schemes
-                        </h3>
-                      </div>
-                      <div className="mb-3 text-sm">
-                        <span className="font-medium text-foreground">
-                          Total Quantity:{" "}
-                        </span>
-                        <span className="text-lg font-bold text-primary">
-                          {calculateTotalQuantity()}
-                        </span>
-                      </div>
-
-                      {schemes
-                        .filter((s: any) => s.isActive && !s.productId)
-                        .map((scheme: any) => {
-                          const totalQty = calculateTotalQuantity();
-                          const timesTriggered = Math.floor(
-                            totalQty / scheme.buyQuantity,
-                          );
-                          const freeQuantityEarned =
-                            timesTriggered * scheme.freeQuantity;
-                          const isTriggered = timesTriggered > 0;
-
-                          return (
-                            <div
-                              key={scheme.id}
-                              className="border border-border rounded-lg p-3 mb-3 bg-background"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div>
-                                  <div className="font-semibold text-foreground">
-                                    {scheme.name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Buy {scheme.buyQuantity} Get{" "}
-                                    {scheme.freeQuantity} Free
-                                  </div>
-                                </div>
-                                {isTriggered && (
-                                  <div className="text-accent font-bold">
-                                    {freeQuantityEarned} Free Items Available
-                                  </div>
-                                )}
-                              </div>
-
-                              {isTriggered && (
-                                <div className="mt-3 space-y-3">
-                                  {/* Show remaining quantity */}
-                                  <div className="text-xs text-muted-foreground">
-                                    Available:{" "}
-                                    {freeQuantityEarned -
-                                      getUsedFreeQuantity(scheme.id)}{" "}
-                                    of {freeQuantityEarned} free items
-                                  </div>
-
-                                  {/* Only show selector if there are remaining free items */}
-                                  {freeQuantityEarned -
-                                    getUsedFreeQuantity(scheme.id) >
-                                    0 && (
-                                    <div className="grid grid-cols-12 gap-2">
-                                      <div className="col-span-5">
-                                        <Select
-                                          value={
-                                            schemePendingSelections[scheme.id]
-                                              ?.productId || ""
-                                          }
-                                          onValueChange={(productId) => {
-                                            setSchemePendingSelections(
-                                              (prev) => ({
-                                                ...prev,
-                                                [scheme.id]: {
-                                                  productId,
-                                                  quantity:
-                                                    prev[scheme.id]?.quantity ||
-                                                    1,
-                                                },
-                                              }),
-                                            );
-                                          }}
-                                          data-testid={`select-free-product-${scheme.id}`}
-                                        >
-                                          <SelectTrigger className="h-8">
-                                            <SelectValue placeholder="Select Product" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {products
-                                              ?.filter((product: any) => {
-                                                // If scheme has specific products, only show those
-                                                if (
-                                                  scheme.productIds &&
-                                                  scheme.productIds.length > 0
-                                                ) {
-                                                  return scheme.productIds.includes(
-                                                    product.id,
-                                                  );
-                                                }
-                                                // Otherwise show all products
-                                                return true;
-                                              })
-                                              ?.map((product: any) => (
-                                                <SelectItem
-                                                  key={product.id}
-                                                  value={product.id}
-                                                >
-                                                  {product.name}
-                                                </SelectItem>
-                                              ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      <div className="col-span-3">
-                                        <Input
-                                          type="number"
-                                          min="1"
-                                          max={
-                                            freeQuantityEarned -
-                                            getUsedFreeQuantity(scheme.id)
-                                          }
-                                          value={
-                                            schemePendingSelections[scheme.id]
-                                              ?.quantity || 1
-                                          }
-                                          onChange={(e) => {
-                                            const quantity =
-                                              parseInt(e.target.value) || 1;
-                                            setSchemePendingSelections(
-                                              (prev) => ({
-                                                ...prev,
-                                                [scheme.id]: {
-                                                  productId:
-                                                    prev[scheme.id]
-                                                      ?.productId || "",
-                                                  quantity,
-                                                },
-                                              }),
-                                            );
-                                          }}
-                                          placeholder="Qty"
-                                          className="h-8"
-                                          data-testid={`input-free-quantity-${scheme.id}`}
-                                        />
-                                      </div>
-                                      <div className="col-span-4">
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          onClick={() => {
-                                            const pending =
-                                              schemePendingSelections[
-                                                scheme.id
-                                              ];
-                                            if (
-                                              pending?.productId &&
-                                              pending?.quantity > 0
-                                            ) {
-                                              const remaining =
-                                                freeQuantityEarned -
-                                                getUsedFreeQuantity(scheme.id);
-                                              if (
-                                                pending.quantity <= remaining
-                                              ) {
-                                                addManualFreeItem(
-                                                  pending.productId,
-                                                  scheme.id,
-                                                  pending.quantity,
-                                                );
-                                              } else {
-                                                toast({
-                                                  title: "Invalid Quantity",
-                                                  description: `Only ${remaining} items remaining`,
-                                                  variant: "destructive",
-                                                });
-                                              }
-                                            }
-                                          }}
-                                          className="h-8 w-full"
-                                          data-testid={`button-add-free-item-${scheme.id}`}
-                                        >
-                                          <Plus size={14} className="mr-1" />{" "}
-                                          Add
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Show added items for this scheme */}
-                                  {manualFreeItems.filter(
-                                    (item) => item.schemeId === scheme.id,
-                                  ).length > 0 && (
-                                    <div className="space-y-1">
-                                      <div className="text-xs font-medium text-foreground">
-                                        Selected Free Items:
-                                      </div>
-                                      {manualFreeItems
-                                        .map((item, index) => ({ item, index }))
-                                        .filter(
-                                          ({ item }) =>
-                                            item.schemeId === scheme.id,
-                                        )
-                                        .map(({ item, index }) => (
-                                          <div
-                                            key={index}
-                                            className="flex items-center justify-between bg-accent/10 rounded px-2 py-1.5"
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              <Gift
-                                                className="text-accent"
-                                                size={14}
-                                              />
-                                              <span className="text-xs font-medium">
-                                                {item.description}
-                                              </span>
-                                              <span className="text-xs text-muted-foreground">
-                                                x{item.quantity}
-                                              </span>
-                                            </div>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                removeManualFreeItem(index)
-                                              }
-                                              className="h-5 px-1"
-                                              data-testid={`button-remove-free-item-${index}`}
-                                            >
-                                              <Trash2 size={12} />
-                                            </Button>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {!isTriggered && (
-                                <div className="text-xs text-muted-foreground mt-2">
-                                  Add{" "}
-                                  {scheme.buyQuantity -
-                                    (totalQty % scheme.buyQuantity)}{" "}
-                                  more items to trigger this scheme
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-
-                {/* Invoice Total */}
+                {/* Credit Memo Total */}
                 <div className="border-t border-border pt-4 mt-6">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Subtotal:</span>
                       <span
                         className="font-medium"
-                        data-testid="invoice-subtotal"
+                        data-testid="credit-memo-subtotal"
                       >
                         {formatCurrency(calculateTotal())}
                       </span>
@@ -1877,7 +1347,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       <span className="text-muted-foreground">Freight:</span>
                       <span
                         className="font-medium"
-                        data-testid="invoice-freight-display"
+                        data-testid="credit-memo-freight-display"
                       >
                         {formatCurrency(form.watch("freight") || 0)}
                       </span>
@@ -1888,7 +1358,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       </span>
                       <span
                         className="font-medium text-red-600"
-                        data-testid="invoice-discount-display"
+                        data-testid="credit-memo-discount-display"
                       >
                         -
                         {formatCurrency(
@@ -1903,7 +1373,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       </span>
                       <span
                         className="text-2xl font-bold text-primary"
-                        data-testid="invoice-total"
+                        data-testid="credit-memo-total"
                       >
                         {formatCurrency(
                           calculateTotal() +
@@ -1922,22 +1392,23 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                     type="submit"
                     className="flex-1"
                     disabled={
-                      createInvoiceMutation.isPending || !!invoiceNumberError
+                      createCreditMemoMutation.isPending ||
+                      !!creditMemoNumberError
                     }
                     data-testid="button-save-draft"
                   >
                     <Save className="mr-2" size={16} />
-                    {createInvoiceMutation.isPending
+                    {createCreditMemoMutation.isPending
                       ? "Saving..."
-                      : invoiceNumberError
-                        ? "Duplicate Invoice Number"
+                      : creditMemoNumberError
+                        ? "Duplicate Credit Memo Number"
                         : "Save Draft"}
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={onClose}
-                    data-testid="button-cancel-invoice"
+                    data-testid="button-cancel-credit-memo"
                   >
                     Cancel
                   </Button>

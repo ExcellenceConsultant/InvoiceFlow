@@ -1,11 +1,11 @@
-// invoice-view.tsx
+// credit-memo-view.tsx
 import { Button } from "@/components/ui/button";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import { formatDateUS } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Invoice, InvoiceLineItem } from "@shared/schema";
+import { CreditMemo, CreditMemoLineItem } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Package, Printer, Tag } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 function toNumber(v: any) {
@@ -76,18 +76,19 @@ function numberToWords(num: number): string {
   return wordParts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-function InvoiceView() {
+function CreditMemoView() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
 
-  const { data: invoice, isLoading: invoiceLoading } = useQuery<Invoice>({
-    queryKey: [`/api/invoices/${id}`],
-    enabled: !!id,
-  });
+  const { data: creditMemo, isLoading: creditMemoLoading } =
+    useQuery<CreditMemo>({
+      queryKey: [`/api/credit-memos/${id}`],
+      enabled: !!id,
+    });
 
   const { data: lineItemsRaw, isLoading: lineItemsLoading } = useQuery<
-    InvoiceLineItem[]
-  >({ queryKey: [`/api/invoices/${id}/line-items`], enabled: !!id });
+    CreditMemoLineItem[]
+  >({ queryKey: [`/api/credit-memos/${id}/line-items`], enabled: !!id });
 
   const { data: schemes } = useQuery<any[]>({
     queryKey: ["/api/schemes"],
@@ -98,7 +99,7 @@ function InvoiceView() {
     },
   });
 
-  const isLoading = invoiceLoading || lineItemsLoading;
+  const isLoading = creditMemoLoading || lineItemsLoading;
   const rawLineItems = (lineItemsRaw || []).map((item) => ({
     ...item,
     quantity: toNumber((item as any).quantity),
@@ -159,7 +160,7 @@ function InvoiceView() {
   ];
   useEffect(() => {
     const style = document.createElement("style");
-    style.id = "invoice-print-styles";
+    style.id = "credit-memo-print-styles";
     style.textContent = `
     @media print {
   @page { 
@@ -171,19 +172,18 @@ function InvoiceView() {
   html { background: white !important; }
   * { box-shadow: none !important; background-color: inherit; }
   .container { background: white !important; padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-  .invoice-page { box-shadow: none; border: none; margin: 0 !important; padding: 0 !important; width: 100%; min-height: auto; background: white !important; }
-  .invoice-header { margin: 0 !important; padding: 0 !important; margin-bottom: 5px !important; }
-  .invoice-info-grid { margin: 0 !important; padding: 0 !important; margin-bottom: 5px !important; }
-  .invoice-table { margin: 0 !important; padding: 0 !important; }
+  .credit-memo-page { box-shadow: none; border: none; margin: 0 !important; padding: 0 !important; width: 100%; min-height: auto; background: white !important; }
+  .credit-memo-header { margin: 0 !important; padding: 0 !important; margin-bottom: 5px !important; }
+  .credit-memo-info-grid { margin: 0 !important; padding: 0 !important; margin-bottom: 5px !important; }
+  .credit-memo-table { margin: 0 !important; padding: 0 !important; }
   .summary-section { margin: 0 !important; padding: 5px 0 !important; }
   .notes-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 10px !important; }
-  .bank-details-section { margin: 0 !important; padding: 5px 0 !important; margin-bottom: 10px !important; }
   .footer-section { margin: 0 !important; padding: 0 !important; }
   .page-break { page-break-after: always; }
   .print-hide { display: none !important; }
 }
 
-.invoice-page {
+.credit-memo-page {
   background: white;
   padding: 20px;
   font-family: Arial, sans-serif;
@@ -194,14 +194,14 @@ function InvoiceView() {
   position: relative;
 }
 
-.invoice-header {
+.credit-memo-header {
   text-align: center;
   font-size: 24px;
   font-weight: bold;
   margin-bottom: 20px;
 }
 
-.invoice-info-grid {
+.credit-memo-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 20px;
@@ -231,7 +231,7 @@ function InvoiceView() {
   margin: 1px 0;
 }
 
-.invoice-table {
+.credit-memo-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 15px;
@@ -239,7 +239,7 @@ function InvoiceView() {
   border: 1px solid #ddd;
 }
 
-.invoice-table th {
+.credit-memo-table th {
   background-color: #f5f5f5;
   padding: 8px 6px;
   text-align: left;
@@ -251,7 +251,7 @@ function InvoiceView() {
   font-size: 11px;
 }
 
-.invoice-table td {
+.credit-memo-table td {
   padding: 6px;
   border-top: 1px solid #ddd;
   border-bottom: 1px solid #ddd;
@@ -335,24 +335,6 @@ function InvoiceView() {
   min-width: 18px;
 }
 
-.bank-details-section {
-  margin-bottom: 30px;
-}
-
-.bank-details-label {
-  font-weight: bold;
-  margin-bottom: 5px;
-  font-size: 11px;
-}
-
-.bank-details-box {
-  padding: 0;
-  min-height: 40px;
-  font-size: 11px;
-  color: #000;
-  line-height: 1.6;
-}
-
 .footer-section {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -384,7 +366,7 @@ function InvoiceView() {
     print-color-adjust: exact;
   }
 
-  .invoice-table th {
+  .credit-memo-table th {
     background-color: #f5f5f5 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -406,14 +388,6 @@ function InvoiceView() {
     margin-bottom: 8px !important;
   }
 
-  .bank-details-box {
-    background-color: white !important;
-    background: white !important;
-    border: none !important;
-    padding: 0 !important;
-    min-height: 0 !important;
-  }
-
   .notes-number {
     font-weight: bold !important;
     color: #000 !important;
@@ -423,15 +397,15 @@ function InvoiceView() {
     `;
     document.head.appendChild(style);
     return () => {
-      const el = document.getElementById("invoice-print-styles");
+      const el = document.getElementById("credit-memo-print-styles");
       if (el) document.head.removeChild(el);
     };
   }, []);
 
-  if (isLoading || !invoice) {
+  if (isLoading || !creditMemo) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div>Loading invoice...</div>
+        <div>Loading credit memo...</div>
       </div>
     );
   }
@@ -448,15 +422,15 @@ function InvoiceView() {
     0,
   );
   const freight = toNumber(
-    (invoice as any).freight || (invoice as any).freightAmount || 0,
+    (creditMemo as any).freight || (creditMemo as any).freightAmount || 0,
   );
-  const discountPercent = toNumber((invoice as any).discount || 0);
+  const discountPercent = toNumber((creditMemo as any).discount || 0);
   const discountAmount = (netAmount * discountPercent) / 100;
-  const totalInvoiceAmount = netAmount + freight - discountAmount;
+  const totalCreditMemoAmount = netAmount + freight - discountAmount;
 
   const billAddress =
-    (invoice as any).customer?.address || (invoice as any).billToAddress;
-  const shipAddress = (invoice as any).shipToAddress || billAddress;
+    (creditMemo as any).customer?.address || (creditMemo as any).billToAddress;
+  const shipAddress = (creditMemo as any).shipToAddress || billAddress;
 
   const handlePrint = () => window.print();
 
@@ -494,7 +468,7 @@ function InvoiceView() {
     });
   });
 
-  // Define category order for invoice: Frozen Vegetable first, Frozen Fruit second, Frozen Bulk third
+  // Define category order for credit memo: Frozen Vegetable first, Frozen Fruit second, Frozen Bulk third
   const categoryOrder = ["Frozen Vegetable", "Frozen Fruit", "Frozen Bulk"];
 
   // Sort categories based on the defined order
@@ -615,32 +589,16 @@ function InvoiceView() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setLocation("/invoices")}
+          onClick={() => setLocation("/credit-memos")}
           data-testid="button-back"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Invoices
+          Back to Credit Memos
         </Button>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setLocation(`/invoices/${id}/packing-list`)}
-            data-testid="button-packing-list"
-          >
-            <Package className="h-4 w-4 mr-2" />
-            View Packing List
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setLocation(`/invoices/${id}/shipping-label`)}
-            data-testid="button-shipping-label"
-          >
-            <Tag className="h-4 w-4 mr-2" />
-            Shipping Label
-          </Button>
           <Button onClick={handlePrint} data-testid="button-print">
             <Printer className="h-4 w-4 mr-2" />
-            Print Invoice
+            Print Credit Memo
           </Button>
         </div>
       </div>
@@ -648,21 +606,21 @@ function InvoiceView() {
       {pages.map((page, pageIndex) => (
         <div
           key={pageIndex}
-          className={`invoice-page ${
+          className={`credit-memo-page ${
             pageIndex < pages.length - 1 ? "page-break" : ""
           }`}
         >
           {/* Header */}
-          <div className="invoice-header">INVOICE</div>
+          <div className="credit-memo-header">CREDIT MEMO</div>
 
           {/* Info Grid */}
-          <div className="invoice-info-grid">
+          <div className="credit-memo-info-grid">
             {/* Billed To */}
             <div className="info-section">
               <div className="info-label">BILLED TO:</div>
               <div className="info-company">
-                {(invoice as any).customer?.name ||
-                  (invoice as any).billToName ||
+                {(creditMemo as any).customer?.name ||
+                  (creditMemo as any).billToName ||
                   "Client Company LLC"}
               </div>
               {billAddress && (
@@ -688,8 +646,8 @@ function InvoiceView() {
             <div className="info-section">
               <div className="info-label">SHIP TO:</div>
               <div className="info-company">
-                {(invoice as any).shipToName ||
-                  (invoice as any).customer?.name ||
+                {(creditMemo as any).shipToName ||
+                  (creditMemo as any).customer?.name ||
                   "Client Company LLC"}
               </div>
               {shipAddress && (
@@ -719,36 +677,23 @@ function InvoiceView() {
               )}
             </div>
 
-            {/* Invoice Details */}
+            {/* Credit Memo Details */}
             <div className="info-section">
               <div className="info-detail">
-                <strong>Invoice No.</strong> : {invoice.invoiceNumber}
+                <strong>Credit Memo No.</strong> : {creditMemo.creditMemoNumber}
               </div>
               <div className="info-detail">
-                <strong>Invoice Date</strong> :{" "}
-                {invoice.invoiceDate ? formatDateUS(invoice.invoiceDate) : "—"}
-              </div>
-              <div className="info-detail">
-                <strong>Payment Term</strong> : Net{" "}
-                {(invoice as any).paymentTerms || 30}
-              </div>
-              <div className="info-detail">
-                <strong>Due Date</strong> :{" "}
-                {invoice.dueDate ? formatDateUS(invoice.dueDate) : "—"}
-              </div>
-              <div className="info-detail">
-                <strong>Purchase Order</strong> :{" "}
-                {(invoice as any).purchaseOrder ||
-                  (invoice as any).purchaseOrderNo ||
-                  (invoice as any).poNumber ||
-                  "—"}
+                <strong>Credit Memo Date</strong> :{" "}
+                {creditMemo.creditMemoDate
+                  ? formatDateUS(creditMemo.creditMemoDate)
+                  : "—"}
               </div>
             </div>
           </div>
 
           {/* Table - only show if page 1 OR if there are items on this page */}
           {(pageIndex === 0 || page.rows.length > 0 || page.emptyCount > 0) && (
-            <table className="invoice-table">
+            <table className="credit-memo-table">
               <thead>
                 <tr>
                   <th style={{ width: "5%", textAlign: "center" }}>Sr. No.</th>
@@ -895,16 +840,16 @@ function InvoiceView() {
                     <strong>Amount in Words:</strong>
                   </div>
                   <div>
-                    {numberToWords(Math.floor(totalInvoiceAmount))
+                    {numberToWords(Math.floor(totalCreditMemoAmount))
                       .split(" ")
                       .map(
                         (word) => word.charAt(0).toUpperCase() + word.slice(1),
                       )
                       .join(" ")}{" "}
                     Dollars
-                    {totalInvoiceAmount % 1 > 0
+                    {totalCreditMemoAmount % 1 > 0
                       ? ` and ${numberToWords(
-                          Math.round((totalInvoiceAmount % 1) * 100),
+                          Math.round((totalCreditMemoAmount % 1) * 100),
                         )
                           .split(" ")
                           .map(
@@ -939,7 +884,7 @@ function InvoiceView() {
                   <div className="summary-total">
                     <strong>Total Amount:</strong>{" "}
                     <span style={{ float: "right" }}>
-                      {formatCurrency(totalInvoiceAmount)}
+                      {formatCurrency(totalCreditMemoAmount)}
                     </span>
                   </div>
                 </div>
@@ -949,7 +894,7 @@ function InvoiceView() {
               <div className="notes-section">
                 <div className="notes-label">Notes:</div>
                 <div className="notes-box">
-                  {((invoice as any).notes || "")
+                  {((creditMemo as any).notes || "")
                     .split("\n")
                     .filter((line: string) => line.trim())
                     .map((line: string, idx: number) => {
@@ -963,24 +908,6 @@ function InvoiceView() {
                     })}
                 </div>
               </div>
-
-              {/* Bank Details Section */}
-              {(invoice as any).bankDetails &&
-                (invoice as any).bankDetails.trim() && (
-                  <div className="bank-details-section">
-                    <div className="bank-details-label">BANK DETAILS:</div>
-                    <div className="bank-details-box">
-                      {((invoice as any).bankDetails || "")
-                        .split("\n")
-                        .filter((line: string) => line.trim())
-                        .map((line: string, idx: number) => (
-                          <div key={idx} style={{ marginBottom: "4px" }}>
-                            {line}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
 
               {/* Footer */}
               <div className="footer-section">
@@ -1016,4 +943,4 @@ function InvoiceView() {
     </div>
   );
 }
-export default InvoiceView;
+export default CreditMemoView;
