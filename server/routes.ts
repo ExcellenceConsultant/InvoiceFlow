@@ -594,6 +594,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Sync inventory quantities based on invoice movements
+  app.post(
+    "/api/inventory/sync",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const user = (req as any).user;
+        const products = await storage.getProducts(user.userId);
+        const invoices = await storage.getInvoices(user.userId);
+
+        // Get all invoice line items for all invoices
+        const allLineItems: any[] = [];
+        for (const invoice of invoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+          lineItems.forEach((item: any) => {
+            allLineItems.push({
+              ...item,
+              invoiceType: invoice.invoiceType,
+            });
+          });
+        }
+
+        // Calculate correct quantity for each product based on movements
+        const syncResults: any[] = [];
+        for (const product of products) {
+          const productLineItems = allLineItems.filter(
+            (item: any) => item.productId === product.id && item.quantity > 0,
+          );
+
+          // Calculate net quantity: AP adds, AR subtracts
+          let netQuantity = 0;
+          for (const item of productLineItems) {
+            if (item.invoiceType === "payable") {
+              netQuantity += item.quantity;
+            } else if (item.invoiceType === "receivable") {
+              netQuantity -= item.quantity;
+            }
+          }
+
+          // Update product quantity if different
+          if (product.qty !== netQuantity) {
+            await storage.updateProduct(product.id, { qty: netQuantity });
+            syncResults.push({
+              productName: product.name,
+              oldQty: product.qty,
+              newQty: netQuantity,
+            });
+          }
+        }
+
+        res.json({
+          message: `Inventory sync completed. ${syncResults.length} products updated.`,
+          updates: syncResults,
+        });
+      } catch (error) {
+        console.error("Error syncing inventory:", error);
+        res.status(500).json({ message: "Failed to sync inventory" });
+      }
+    },
+  );
+
   // Product routes
   app.get("/api/products", isAuthenticated, async (req, res) => {
     try {
@@ -896,7 +957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (item.productId && item.productId.trim() !== "") {
             try {
               const product = await storage.getProduct(item.productId);
-              if (product && product.qty === 0) {
+              if (product && product.qty <= 0) {
                 outOfStockProducts.push(product.name);
               }
             } catch (error) {
@@ -994,7 +1055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               // AR Invoice (receivable): Reduce inventory (selling to customer)
               if (invoice.invoiceType === "receivable") {
-                newQty = Math.max(0, currentProduct.qty - item.quantity);
+                newQty = currentProduct.qty - item.quantity;
                 console.log(
                   `Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (sold ${item.quantity})`,
                 );
@@ -1042,10 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const currentProduct = await storage.getProduct(lineItem.productId);
             if (currentProduct) {
-              const newQty = Math.max(
-                0,
-                currentProduct.qty - lineItem.quantity,
-              );
+              const newQty = currentProduct.qty - lineItem.quantity;
               console.log(
                 `Reducing inventory for free scheme item ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (free quantity ${lineItem.quantity})`,
               );
@@ -1476,7 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const currentProduct = await storage.getProduct(item.productId);
               if (currentProduct) {
                 // Subtract the new quantity
-                const newQty = Math.max(0, currentProduct.qty - item.quantity);
+                const newQty = currentProduct.qty - item.quantity;
                 console.log(
                   `Applying new AR line item: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
                 );

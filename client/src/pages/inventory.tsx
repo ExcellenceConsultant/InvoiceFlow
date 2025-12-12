@@ -482,33 +482,33 @@ export default function Inventory() {
               onClick={async () => {
                 try {
                   toast({
-                    title: "Recalculating Inventory",
-                    description: "Please wait while we recalculate quantities from invoices...",
+                    title: "Syncing Inventory",
+                    description: "Please wait while we sync quantities from invoices...",
                   });
 
-                  const response = await apiRequest('POST', '/api/migrate/recalculate-inventory', {});
+                  const response = await apiRequest('POST', '/api/inventory/sync', {});
                   const result = await response.json();
 
                   toast({
                     title: "Success",
-                    description: result.message || "Inventory quantities recalculated successfully",
+                    description: result.message || "Inventory synced successfully",
                   });
 
                   // Refresh the products list
                   queryClient.invalidateQueries({ queryKey: ['/api/products'] });
                 } catch (error: any) {
-                  console.error('Error recalculating inventory:', error);
+                  console.error('Error syncing inventory:', error);
                   toast({
                     title: "Error",
-                    description: error.message || "Failed to recalculate inventory",
+                    description: error.message || "Failed to sync inventory",
                     variant: "destructive",
                   });
                 }
               }}
-              data-testid="button-recalculate-inventory"
+              data-testid="button-sync-inventory"
             >
               <RefreshCw className="mr-2" size={16} />
-              Recalculate Qty
+              Sync Inventory
             </Button>
             <Button 
               variant="secondary" 
