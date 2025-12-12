@@ -530,7 +530,14 @@ export default function Inventory() {
                   });
 
                   // Download the report directly from the optimized backend API
+                  const token = localStorage.getItem("token");
+                  const headers: Record<string, string> = {};
+                  if (token) {
+                    headers["Authorization"] = `Bearer ${token}`;
+                  }
+                  
                   const response = await fetch('/api/reports/inventory-movement', {
+                    headers,
                     credentials: 'include',
                   });
                   
