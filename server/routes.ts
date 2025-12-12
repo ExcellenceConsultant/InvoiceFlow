@@ -492,6 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const user = (req as any).user;
         const products = await storage.getProducts(user.userId);
         const invoices = await storage.getInvoices(user.userId);
+        const creditMemos = await storage.getCreditMemos(user.userId);
 
         // Get all invoice line items for all invoices
         const allLineItems: any[] = [];
@@ -504,6 +505,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               invoiceDate: invoice.invoiceDate,
               invoiceType: invoice.invoiceType,
               customerId: invoice.customerId,
+              isCreditMemo: false,
+            });
+          });
+        }
+
+        // Get all credit memo line items
+        for (const creditMemo of creditMemos) {
+          const lineItems = await storage.getCreditMemoLineItems(creditMemo.id);
+          lineItems.forEach((item: any) => {
+            allLineItems.push({
+              ...item,
+              invoiceNumber: `CM-${creditMemo.creditMemoNumber}`,
+              invoiceDate: creditMemo.creditMemoDate,
+              invoiceType: creditMemo.invoiceType,
+              customerId: creditMemo.customerId,
+              isCreditMemo: true,
             });
           });
         }
@@ -534,11 +551,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Add each transaction
             productLineItems.forEach((item: any) => {
               const customerName = customerMap.get(item.customerId) || "";
-              // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
-              const quantity =
-                item.invoiceType === "receivable"
+              let quantity;
+              
+              if (item.isCreditMemo) {
+                // Credit memos have opposite effect of invoices:
+                // AR Credit Memo: Positive (returning goods from customer - increases inventory)
+                // AP Credit Memo: Negative (returning goods to supplier - decreases inventory)
+                quantity = item.invoiceType === "receivable"
+                  ? item.quantity
+                  : -item.quantity;
+              } else {
+                // Invoices:
+                // AR Invoice: Negative (sales/outgoing - decreases inventory)
+                // AP Invoice: Positive (purchases/incoming - increases inventory)
+                quantity = item.invoiceType === "receivable"
                   ? -item.quantity
                   : item.quantity;
+              }
 
               reportData.push({
                 "Product Name": "",
@@ -594,7 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Sync inventory quantities based on invoice movements
+  // Sync inventory quantities based on invoice and credit memo movements
   app.post(
     "/api/inventory/sync",
     isAuthenticated,
@@ -603,6 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const user = (req as any).user;
         const products = await storage.getProducts(user.userId);
         const invoices = await storage.getInvoices(user.userId);
+        const creditMemos = await storage.getCreditMemos(user.userId);
 
         // Get all invoice line items for all invoices
         const allLineItems: any[] = [];
@@ -612,6 +642,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             allLineItems.push({
               ...item,
               invoiceType: invoice.invoiceType,
+              isCreditMemo: false,
+            });
+          });
+        }
+
+        // Get all credit memo line items
+        for (const creditMemo of creditMemos) {
+          const lineItems = await storage.getCreditMemoLineItems(creditMemo.id);
+          lineItems.forEach((item: any) => {
+            allLineItems.push({
+              ...item,
+              invoiceType: creditMemo.invoiceType,
+              isCreditMemo: true,
             });
           });
         }
@@ -623,13 +666,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             (item: any) => item.productId === product.id && item.quantity > 0,
           );
 
-          // Calculate net quantity: AP adds, AR subtracts
+          // Calculate net quantity based on invoices and credit memos
           let netQuantity = 0;
           for (const item of productLineItems) {
-            if (item.invoiceType === "payable") {
-              netQuantity += item.quantity;
-            } else if (item.invoiceType === "receivable") {
-              netQuantity -= item.quantity;
+            if (item.isCreditMemo) {
+              // Credit memos have opposite effect of invoices:
+              // AR Credit Memo: Adds to inventory (returning goods from customer)
+              // AP Credit Memo: Subtracts from inventory (returning goods to supplier)
+              if (item.invoiceType === "receivable") {
+                netQuantity += item.quantity;
+              } else if (item.invoiceType === "payable") {
+                netQuantity -= item.quantity;
+              }
+            } else {
+              // Invoices:
+              // AP Invoice: Adds to inventory (purchases)
+              // AR Invoice: Subtracts from inventory (sales)
+              if (item.invoiceType === "payable") {
+                netQuantity += item.quantity;
+              } else if (item.invoiceType === "receivable") {
+                netQuantity -= item.quantity;
+              }
             }
           }
 
@@ -1272,7 +1329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try {
               const currentProduct = await storage.getProduct(item.productId);
               if (currentProduct) {
-                const newQty = Math.max(0, currentProduct.qty - item.quantity);
+                const newQty = currentProduct.qty - item.quantity;
                 const priceInfo = productPriceMap.get(item.productId);
                 const latestBasePrice = priceInfo?.basePrice || "0.00";
 
@@ -1715,7 +1772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               // AP Credit Memo (payable): Decrease inventory (returning goods to supplier)
               else if (createdCreditMemo.invoiceType === "payable") {
-                const newQty = Math.max(0, currentProduct.qty - quantity);
+                const newQty = currentProduct.qty - quantity;
                 console.log(
                   `Decreasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (credit memo returned ${quantity} to supplier)`,
                 );
@@ -1797,7 +1854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   typeof item.quantity === "string"
                     ? parseFloat(item.quantity)
                     : item.quantity;
-                const newQty = Math.max(0, currentProduct.qty - quantity);
+                const newQty = currentProduct.qty - quantity;
                 console.log(
                   `Reverting AR credit memo deletion: Decreasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${quantity})`,
                 );
@@ -1928,7 +1985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   typeof oldItem.quantity === "string"
                     ? parseFloat(oldItem.quantity)
                     : oldItem.quantity;
-                const newQty = Math.max(0, currentProduct.qty - oldQuantity);
+                const newQty = currentProduct.qty - oldQuantity;
                 console.log(
                   `Reverting old AR credit memo line item: Decreasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${oldQuantity})`,
                 );
@@ -2067,7 +2124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   typeof item.quantity === "string"
                     ? parseFloat(item.quantity)
                     : item.quantity;
-                const newQty = Math.max(0, currentProduct.qty - quantity);
+                const newQty = currentProduct.qty - quantity;
                 console.log(
                   `Applying new AP credit memo line item: Decreasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${quantity})`,
                 );
