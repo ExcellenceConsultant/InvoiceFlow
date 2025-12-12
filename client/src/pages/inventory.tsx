@@ -526,93 +526,28 @@ export default function Inventory() {
                   // Show loading message
                   toast({
                     title: "Generating Report",
-                    description: "Please wait, this may take a moment...",
+                    description: "Please wait, downloading from server...",
                   });
 
-                  // Fetch invoices using queryClient
-                  const invoices = await queryClient.fetchQuery({
-                    queryKey: ['/api/invoices'],
+                  // Download the report directly from the optimized backend API
+                  const response = await fetch('/api/reports/inventory-movement', {
+                    credentials: 'include',
                   });
                   
-                  console.log(`Fetching line items for ${(invoices as any[]).length} invoices...`);
-                  
-                  // Fetch all line items for all invoices
-                  const allLineItems: any[] = [];
-                  for (const invoice of invoices as any[]) {
-                    try {
-                      const lineItems = await queryClient.fetchQuery({
-                        queryKey: [`/api/invoices/${invoice.id}/line-items`],
-                      });
-                      (lineItems as any[]).forEach((item: any) => {
-                        allLineItems.push({
-                          ...item,
-                          invoiceNumber: invoice.invoiceNumber,
-                          invoiceDate: invoice.invoiceDate,
-                          invoiceType: invoice.invoiceType,
-                          customerId: invoice.customerId,
-                        });
-                      });
-                    } catch (err) {
-                      console.error(`Failed to fetch line items for invoice ${invoice.id}`, err);
-                    }
+                  if (!response.ok) {
+                    throw new Error(`Failed to generate report: ${response.statusText}`);
                   }
                   
-                  console.log(`Collected ${allLineItems.length} line items`);
-                  
-                  // Fetch customers for name lookup
-                  const customers = await queryClient.fetchQuery({
-                    queryKey: ['/api/customers'],
-                  });
-                  const customerMap = new Map((customers as any[]).map((c: any) => [c.id, c.name]));
-                  
-                  // Build the report data grouped by product
-                  const reportData: any[] = [];
-                  
-                  for (const product of products) {
-                    // Get all line items for this product
-                    const productLineItems = allLineItems.filter(
-                      (item: any) => item.productId === product.id
-                    );
-                    
-                    if (productLineItems.length > 0) {
-                      // Add product name as header row
-                      reportData.push({
-                        'Product Name': product.name,
-                        'Invoice Number': '',
-                        'Invoice Date': '',
-                        'Name': '',
-                        'QTY': ''
-                      });
-                      
-                      // Add each transaction
-                      productLineItems.forEach((item: any) => {
-                        const customerName = customerMap.get(item.customerId) || '';
-                        // Negative for AR (sales/outgoing), Positive for AP (purchases/incoming)
-                        const quantity = item.invoiceType === 'receivable' 
-                          ? -item.quantity 
-                          : item.quantity;
-                        
-                        reportData.push({
-                          'Product Name': '',
-                          'Invoice Number': item.invoiceNumber,
-                          'Invoice Date': item.invoiceDate ? formatDateWithoutTimezone(item.invoiceDate) : '',
-                          'Name': customerName,
-                          'QTY': quantity
-                        });
-                      });
-                    }
-                  }
-                  
-                  console.log(`Generating Excel file with ${reportData.length} rows...`);
-                  
-                  // Generate Excel file
-                  const XLSX = await import('xlsx');
-                  const worksheet = XLSX.utils.json_to_sheet(reportData);
-                  const workbook = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Movement');
-                  XLSX.writeFile(workbook, `Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-                  
-                  console.log('Excel file generated successfully');
+                  // Get the blob and download it
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Inventory_Movement_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
                   
                   toast({
                     title: "Success",
