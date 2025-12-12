@@ -595,7 +595,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Generate Excel file
-        const XLSX = require("xlsx");
         const worksheet = XLSX.utils.json_to_sheet(reportData, {
           header: [
             "Product Name",
