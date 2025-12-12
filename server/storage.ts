@@ -89,6 +89,7 @@ export interface IStorage {
 
   // Invoice Line Items
   getInvoiceLineItems(invoiceId: string): Promise<InvoiceLineItem[]>;
+  getAllInvoiceLineItems(): Promise<InvoiceLineItem[]>;
   createLineItem(lineItem: InsertInvoiceLineItem): Promise<InvoiceLineItem>;
   deleteLineItem(id: string): Promise<boolean>;
   deleteInvoiceLineItemsByInvoiceId(invoiceId: string): Promise<boolean>;
@@ -108,6 +109,7 @@ export interface IStorage {
 
   // Credit Memo Line Items
   getCreditMemoLineItems(creditMemoId: string): Promise<CreditMemoLineItem[]>;
+  getAllCreditMemoLineItems(): Promise<CreditMemoLineItem[]>;
   createCreditMemoLineItem(
     lineItem: InsertCreditMemoLineItem,
   ): Promise<CreditMemoLineItem>;
@@ -516,6 +518,10 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getAllInvoiceLineItems(): Promise<InvoiceLineItem[]> {
+    return Array.from(this.invoiceLineItems.values());
+  }
+
   async createLineItem(
     lineItemData: InsertInvoiceLineItem,
   ): Promise<InvoiceLineItem> {
@@ -631,6 +637,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.creditMemoLineItems.values()).filter(
       (item) => item.creditMemoId === creditMemoId,
     );
+  }
+
+  async getAllCreditMemoLineItems(): Promise<CreditMemoLineItem[]> {
+    return Array.from(this.creditMemoLineItems.values());
   }
 
   async createCreditMemoLineItem(

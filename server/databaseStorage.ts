@@ -464,6 +464,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(invoiceLineItems.invoiceId, invoiceId));
   }
 
+  async getAllInvoiceLineItems(): Promise<InvoiceLineItem[]> {
+    return await db.select().from(invoiceLineItems);
+  }
+
   async getInvoiceLineItem(id: string): Promise<InvoiceLineItem | undefined> {
     const [item] = await db
       .select()
@@ -594,6 +598,10 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(creditMemoLineItems)
       .where(eq(creditMemoLineItems.creditMemoId, creditMemoId));
+  }
+
+  async getAllCreditMemoLineItems(): Promise<CreditMemoLineItem[]> {
+    return await db.select().from(creditMemoLineItems);
   }
 
   async createCreditMemoLineItem(

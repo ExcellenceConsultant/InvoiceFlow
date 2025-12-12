@@ -490,15 +490,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const user = (req as any).user;
-        const products = await storage.getProducts(user.userId);
-        const invoices = await storage.getInvoices(user.userId);
-        const creditMemos = await storage.getCreditMemos(user.userId);
+        
+        // Fetch all data in parallel for faster performance
+        const [products, invoices, creditMemos, allInvoiceLineItems, allCreditMemoLineItems, customers] = await Promise.all([
+          storage.getProducts(user.userId),
+          storage.getInvoices(user.userId),
+          storage.getCreditMemos(user.userId),
+          storage.getAllInvoiceLineItems(),
+          storage.getAllCreditMemoLineItems(),
+          storage.getCustomers(user.userId),
+        ]);
 
-        // Get all invoice line items for all invoices
+        // Create lookup maps for invoices and credit memos
+        const invoiceMap = new Map(invoices.map((inv: any) => [inv.id, inv]));
+        const creditMemoMap = new Map(creditMemos.map((cm: any) => [cm.id, cm]));
+
+        // Build all line items with invoice/credit memo data
         const allLineItems: any[] = [];
-        for (const invoice of invoices) {
-          const lineItems = await storage.getInvoiceLineItems(invoice.id);
-          lineItems.forEach((item: any) => {
+        
+        // Process invoice line items
+        for (const item of allInvoiceLineItems) {
+          const invoice = invoiceMap.get(item.invoiceId);
+          if (invoice) {
             allLineItems.push({
               ...item,
               invoiceNumber: invoice.invoiceNumber,
@@ -507,13 +520,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customerId: invoice.customerId,
               isCreditMemo: false,
             });
-          });
+          }
         }
 
-        // Get all credit memo line items
-        for (const creditMemo of creditMemos) {
-          const lineItems = await storage.getCreditMemoLineItems(creditMemo.id);
-          lineItems.forEach((item: any) => {
+        // Process credit memo line items
+        for (const item of allCreditMemoLineItems) {
+          const creditMemo = creditMemoMap.get(item.creditMemoId);
+          if (creditMemo) {
             allLineItems.push({
               ...item,
               invoiceNumber: `CM-${creditMemo.creditMemoNumber}`,
@@ -522,11 +535,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customerId: creditMemo.customerId,
               isCreditMemo: true,
             });
-          });
+          }
         }
 
-        // Get all customers for name lookup
-        const customers = await storage.getCustomers(user.userId);
+        // Create customer lookup map (customers already fetched above)
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
         // Build the report data grouped by product
@@ -630,33 +642,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const user = (req as any).user;
-        const products = await storage.getProducts(user.userId);
-        const invoices = await storage.getInvoices(user.userId);
-        const creditMemos = await storage.getCreditMemos(user.userId);
+        
+        // Fetch all data in parallel for faster performance
+        const [products, invoices, creditMemos, allInvoiceLineItems, allCreditMemoLineItems] = await Promise.all([
+          storage.getProducts(user.userId),
+          storage.getInvoices(user.userId),
+          storage.getCreditMemos(user.userId),
+          storage.getAllInvoiceLineItems(),
+          storage.getAllCreditMemoLineItems(),
+        ]);
 
-        // Get all invoice line items for all invoices
+        // Create lookup maps for invoices and credit memos
+        const invoiceMap = new Map(invoices.map((inv: any) => [inv.id, inv]));
+        const creditMemoMap = new Map(creditMemos.map((cm: any) => [cm.id, cm]));
+
+        // Build all line items with invoice/credit memo data
         const allLineItems: any[] = [];
-        for (const invoice of invoices) {
-          const lineItems = await storage.getInvoiceLineItems(invoice.id);
-          lineItems.forEach((item: any) => {
+        
+        // Process invoice line items
+        for (const item of allInvoiceLineItems) {
+          const invoice = invoiceMap.get(item.invoiceId);
+          if (invoice) {
             allLineItems.push({
               ...item,
               invoiceType: invoice.invoiceType,
               isCreditMemo: false,
             });
-          });
+          }
         }
 
-        // Get all credit memo line items
-        for (const creditMemo of creditMemos) {
-          const lineItems = await storage.getCreditMemoLineItems(creditMemo.id);
-          lineItems.forEach((item: any) => {
+        // Process credit memo line items
+        for (const item of allCreditMemoLineItems) {
+          const creditMemo = creditMemoMap.get(item.creditMemoId);
+          if (creditMemo) {
             allLineItems.push({
               ...item,
               invoiceType: creditMemo.invoiceType,
               isCreditMemo: true,
             });
-          });
+          }
         }
 
         // Calculate correct quantity for each product based on movements
