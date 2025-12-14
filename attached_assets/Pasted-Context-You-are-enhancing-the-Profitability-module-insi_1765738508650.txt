@@ -1,0 +1,143 @@
+Context
+
+You are enhancing the Profitability module inside an Invoice Flow application.
+
+Currently:
+
+Margin per carton exists at invoice-item level
+
+Reports auto-calculate margins
+
+Only Super Admin can manage margins
+
+Now implement an advanced “Add Margin” feature that allows Super Admin to assign margin per carton to inventory items via a list view.
+
+🔐 Access Control
+
+Only Super Admin can see and use this feature
+
+Enforce role checks in both frontend and backend
+
+🧩 Add Margin Button – New Behavior
+UI Flow
+
+Super Admin clicks “Add Margin” button
+
+A modal / drawer opens
+
+Modal displays a list of ALL inventory items
+
+📋 Inventory Item List (Modal Table)
+
+Display the following columns:
+
+Select	Item Code	Item Name	Category	Packing Size	Margin per Carton (Input)
+Rules:
+
+Margin per carton is editable per item
+
+Numeric input only
+
+Option to apply same margin to multiple selected items
+
+Search and filter by:
+
+Item Name
+
+Item Code
+
+Category
+
+🎯 Actions in Modal
+Buttons
+
+Apply Margin
+
+Cancel
+
+Apply Margin Logic
+
+Save margin per carton against each selected inventory item
+
+Margin should be applied to:
+
+All existing invoice items of that product (optional if enabled)
+
+All future invoices automatically
+
+⚠️ Ask confirmation before overwriting existing margins.
+
+📐 Business Logic
+Margin Source Priority
+
+Invoice Item Margin (if exists)
+
+Inventory Item Margin (default)
+
+Formula (unchanged)
+
+Total Margin = qty × margin_per_carton
+
+🗄️ Backend Requirements
+Database Changes
+
+Add column in inventory table:
+
+margin_per_carton NUMERIC
+
+APIs
+1. Get Inventory List
+GET /api/inventory?includeMargin=true
+
+2. Apply Margin to Inventory Items
+PUT /api/inventory/apply-margin
+
+
+Request Body:
+
+{
+  "items": [
+    { "item_id": 1, "margin_per_carton": 100 },
+    { "item_id": 2, "margin_per_carton": 120 }
+  ]
+}
+
+📊 Reports Integration
+
+Reports must fetch margin automatically
+
+If invoice item margin is null, use inventory margin
+
+No manual recalculation required
+
+🖥️ Frontend Requirements (React)
+
+Modal with table layout
+
+Checkbox selection
+
+Bulk margin input option
+
+Inline margin input per item
+
+Validation and confirmation popup
+
+Auto-refresh data after save
+
+🔐 Security & Audit
+
+Log margin changes (item, old margin, new margin, user, timestamp)
+
+Restrict margin edit APIs to Super Admin
+
+🎯 Expected Output
+
+Inventory margin schema update
+
+APIs for inventory margin management
+
+React modal UI
+
+Priority-based margin calculation logic
+
+Clean, scalable implementation

@@ -30,6 +30,16 @@ import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   CalendarDays,
   ChevronDown,
@@ -42,6 +52,8 @@ import {
   FileText,
   TrendingUp,
   Loader2,
+  Plus,
+  Search,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
@@ -94,6 +106,17 @@ interface ProductReport {
   totalMargin: number;
   avgMarginPerCarton: number;
   marginPercent: number;
+}
+
+interface InventoryMarginItem {
+  id: string;
+  itemCode: string;
+  name: string;
+  category: string;
+  packingSize: string;
+  marginPerCarton: number | null;
+  marginUpdatedBy: string | null;
+  marginUpdatedAt: string | null;
 }
 
 const safeParseFloat = (value: string | number | null | undefined): number => {
@@ -166,6 +189,12 @@ export default function Profitability() {
   const [customerFilter, setCustomerFilter] = useState<string>("all");
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
   const [editingMargin, setEditingMargin] = useState<{ itemId: string; value: string } | null>(null);
+  const [isAddMarginOpen, setIsAddMarginOpen] = useState(false);
+  const [marginSearch, setMarginSearch] = useState("");
+  const [marginCategoryFilter, setMarginCategoryFilter] = useState<string>("all");
+  const [selectedMarginItems, setSelectedMarginItems] = useState<Set<string>>(new Set());
+  const [bulkMarginValue, setBulkMarginValue] = useState("");
+  const [individualMargins, setIndividualMargins] = useState<Record<string, string>>({});
 
   const isSuperAdmin = user?.role === "super_admin";
 
@@ -233,6 +262,41 @@ export default function Profitability() {
       return response.json();
     },
     enabled: isSuperAdmin && activeTab === "products",
+  });
+
+  const { data: inventoryMargins, isLoading: inventoryMarginsLoading } = useQuery<InventoryMarginItem[]>({
+    queryKey: ["/api/inventory/margins"],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/inventory/margins", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch inventory margins");
+      return response.json();
+    },
+    enabled: isSuperAdmin && isAddMarginOpen,
+  });
+
+  const applyMarginMutation = useMutation({
+    mutationFn: async (items: { productId: string; marginPerCarton: number }[]) => {
+      const response = await apiRequest("PUT", "/api/inventory/apply-margin", { items });
+      if (!response.ok) throw new Error("Failed to apply margins");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/margins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profitability/invoices"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/profitability/reports/customer"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/profitability/reports/product"], exact: false });
+      toast({ title: "Success", description: `Updated margins for ${data.updated} products` });
+      setIsAddMarginOpen(false);
+      setSelectedMarginItems(new Set());
+      setBulkMarginValue("");
+      setIndividualMargins({});
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to apply margins", variant: "destructive" });
+    },
   });
 
   const updateMarginMutation = useMutation({
@@ -306,6 +370,75 @@ export default function Profitability() {
       invoiceCount: invoicesData.length,
     };
   }, [invoicesData]);
+
+  const inventoryCategories = useMemo(() => {
+    if (!inventoryMargins) return [];
+    const categories = new Set(inventoryMargins.map((item) => item.category).filter(Boolean));
+    return Array.from(categories).sort();
+  }, [inventoryMargins]);
+
+  const filteredInventoryMargins = useMemo(() => {
+    if (!inventoryMargins) return [];
+    return inventoryMargins.filter((item) => {
+      const matchesSearch = marginSearch === "" ||
+        item.name.toLowerCase().includes(marginSearch.toLowerCase()) ||
+        item.itemCode.toLowerCase().includes(marginSearch.toLowerCase());
+      const matchesCategory = marginCategoryFilter === "all" || item.category === marginCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [inventoryMargins, marginSearch, marginCategoryFilter]);
+
+  const handleSelectAllMargin = (checked: boolean) => {
+    if (checked) {
+      setSelectedMarginItems(new Set(filteredInventoryMargins.map((item) => item.id)));
+    } else {
+      setSelectedMarginItems(new Set());
+    }
+  };
+
+  const handleToggleMarginItem = (itemId: string) => {
+    setSelectedMarginItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  const handleApplyBulkMargin = () => {
+    const marginValue = parseFloat(bulkMarginValue);
+    if (isNaN(marginValue) || marginValue < 0) {
+      toast({ title: "Invalid value", description: "Please enter a valid margin amount", variant: "destructive" });
+      return;
+    }
+    if (selectedMarginItems.size === 0) {
+      toast({ title: "No items selected", description: "Please select at least one item", variant: "destructive" });
+      return;
+    }
+    const items = Array.from(selectedMarginItems).map((productId) => ({
+      productId,
+      marginPerCarton: marginValue,
+    }));
+    applyMarginMutation.mutate(items);
+  };
+
+  const handleApplyIndividualMargins = () => {
+    const items: { productId: string; marginPerCarton: number }[] = [];
+    for (const [productId, value] of Object.entries(individualMargins)) {
+      const marginValue = parseFloat(value);
+      if (!isNaN(marginValue) && marginValue >= 0) {
+        items.push({ productId, marginPerCarton: marginValue });
+      }
+    }
+    if (items.length === 0) {
+      toast({ title: "No margins to apply", description: "Please enter margin values for at least one item", variant: "destructive" });
+      return;
+    }
+    applyMarginMutation.mutate(items);
+  };
 
   const exportToExcel = (type: "invoices" | "customers" | "products") => {
     let data: any[] = [];
@@ -384,6 +517,13 @@ export default function Profitability() {
             </h1>
             <p className="text-muted-foreground mt-1">Analyze margins and profitability by invoice, customer, and product</p>
           </div>
+          <Button
+            onClick={() => setIsAddMarginOpen(true)}
+            data-testid="btn-add-margin"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Margin
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -751,6 +891,159 @@ export default function Profitability() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isAddMarginOpen} onOpenChange={setIsAddMarginOpen}>
+          <DialogContent className="max-w-4xl max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle>Add Margin to Inventory</DialogTitle>
+              <DialogDescription>
+                Set margin per carton for products. This margin will be used as a fallback when invoice line items don't have a specific margin set.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex gap-4 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or item code..."
+                  value={marginSearch}
+                  onChange={(e) => setMarginSearch(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-margin-search"
+                />
+              </div>
+              <Select value={marginCategoryFilter} onValueChange={setMarginCategoryFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-margin-category">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {inventoryCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-4 mb-4 items-center p-3 bg-muted rounded-lg">
+              <span className="text-sm font-medium">Bulk Apply:</span>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Margin value"
+                value={bulkMarginValue}
+                onChange={(e) => setBulkMarginValue(e.target.value)}
+                className="w-32"
+                data-testid="input-bulk-margin"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleApplyBulkMargin}
+                disabled={selectedMarginItems.size === 0 || applyMarginMutation.isPending}
+                data-testid="btn-apply-bulk"
+              >
+                Apply to {selectedMarginItems.size} selected
+              </Button>
+            </div>
+
+            <ScrollArea className="h-[400px] border rounded-lg">
+              {inventoryMarginsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={filteredInventoryMargins.length > 0 && selectedMarginItems.size === filteredInventoryMargins.length}
+                          onCheckedChange={(checked) => handleSelectAllMargin(!!checked)}
+                          data-testid="checkbox-select-all"
+                        />
+                      </TableHead>
+                      <TableHead>Item Code</TableHead>
+                      <TableHead>Product Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Pack Size</TableHead>
+                      <TableHead className="text-right">Current Margin</TableHead>
+                      <TableHead className="text-right w-32">New Margin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInventoryMargins.map((item) => (
+                      <TableRow key={item.id} data-testid={`margin-row-${item.id}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedMarginItems.has(item.id)}
+                            onCheckedChange={() => handleToggleMarginItem(item.id)}
+                            data-testid={`checkbox-item-${item.id}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell>{item.category || "-"}</TableCell>
+                        <TableCell>{item.packingSize || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          {item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={individualMargins[item.id] || ""}
+                            onChange={(e) => setIndividualMargins((prev) => ({
+                              ...prev,
+                              [item.id]: e.target.value,
+                            }))}
+                            className="w-24 h-8 text-right"
+                            data-testid={`input-individual-margin-${item.id}`}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredInventoryMargins.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No products found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddMarginOpen(false);
+                  setSelectedMarginItems(new Set());
+                  setBulkMarginValue("");
+                  setIndividualMargins({});
+                  setMarginSearch("");
+                  setMarginCategoryFilter("all");
+                }}
+                data-testid="btn-cancel-margin"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApplyIndividualMargins}
+                disabled={Object.keys(individualMargins).filter((k) => individualMargins[k]).length === 0 || applyMarginMutation.isPending}
+                data-testid="btn-apply-individual"
+              >
+                {applyMarginMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Apply Individual Margins
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

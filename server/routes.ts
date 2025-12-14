@@ -3952,6 +3952,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
+        // Fetch products for margin fallback
+        const products = await storage.getProducts(userId);
+        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
+
         // Fetch line items for each invoice
         const invoicesWithItems = await Promise.all(
           invoices.map(async (invoice: any) => {
@@ -3965,7 +3969,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const itemsWithMargin = validLineItems.map((item: any) => {
               const qty = item.quantity || 0;
               const rate = parseFloat(item.unitPrice) || 0;
-              const marginPerCarton = parseFloat(item.marginPerCarton) || 0;
+              // Use line item margin if set, otherwise fall back to inventory product margin
+              const lineItemMargin = parseFloat(item.marginPerCarton);
+              const productMargin = productMarginMap.get(item.productId) || 0;
+              const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
               const amount = qty * rate;
               const margin = qty * marginPerCarton;
               
@@ -4062,6 +4069,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
+        // Fetch products for margin fallback
+        const products = await storage.getProducts(userId);
+        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
+
         // Aggregate by customer
         const customerData = new Map<string, {
           customerId: string;
@@ -4089,9 +4100,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               totalMargin: 0,
             };
 
+            // Use line item margin if set, otherwise fall back to inventory product margin
+            const lineItemMargin = parseFloat(item.marginPerCarton as any);
+            const productMargin = productMarginMap.get(item.productId) || 0;
+            const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+
             existing.totalCartons += item.quantity;
             existing.totalAmount += item.quantity * parseFloat(item.unitPrice);
-            existing.totalMargin += item.quantity * (parseFloat(item.marginPerCarton as any) || 0);
+            existing.totalMargin += item.quantity * marginPerCarton;
             
             customerData.set(custId, existing);
           }
@@ -4148,6 +4164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const products = await storage.getProducts(userId);
         const productMap = new Map(products.map((p: any) => [p.id, p]));
+        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
 
         // Aggregate by product
         const productData = new Map<string, {
@@ -4180,7 +4197,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               marginCount: 0,
             };
 
-            const marginPerCarton = parseFloat(item.marginPerCarton as any) || 0;
+            // Use line item margin if set, otherwise fall back to inventory product margin
+            const lineItemMargin = parseFloat(item.marginPerCarton as any);
+            const productMargin = productMarginMap.get(prodId) || 0;
+            const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            
             existing.totalQty += item.quantity;
             existing.totalAmount += item.quantity * parseFloat(item.unitPrice);
             existing.totalMargin += item.quantity * marginPerCarton;
@@ -4208,6 +4229,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error generating product margin report:", error);
         res.status(500).json({ message: "Failed to generate report" });
+      }
+    }
+  );
+
+  // ============================================
+  // INVENTORY MARGIN MANAGEMENT (Super Admin Only)
+  // ============================================
+
+  // Get all inventory items with margin for the Add Margin modal
+  app.get(
+    "/api/inventory/margins",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        const { search, category } = req.query;
+
+        let products = await storage.getProducts(userId);
+
+        // Apply search filter
+        if (search && typeof search === "string" && search.trim()) {
+          const searchLower = search.toLowerCase().trim();
+          products = products.filter((p: any) => 
+            (p.name && p.name.toLowerCase().includes(searchLower)) ||
+            (p.itemCode && p.itemCode.toLowerCase().includes(searchLower)) ||
+            (p.category && p.category.toLowerCase().includes(searchLower))
+          );
+        }
+
+        // Apply category filter
+        if (category && typeof category === "string" && category !== "all") {
+          products = products.filter((p: any) => p.category === category);
+        }
+
+        // Map to response format
+        const inventoryItems = products.map((p: any) => ({
+          id: p.id,
+          itemCode: p.itemCode || "",
+          name: p.name,
+          category: p.category || "",
+          packingSize: p.packingSize || "",
+          marginPerCarton: p.marginPerCarton ? parseFloat(p.marginPerCarton) : null,
+          marginUpdatedBy: p.marginUpdatedBy,
+          marginUpdatedAt: p.marginUpdatedAt,
+        }));
+
+        // Get unique categories for filter dropdown
+        const categories = Array.from(new Set(products.map((p: any) => p.category).filter(Boolean))).sort();
+
+        res.json({ items: inventoryItems, categories });
+      } catch (error) {
+        console.error("Error fetching inventory margins:", error);
+        res.status(500).json({ message: "Failed to fetch inventory margins" });
+      }
+    }
+  );
+
+  // Apply margin to selected inventory items (bulk update)
+  app.put(
+    "/api/inventory/apply-margin",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const user = (req as any).user;
+        const { items } = req.body;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+          return res.status(400).json({ message: "Items array is required" });
+        }
+
+        // Validate items format
+        for (const item of items) {
+          if (!item.id || item.marginPerCarton === undefined) {
+            return res.status(400).json({ 
+              message: "Each item must have 'id' and 'marginPerCarton'" 
+            });
+          }
+          if (isNaN(parseFloat(item.marginPerCarton)) || parseFloat(item.marginPerCarton) < 0) {
+            return res.status(400).json({ 
+              message: "marginPerCarton must be a valid non-negative number" 
+            });
+          }
+        }
+
+        const results = {
+          success: 0,
+          failed: 0,
+          errors: [] as string[],
+        };
+
+        for (const item of items) {
+          try {
+            await storage.updateProduct(item.id, {
+              marginPerCarton: item.marginPerCarton.toString(),
+              marginUpdatedBy: user.userId,
+              marginUpdatedAt: new Date(),
+            });
+            results.success++;
+          } catch (err: any) {
+            results.failed++;
+            results.errors.push(`Failed to update product ${item.id}: ${err.message}`);
+          }
+        }
+
+        res.json({
+          message: `Updated margin for ${results.success} items${results.failed > 0 ? `, ${results.failed} failed` : ""}`,
+          ...results,
+        });
+      } catch (error) {
+        console.error("Error applying inventory margins:", error);
+        res.status(500).json({ message: "Failed to apply inventory margins" });
       }
     }
   );

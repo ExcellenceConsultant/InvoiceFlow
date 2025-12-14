@@ -80,6 +80,9 @@ export const products = pgTable("products", {
   description: text("description"),
   schemeDescription: text("scheme_description"), // Scheme Description
   cartoonBarcode: text("cartoon_barcode"), // Cartoon Barcode
+  marginPerCarton: decimal("margin_per_carton", { precision: 10, scale: 2 }), // Margin per carton (inventory default)
+  marginUpdatedBy: varchar("margin_updated_by"), // User who last updated margin
+  marginUpdatedAt: timestamp("margin_updated_at"), // When margin was last updated
   quickbooksItemId: text("quickbooks_item_id"),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
