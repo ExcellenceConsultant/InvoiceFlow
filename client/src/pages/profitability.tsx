@@ -280,7 +280,7 @@ export default function Profitability() {
   const inventoryMargins = inventoryMarginsData?.items || [];
 
   const applyMarginMutation = useMutation({
-    mutationFn: async (items: { productId: string; marginPerCarton: number }[]) => {
+    mutationFn: async (items: { id: string; marginPerCarton: number }[]) => {
       const response = await apiRequest("PUT", "/api/inventory/apply-margin", { items });
       if (!response.ok) throw new Error("Failed to apply margins");
       return response.json();
@@ -418,19 +418,19 @@ export default function Profitability() {
       toast({ title: "No items selected", description: "Please select at least one item", variant: "destructive" });
       return;
     }
-    const items = Array.from(selectedMarginItems).map((productId) => ({
-      productId,
+    const items = Array.from(selectedMarginItems).map((id) => ({
+      id,
       marginPerCarton: marginValue,
     }));
     applyMarginMutation.mutate(items);
   };
 
   const handleApplyIndividualMargins = () => {
-    const items: { productId: string; marginPerCarton: number }[] = [];
-    for (const [productId, value] of Object.entries(individualMargins)) {
+    const items: { id: string; marginPerCarton: number }[] = [];
+    for (const [id, value] of Object.entries(individualMargins)) {
       const marginValue = parseFloat(value);
       if (!isNaN(marginValue) && marginValue >= 0) {
-        items.push({ productId, marginPerCarton: marginValue });
+        items.push({ id, marginPerCarton: marginValue });
       }
     }
     if (items.length === 0) {
