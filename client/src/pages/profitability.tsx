@@ -43,7 +43,7 @@ import {
   TrendingUp,
   Loader2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
 import { useLocation } from "wouter";
 import * as XLSX from "xlsx";
@@ -95,6 +95,12 @@ interface ProductReport {
   avgMarginPerCarton: number;
   marginPercent: number;
 }
+
+const safeParseFloat = (value: string | number | null | undefined): number => {
+  if (value === null || value === undefined || value === "") return 0;
+  const parsed = typeof value === "number" ? value : parseFloat(value);
+  return isNaN(parsed) ? 0 : parsed;
+};
 
 const calculateDateRange = (option: DateFilterOption, customRange?: DateRange) => {
   const now = new Date();
@@ -300,12 +306,6 @@ export default function Profitability() {
       invoiceCount: invoicesData.length,
     };
   }, [invoicesData]);
-
-  const safeParseFloat = (value: string | number | null | undefined): number => {
-    if (value === null || value === undefined || value === "") return 0;
-    const parsed = typeof value === "number" ? value : parseFloat(value);
-    return isNaN(parsed) ? 0 : parsed;
-  };
 
   const exportToExcel = (type: "invoices" | "customers" | "products") => {
     let data: any[] = [];
@@ -533,9 +533,8 @@ export default function Profitability() {
                     </TableHeader>
                     <TableBody>
                       {invoicesData?.map((invoice) => (
-                        <>
+                        <Fragment key={invoice.id}>
                           <TableRow
-                            key={invoice.id}
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => toggleInvoiceExpand(invoice.id)}
                             data-testid={`invoice-row-${invoice.id}`}
@@ -624,7 +623,7 @@ export default function Profitability() {
                               </TableCell>
                             </TableRow>
                           )}
-                        </>
+                        </Fragment>
                       ))}
                       {(!invoicesData || invoicesData.length === 0) && (
                         <TableRow>
