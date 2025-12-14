@@ -1,0 +1,163 @@
+Here is a **clear, ready-to-paste PROMPT** you can directly give to **Replit AI** to generate this module correctly 👇
+(It is written like a product + technical instruction so Replit understands scope, logic, and structure.)
+
+---
+
+## 🔹 Replit AI Prompt – Profitability Module (Invoice Flow)
+
+You are building a **Profitability module** inside an existing **Invoice Flow web application**.
+
+### 🔐 Access Control
+
+* This module must be accessible **only to Super Admin role**
+* Other roles must not see this module in UI or API responses
+
+---
+
+## 📌 Module Purpose
+
+The Profitability module calculates **profit margin based on Margin per Carton** and shows:
+
+* Item-level margin
+* Invoice-level total margin
+* Customer-wise and Product-wise margin reports
+
+---
+
+## 📐 Core Margin Logic
+
+* Margin is calculated **per carton**
+* Margin per carton is entered **manually by Super Admin**
+
+### Formulas:
+
+* `Total Amount = Qty (cartons) × Rate per carton`
+* `Total Margin = Qty (cartons) × Margin per carton`
+* `Margin % = (Total Margin / Total Amount) × 100`
+
+---
+
+## 📋 Invoice-Wise Profitability Table
+
+Create a table with the following columns:
+
+| SR No | Item Code | Product Name | Qty (Cartons) | Rate per Carton | Margin per Carton (Input) | Total Amount | Total Margin |
+
+### Rules:
+
+* Margin per carton must be editable only by Super Admin
+* Total Margin should auto-recalculate on margin change
+* Store margin at **invoice-item level**
+
+---
+
+## 🧾 Invoice Summary Section
+
+Show below the table:
+
+* Total Invoice Amount
+* Total Invoice Margin
+* Margin %
+
+---
+
+## 📊 Reports to Generate
+
+### 1️⃣ Profit Margin by Customer
+
+Group data by customer and show:
+
+* Customer Name
+* Total Invoices
+* Total Cartons Sold
+* Total Sales Amount
+* Total Margin
+* Margin %
+
+Filters:
+
+* Date range
+* Customer
+* Product (optional)
+
+---
+
+### 2️⃣ Profit Margin by Product Sales
+
+Group data by product and show:
+
+* Item Code
+* Product Name
+* Total Qty Sold (Cartons)
+* Total Sales Amount
+* Total Margin
+* Average Margin per Carton
+* Margin %
+
+Filters:
+
+* Date range
+* Customer (optional)
+
+---
+
+## 🗄️ Backend Requirements
+
+* Store `margin_per_carton` at invoice item level
+* Create APIs for:
+
+  * Invoice profitability view
+  * Customer margin report
+  * Product margin report
+* Ensure role-based authorization at API level
+
+---
+
+## 🖥️ Frontend Requirements
+
+* React table/grid with sortable columns
+* Margin input field (Super Admin only)
+* Auto-calculation of totals
+* Export reports to Excel/CSV
+
+---
+
+## 🔐 Security & Audit
+
+* Log margin updates:
+
+  * Updated by
+  * Timestamp
+* Prevent unauthorized margin edits
+
+---
+
+## 🛠️ Tech Stack
+
+* Backend: Node.js + Express
+* Database: PostgreSQL
+* Frontend: React.js
+
+---
+
+### 🎯 Output Expectation
+
+Generate:
+
+* Database schema changes
+* Backend APIs
+* React UI components
+* Calculation logic
+* Report queries
+
+Build clean, scalable, production-ready code.
+
+---
+
+If you want, I can also:
+
+* Shorten this for **Replit Agent**
+* Convert it into **step-by-step coding tasks**
+* Split into **Backend prompt + Frontend prompt**
+
+Just tell me 👍

@@ -162,6 +162,9 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
   isFreeFromScheme: boolean("is_free_from_scheme").default(false),
   isSchemeDescription: boolean("is_scheme_description").default(false),
   schemeId: varchar("scheme_id").references(() => productSchemes.id),
+  marginPerCarton: decimal("margin_per_carton", { precision: 10, scale: 2 }),
+  marginUpdatedBy: varchar("margin_updated_by"),
+  marginUpdatedAt: timestamp("margin_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
