@@ -264,7 +264,7 @@ export default function Profitability() {
     enabled: isSuperAdmin && activeTab === "products",
   });
 
-  const { data: inventoryMargins, isLoading: inventoryMarginsLoading } = useQuery<InventoryMarginItem[]>({
+  const { data: inventoryMarginsData, isLoading: inventoryMarginsLoading } = useQuery<{ items: InventoryMarginItem[]; categories: string[] }>({
     queryKey: ["/api/inventory/margins"],
     queryFn: async () => {
       const token = localStorage.getItem("token");
@@ -276,6 +276,8 @@ export default function Profitability() {
     },
     enabled: isSuperAdmin && isAddMarginOpen,
   });
+
+  const inventoryMargins = inventoryMarginsData?.items || [];
 
   const applyMarginMutation = useMutation({
     mutationFn: async (items: { productId: string; marginPerCarton: number }[]) => {
@@ -372,13 +374,11 @@ export default function Profitability() {
   }, [invoicesData]);
 
   const inventoryCategories = useMemo(() => {
-    if (!inventoryMargins) return [];
-    const categories = new Set(inventoryMargins.map((item) => item.category).filter(Boolean));
-    return Array.from(categories).sort();
-  }, [inventoryMargins]);
+    return inventoryMarginsData?.categories || [];
+  }, [inventoryMarginsData]);
 
   const filteredInventoryMargins = useMemo(() => {
-    if (!inventoryMargins) return [];
+    if (!inventoryMargins || inventoryMargins.length === 0) return [];
     return inventoryMargins.filter((item) => {
       const matchesSearch = marginSearch === "" ||
         item.name.toLowerCase().includes(marginSearch.toLowerCase()) ||
