@@ -892,6 +892,7 @@ export default function Profitability() {
           </TabsContent>
         </Tabs>
 
+        {isSuperAdmin && (
         <Dialog open={isAddMarginOpen} onOpenChange={setIsAddMarginOpen}>
           <DialogContent className="max-w-4xl max-h-[85vh]">
             <DialogHeader>
@@ -1044,6 +1045,7 @@ export default function Profitability() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
     </div>
   );
