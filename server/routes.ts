@@ -3914,6 +3914,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // ============================================
+  // PROFITABILITY MODULE (Super Admin Only)
+  // ============================================
+
+  // Get all invoices with line items for profitability view
+  app.get(
+    "/api/profitability/invoices",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        const { startDate, endDate, customerId } = req.query;
+
+        let invoices = await storage.getInvoices(userId);
+        
+        // Filter to AR invoices only (profitability applies to sales)
+        invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
+
+        // Apply date filters
+        if (startDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) >= new Date(startDate as string)
+          );
+        }
+        if (endDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) <= new Date(endDate as string)
+          );
+        }
+        if (customerId) {
+          invoices = invoices.filter((inv: any) => inv.customerId === customerId);
+        }
+
+        // Fetch customers for lookup
+        const customers = await storage.getCustomers(userId);
+        const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
+
+        // Fetch line items for each invoice
+        const invoicesWithItems = await Promise.all(
+          invoices.map(async (invoice: any) => {
+            const lineItems = await storage.getInvoiceLineItems(invoice.id);
+            const validLineItems = lineItems.filter((item: any) => item.quantity > 0);
+            
+            // Calculate totals
+            let totalAmount = 0;
+            let totalMargin = 0;
+            
+            const itemsWithMargin = validLineItems.map((item: any) => {
+              const qty = item.quantity || 0;
+              const rate = parseFloat(item.unitPrice) || 0;
+              const marginPerCarton = parseFloat(item.marginPerCarton) || 0;
+              const amount = qty * rate;
+              const margin = qty * marginPerCarton;
+              
+              totalAmount += amount;
+              totalMargin += margin;
+              
+              return {
+                ...item,
+                totalAmount: amount,
+                totalMargin: margin,
+              };
+            });
+
+            return {
+              ...invoice,
+              customerName: customerMap.get(invoice.customerId) || "Unknown",
+              lineItems: itemsWithMargin,
+              totalAmount,
+              totalMargin,
+              marginPercent: totalAmount > 0 ? (totalMargin / totalAmount) * 100 : 0,
+            };
+          })
+        );
+
+        res.json(invoicesWithItems);
+      } catch (error) {
+        console.error("Error fetching profitability data:", error);
+        res.status(500).json({ message: "Failed to fetch profitability data" });
+      }
+    }
+  );
+
+  // Update margin per carton for a line item (Super Admin only)
+  app.patch(
+    "/api/profitability/line-items/:id/margin",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { marginPerCarton } = req.body;
+        const user = (req as any).user;
+
+        if (marginPerCarton === undefined || marginPerCarton === null) {
+          return res.status(400).json({ message: "marginPerCarton is required" });
+        }
+
+        const lineItem = await storage.getInvoiceLineItem(id);
+        if (!lineItem) {
+          return res.status(404).json({ message: "Line item not found" });
+        }
+
+        const updated = await storage.updateInvoiceLineItem(id, {
+          marginPerCarton: marginPerCarton.toString(),
+          marginUpdatedBy: user.userId,
+          marginUpdatedAt: new Date(),
+        });
+
+        res.json(updated);
+      } catch (error) {
+        console.error("Error updating margin:", error);
+        res.status(500).json({ message: "Failed to update margin" });
+      }
+    }
+  );
+
+  // Customer margin report
+  app.get(
+    "/api/profitability/reports/customer",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        const { startDate, endDate, customerId, productId } = req.query;
+
+        let invoices = await storage.getInvoices(userId);
+        invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
+
+        if (startDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) >= new Date(startDate as string)
+          );
+        }
+        if (endDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) <= new Date(endDate as string)
+          );
+        }
+        if (customerId) {
+          invoices = invoices.filter((inv: any) => inv.customerId === customerId);
+        }
+
+        const customers = await storage.getCustomers(userId);
+        const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
+
+        // Aggregate by customer
+        const customerData = new Map<string, {
+          customerId: string;
+          customerName: string;
+          totalInvoices: number;
+          totalCartons: number;
+          totalAmount: number;
+          totalMargin: number;
+        }>();
+
+        for (const invoice of invoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+          
+          for (const item of lineItems) {
+            if (item.quantity <= 0) continue;
+            if (productId && item.productId !== productId) continue;
+
+            const custId = invoice.customerId || "unknown";
+            const existing = customerData.get(custId) || {
+              customerId: custId,
+              customerName: customerMap.get(custId) || "Unknown",
+              totalInvoices: 0,
+              totalCartons: 0,
+              totalAmount: 0,
+              totalMargin: 0,
+            };
+
+            existing.totalCartons += item.quantity;
+            existing.totalAmount += item.quantity * parseFloat(item.unitPrice);
+            existing.totalMargin += item.quantity * (parseFloat(item.marginPerCarton as any) || 0);
+            
+            customerData.set(custId, existing);
+          }
+        }
+
+        // Count invoices per customer
+        for (const invoice of invoices) {
+          const custId = invoice.customerId || "unknown";
+          const existing = customerData.get(custId);
+          if (existing) {
+            existing.totalInvoices++;
+          }
+        }
+
+        const report = Array.from(customerData.values()).map(c => ({
+          ...c,
+          marginPercent: c.totalAmount > 0 ? (c.totalMargin / c.totalAmount) * 100 : 0,
+        }));
+
+        res.json(report);
+      } catch (error) {
+        console.error("Error generating customer margin report:", error);
+        res.status(500).json({ message: "Failed to generate report" });
+      }
+    }
+  );
+
+  // Product margin report
+  app.get(
+    "/api/profitability/reports/product",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        const { startDate, endDate, customerId } = req.query;
+
+        let invoices = await storage.getInvoices(userId);
+        invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
+
+        if (startDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) >= new Date(startDate as string)
+          );
+        }
+        if (endDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) <= new Date(endDate as string)
+          );
+        }
+        if (customerId) {
+          invoices = invoices.filter((inv: any) => inv.customerId === customerId);
+        }
+
+        const products = await storage.getProducts(userId);
+        const productMap = new Map(products.map((p: any) => [p.id, p]));
+
+        // Aggregate by product
+        const productData = new Map<string, {
+          productId: string;
+          itemCode: string;
+          productName: string;
+          totalQty: number;
+          totalAmount: number;
+          totalMargin: number;
+          marginSum: number;
+          marginCount: number;
+        }>();
+
+        for (const invoice of invoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+          
+          for (const item of lineItems) {
+            if (item.quantity <= 0) continue;
+
+            const prodId = item.productId || "unknown";
+            const product = productMap.get(prodId);
+            const existing = productData.get(prodId) || {
+              productId: prodId,
+              itemCode: item.productCode || product?.itemCode || "",
+              productName: item.description || product?.name || "Unknown",
+              totalQty: 0,
+              totalAmount: 0,
+              totalMargin: 0,
+              marginSum: 0,
+              marginCount: 0,
+            };
+
+            const marginPerCarton = parseFloat(item.marginPerCarton as any) || 0;
+            existing.totalQty += item.quantity;
+            existing.totalAmount += item.quantity * parseFloat(item.unitPrice);
+            existing.totalMargin += item.quantity * marginPerCarton;
+            if (marginPerCarton > 0) {
+              existing.marginSum += marginPerCarton;
+              existing.marginCount++;
+            }
+            
+            productData.set(prodId, existing);
+          }
+        }
+
+        const report = Array.from(productData.values()).map(p => ({
+          productId: p.productId,
+          itemCode: p.itemCode,
+          productName: p.productName,
+          totalQty: p.totalQty,
+          totalAmount: p.totalAmount,
+          totalMargin: p.totalMargin,
+          avgMarginPerCarton: p.marginCount > 0 ? p.marginSum / p.marginCount : 0,
+          marginPercent: p.totalAmount > 0 ? (p.totalMargin / p.totalAmount) * 100 : 0,
+        }));
+
+        res.json(report);
+      } catch (error) {
+        console.error("Error generating product margin report:", error);
+        res.status(500).json({ message: "Failed to generate report" });
+      }
+    }
+  );
+
   const httpServer = createServer(app);
   return httpServer;
 }
