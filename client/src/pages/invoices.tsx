@@ -59,6 +59,7 @@ type SortKey =
   | "invoiceType"
   | "customer"
   | "invoiceDate"
+  | "totalCartons"
   | "amount"
   | "status"
   | "journalEntry";
@@ -676,6 +677,8 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           return invoice.invoiceDate
             ? new Date(invoice.invoiceDate).getTime()
             : 0;
+        case "totalCartons":
+          return invoice.totalCartons || 0;
         case "amount": {
           const amountRaw =
             invoice.total ?? invoice.totalAmount ?? invoice.amount ?? 0;
@@ -1022,6 +1025,7 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
           "Invoice #": invoice.invoiceNumber || "",
           Type: invoice.invoiceType === "receivable" ? "AR" : "AP",
           "Customer/Vendor": customer?.name || "Unknown",
+          "Total Cartons": invoice.totalCartons || 0,
           Subtotal: parseFloat(invoice.subtotal || 0).toFixed(2),
           Freight: parseFloat(invoice.freight || 0).toFixed(2),
           Discount: parseFloat(invoice.discount || 0).toFixed(2),
@@ -1373,7 +1377,16 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                           {renderSortIcon("customer")}
                         </button>
                       </th>
-
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("totalCartons")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Total Cartons</span>
+                          {renderSortIcon("totalCartons")}
+                        </button>
+                      </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         <button
                           type="button"
@@ -1475,6 +1488,12 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             data-testid={`invoice-customer-${invoice.id}`}
                           >
                             {getCustomerName(invoice.customerId)}
+                          </td>
+                          <td
+                            className="py-3 px-4 text-sm font-medium text-foreground"
+                            data-testid={`invoice-total-cartons-${invoice.id}`}
+                          >
+                            {invoice.totalCartons || 0} CTNs
                           </td>
                           <td
                             className="py-3 px-4 text-sm font-medium text-foreground"

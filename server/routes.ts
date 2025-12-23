@@ -949,7 +949,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = (req as any).user;
       const invoices = await storage.getInvoices(user.userId);
-      res.json(invoices);
+      
+      // Fetch all line items to calculate total cartons per invoice
+      const allLineItems = await storage.getAllInvoiceLineItems();
+      
+      // Create a map of invoice ID to total cartons
+      const cartonsByInvoice = new Map<string, number>();
+      for (const item of allLineItems) {
+        if (item.invoiceId) {
+          const currentTotal = cartonsByInvoice.get(item.invoiceId) || 0;
+          cartonsByInvoice.set(item.invoiceId, currentTotal + (item.quantity || 0));
+        }
+      }
+      
+      // Add totalCartons to each invoice
+      const invoicesWithCartons = invoices.map(invoice => ({
+        ...invoice,
+        totalCartons: cartonsByInvoice.get(invoice.id) || 0,
+      }));
+      
+      res.json(invoicesWithCartons);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch invoices" });
     }
