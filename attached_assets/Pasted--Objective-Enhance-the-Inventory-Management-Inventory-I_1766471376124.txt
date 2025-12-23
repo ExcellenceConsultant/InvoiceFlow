@@ -1,0 +1,112 @@
+🎯 Objective
+
+Enhance the Inventory Management → Inventory Items list with:
+
+Multiple category selection in the Category filter
+
+Sorting functionality for Product Name, Qty, and Category columns
+
+🔹 1. Multi-Select Category Filter
+🔧 Functional Requirements
+
+Replace the existing single-select Category dropdown with a multi-select dropdown
+
+Users should be able to:
+
+Select multiple categories at once
+
+See checkmarks for selected categories
+
+Clear all selections easily
+
+Default state:
+
+All Categories (selected)
+
+🧠 Filtering Logic
+
+When multiple categories are selected, inventory list should show items matching ANY of the selected categories.
+
+Example:
+
+Selected: Frozen Vegetables, Frozen Fruits
+
+Show items belonging to either category.
+
+🔌 Backend / API Changes
+
+Update inventory API to accept:
+
+categories: ["Frozen Vegetables", "Frozen Fruits"]
+
+
+Query logic:
+
+WHERE category IN (:categories)
+
+🎨 UI/UX Notes
+
+Use checkbox-style dropdown
+
+Show selected categories as:
+
+Frozen Vegetables, Frozen Fruits (2)
+
+
+If all categories selected → display All Categories
+
+🔹 2. Sorting Functionality
+🔧 Columns to Enable Sorting
+
+Enable ascending & descending sorting on:
+
+Column Name	Sort Type
+Product Name	A → Z / Z → A
+Qty	Low → High / High → Low
+Category	A → Z / Z → A
+🔁 Sorting Behavior
+
+Clicking column header toggles:
+
+None → Asc → Desc
+
+
+Display sorting arrow icon beside column name
+
+Sorting should work with filters applied
+
+🔌 Backend / API Changes
+
+API should accept:
+
+sort_by: "product_name" | "qty" | "category",
+sort_order: "asc" | "desc"
+
+
+Default sorting:
+
+Product Name → Ascending
+
+🔹 3. Frontend Table Changes
+🧩 Table Headers Update
+Product Name ⇅ | Brand | Date | Item Code | Packing Size | Category ⇅ | Qty ⇅ | Price | Value | Gross Weight | Net Weight
+
+
+Show sort indicator only on sortable columns
+
+Preserve current pagination & search behavior
+
+🧪 Test Scenarios
+
+✔ Select multiple categories → correct items shown
+✔ Sort by Qty → numbers sorted correctly
+✔ Sort + Filter combined → works without conflict
+✔ Page refresh → default sort retained
+
+📝 Notes
+
+Keep UI consistent with current design system
+
+No impact on QuickBooks sync
+
+No DB schema change required

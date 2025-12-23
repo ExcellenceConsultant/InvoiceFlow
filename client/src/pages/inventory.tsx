@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
-import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, X, RefreshCw } from "lucide-react";
+import { Plus, Search, Package, Edit, Trash2, AlertTriangle, TrendingUp, BarChart3, Upload, X, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateWithoutTimezone } from "@/lib/dateUtils";
@@ -14,17 +15,57 @@ import { ProductForm } from "@/components/product-form";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency } from "@/lib/utils";
 
+type SortKey = "name" | "qty" | "category" | null;
+type SortOrder = "asc" | "desc";
+
 export default function Inventory() {
   const permissions = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [stockFilter, setStockFilter] = useState("all");
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      if (sortOrder === "asc") {
+        setSortOrder("desc");
+      } else {
+        setSortKey(null);
+        setSortOrder("asc");
+      }
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown size={14} className="ml-1 text-muted-foreground" />;
+    if (sortOrder === "asc") return <ArrowUp size={14} className="ml-1 text-primary" />;
+    return <ArrowDown size={14} className="ml-1 text-primary" />;
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(category)) {
+        return prev.filter(c => c !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
+  };
+
+  const selectAllCategories = () => {
+    setSelectedCategories([]);
+  };
 
   const { data: products, isLoading: productsLoading } = useQuery<any[]>({
     queryKey: ["/api/products"],
@@ -54,22 +95,49 @@ export default function Inventory() {
     }
   };
 
-  const filteredProducts = products?.filter((product: any) => {
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.itemCode && product.itemCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
-    
-    const matchesStock = 
-      stockFilter === "all" ||
-      (stockFilter === "in" && product.qty > 0) ||
-      (stockFilter === "out" && product.qty === 0);
-    
-    return matchesSearch && matchesCategory && matchesStock;
-  }) || [];
+  const filteredAndSortedProducts = (() => {
+    let result = products?.filter((product: any) => {
+      const matchesSearch = 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.itemCode && product.itemCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
+      
+      const matchesStock = 
+        stockFilter === "all" ||
+        (stockFilter === "in" && product.qty > 0) ||
+        (stockFilter === "out" && product.qty === 0);
+      
+      return matchesSearch && matchesCategory && matchesStock;
+    }) || [];
+
+    if (sortKey) {
+      result = [...result].sort((a, b) => {
+        let aVal: any, bVal: any;
+        
+        if (sortKey === "name") {
+          aVal = (a.name || "").toLowerCase();
+          bVal = (b.name || "").toLowerCase();
+        } else if (sortKey === "qty") {
+          aVal = a.qty || 0;
+          bVal = b.qty || 0;
+        } else if (sortKey === "category") {
+          aVal = (a.category || "").toLowerCase();
+          bVal = (b.category || "").toLowerCase();
+        }
+
+        if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  })();
+
+  const filteredProducts = filteredAndSortedProducts;
 
   // Calculate inventory stats
   const totalProducts = products?.length || 0;
@@ -685,20 +753,67 @@ export default function Inventory() {
               </div>
             </div>
             
-            <div className="w-full md:w-48">
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger data-testid="select-category-filter">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {(categories as string[]).map((category: string) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="w-full md:w-56">
+              <Popover open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={categoryDropdownOpen}
+                    className="w-full justify-between font-normal"
+                    data-testid="select-category-filter"
+                  >
+                    <span className="truncate">
+                      {selectedCategories.length === 0 || selectedCategories.length === categories.length
+                        ? "All Categories"
+                        : selectedCategories.length === 1
+                        ? selectedCategories[0]
+                        : `${selectedCategories.slice(0, 2).join(", ")}${selectedCategories.length > 2 ? ` (+${selectedCategories.length - 2})` : ""}`}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <div className="max-h-60 overflow-y-auto">
+                    <div
+                      className="flex items-center px-3 py-2 cursor-pointer hover:bg-muted"
+                      onClick={selectAllCategories}
+                      data-testid="category-option-all"
+                    >
+                      <div className={`w-4 h-4 border rounded mr-2 flex items-center justify-center ${selectedCategories.length === 0 || selectedCategories.length === categories.length ? "bg-primary border-primary" : "border-input"}`}>
+                        {(selectedCategories.length === 0 || selectedCategories.length === categories.length) && <Check size={12} className="text-primary-foreground" />}
+                      </div>
+                      <span className="text-sm">All Categories</span>
+                    </div>
+                    {(categories as string[]).map((category: string) => (
+                      <div
+                        key={category}
+                        className="flex items-center px-3 py-2 cursor-pointer hover:bg-muted"
+                        onClick={() => toggleCategory(category)}
+                        data-testid={`category-option-${category.replace(/\s+/g, '-').toLowerCase()}`}
+                      >
+                        <div className={`w-4 h-4 border rounded mr-2 flex items-center justify-center ${selectedCategories.includes(category) ? "bg-primary border-primary" : "border-input"}`}>
+                          {selectedCategories.includes(category) && <Check size={12} className="text-primary-foreground" />}
+                        </div>
+                        <span className="text-sm">{category}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedCategories.length > 0 && (
+                    <div className="border-t p-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={selectAllCategories}
+                        data-testid="button-clear-categories"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="w-full md:w-48">
@@ -775,13 +890,40 @@ export default function Inventory() {
                         data-testid="checkbox-select-all-products"
                       />
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product Name</th>
+                    <th 
+                      className="text-left py-3 px-4 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+                      onClick={() => handleSort("name")}
+                      data-testid="sort-product-name"
+                    >
+                      <div className="flex items-center">
+                        Product Name
+                        {getSortIcon("name")}
+                      </div>
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Brand</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Item Code</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Packing Size</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Qty</th>
+                    <th 
+                      className="text-left py-3 px-4 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+                      onClick={() => handleSort("category")}
+                      data-testid="sort-category"
+                    >
+                      <div className="flex items-center">
+                        Category
+                        {getSortIcon("category")}
+                      </div>
+                    </th>
+                    <th 
+                      className="text-left py-3 px-4 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+                      onClick={() => handleSort("qty")}
+                      data-testid="sort-qty"
+                    >
+                      <div className="flex items-center">
+                        Qty
+                        {getSortIcon("qty")}
+                      </div>
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Base Price</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Sales Price</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Gross Weight(LBS)</th>
@@ -889,7 +1031,7 @@ export default function Inventory() {
               <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-2 text-sm font-medium text-foreground">No inventory items found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm || categoryFilter !== "all"
+                {searchTerm || selectedCategories.length > 0
                   ? "Try adjusting your search or filter criteria."
                   : "Add your first product to get started."
                 }
