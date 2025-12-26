@@ -59,7 +59,8 @@ type SortKey =
   | "invoiceDate"
   | "totalCartons"
   | "amount"
-  | "status";
+  | "status"
+  | "postStatus";
 
 type SortConfig = {
   key: SortKey;
@@ -593,6 +594,8 @@ export default function Invoices() {
         }
         case "status":
           return getDisplayStatus(invoice) || "";
+        case "postStatus":
+          return invoice.quickbooksInvoiceId ? 1 : 0;
         default:
           return "";
       }
@@ -1266,6 +1269,16 @@ export default function Invoices() {
                         </button>
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleSort("postStatus")}
+                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
+                        >
+                          <span>Post Status</span>
+                          {renderSortIcon("postStatus")}
+                        </button>
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Actions
                       </th>
                     </tr>
@@ -1368,6 +1381,25 @@ export default function Invoices() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge
+                              className={
+                                invoice.quickbooksInvoiceId
+                                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 border-green-300"
+                                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-300"
+                              }
+                              variant={invoice.quickbooksInvoiceId ? "default" : "outline"}
+                              data-testid={`invoice-post-status-${invoice.id}`}
+                            >
+                              {invoice.quickbooksInvoiceId
+                                ? invoice.invoiceType === "payable"
+                                  ? "Bill Posted"
+                                  : "Invoice Posted"
+                                : invoice.invoiceType === "payable"
+                                  ? "No Bill Post"
+                                  : "No Invoice Post"}
+                            </Badge>
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
