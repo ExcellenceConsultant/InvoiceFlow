@@ -44,9 +44,7 @@ import {
   FileText,
   Plus,
   Search,
-  Send,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -61,8 +59,7 @@ type SortKey =
   | "invoiceDate"
   | "totalCartons"
   | "amount"
-  | "status"
-  | "journalEntry";
+  | "status";
 
 type SortConfig = {
   key: SortKey;
@@ -417,100 +414,6 @@ export default function Invoices() {
     },
   });
 
-  const syncToQuickBooksMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/invoices/${invoiceId}/sync-quickbooks`,
-        {},
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw errorData;
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      toast({
-        title: "Invoice Posted",
-        description:
-          "Invoice journal entry created in QuickBooks (Debit AR, Credit Sales)",
-      });
-    },
-    onError: (error: any) => {
-      console.error("Invoice sync error:", error);
-
-      const showDetails = () => {
-        const errorData = error.response?.data || error;
-        if (errorData.errorDetails) {
-          alert(`QuickBooks Error Details:
-
-Code: ${errorData.errorDetails.code}
-Detail: ${errorData.errorDetails.detail}
-
-Account IDs Used:
-- Accounts Receivable: ${errorData.errorDetails.accountIds.accountsReceivable}
-- Sales: ${errorData.errorDetails.accountIds.sales}
-
-This shows exactly what data was sent to QuickBooks and which accounts were used.`);
-        } else {
-          alert(
-            `Error: ${
-              errorData.message || error.message
-            }\n\nNo detailed error information available.`,
-          );
-        }
-      };
-
-      const errorData = error.response?.data || error;
-      toast({
-        title: "Invoice Post Failed",
-        description: (
-          <div>
-            <p>
-              {errorData.message ||
-                "Failed to create invoice post in QuickBooks"}
-            </p>
-            <button
-              onClick={showDetails}
-              className="mt-2 text-xs underline text-blue-400 hover:text-blue-300"
-            >
-              Show Error Details
-            </button>
-          </div>
-        ),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const bulkSyncMutation = useMutation({
-    mutationFn: async (invoiceIds: string[]) => {
-      const promises = invoiceIds.map((id) =>
-        apiRequest("POST", `/api/invoices/${id}/sync-quickbooks`, {}).then(
-          (r) => r.json(),
-        ),
-      );
-      return Promise.all(promises);
-    },
-    onSuccess: (results) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      const successCount = results.filter((r) => r.success).length;
-      toast({
-        title: "Invoices Posted",
-        description: `${successCount} invoice posts created in QuickBooks`,
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Some invoices failed to sync to QuickBooks",
-        variant: "destructive",
-      });
-    },
-  });
-
   const deleteInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
       const response = await apiRequest(
@@ -634,8 +537,8 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         ? formatDateWithoutTimezone(invoice.invoiceDate)
         : "";
       const quickbooksStatus = invoice.quickbooksInvoiceId
-        ? "journal entry posted"
-        : "no journal entry";
+        ? "invoice posted"
+        : "not posted";
 
       const searchableValues = [
         invoice.invoiceNumber,
@@ -690,8 +593,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
         }
         case "status":
           return getDisplayStatus(invoice) || "";
-        case "journalEntry":
-          return invoice.quickbooksInvoiceId ? 1 : 0;
         default:
           return "";
       }
@@ -894,35 +795,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
     }
     console.log("Posting invoice to QuickBooks:", invoiceId);
     postToQuickBooksMutation.mutate(invoiceId);
-  };
-
-  const handleSyncToQuickBooks = (
-    invoiceId: string,
-    event?: React.MouseEvent,
-  ) => {
-    // Prevent event propagation to avoid triggering bulk sync
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    console.log("Syncing individual invoice:", invoiceId);
-    syncToQuickBooksMutation.mutate(invoiceId);
-  };
-
-  const handleBulkSync = () => {
-    const unsyncedInvoices = filteredInvoices.filter(
-      (invoice: any) => !invoice.quickbooksInvoiceId,
-    );
-    if (unsyncedInvoices.length === 0) {
-      toast({
-        title: "No Action Needed",
-        description: "All invoices are already synced to QuickBooks",
-      });
-      return;
-    }
-
-    const invoiceIds = unsyncedInvoices.map((invoice: any) => invoice.id);
-    bulkSyncMutation.mutate(invoiceIds);
   };
 
   const handleDeleteInvoice = (invoiceId: string, event?: React.MouseEvent) => {
@@ -1175,20 +1047,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
               Export
             </Button>
             <Button
-              variant="outline"
-              onClick={handleBulkSync}
-              disabled={
-                bulkSyncMutation.isPending || !permissions.canPostToQuickBooks
-              }
-              data-testid="button-bulk-sync-quickbooks"
-              title="Create journal entries in QuickBooks for all invoices (Debit AR, Credit Sales)"
-            >
-              <Upload className="mr-2" size={16} />
-              {bulkSyncMutation.isPending
-                ? "Creating Journal Entries..."
-                : "Post Journal Entries to QB"}
-            </Button>
-            <Button
               onClick={() => setShowInvoiceForm(true)}
               disabled={!permissions.canCreateInvoice}
               data-testid="button-create-invoice"
@@ -1408,16 +1266,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                         </button>
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        <button
-                          type="button"
-                          onClick={() => handleSort("journalEntry")}
-                          className="flex items-center gap-1 text-left text-sm font-medium text-muted-foreground focus:outline-none"
-                        >
-                          <span>Invoice Post</span>
-                          {renderSortIcon("journalEntry")}
-                        </button>
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Actions
                       </th>
                     </tr>
@@ -1522,23 +1370,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            {invoice.quickbooksInvoiceId ? (
-                              <Badge
-                                className="bg-accent text-accent-foreground"
-                                data-testid={`quickbooks-synced-${invoice.id}`}
-                              >
-                                Invoice Posted
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                data-testid={`quickbooks-not-synced-${invoice.id}`}
-                              >
-                                No Invoice Post
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
                             <div className="flex space-x-2">
                               <Button
                                 variant="ghost"
@@ -1616,28 +1447,6 @@ This shows exactly what data was sent to QuickBooks and which accounts were used
                                     title="Post actual invoice/bill to QuickBooks"
                                   >
                                     <FileDown size={14} />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-primary hover:text-primary"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleSyncToQuickBooks(invoice.id, e);
-                                    }}
-                                    disabled={
-                                      syncToQuickBooksMutation.isPending ||
-                                      !permissions.canPostToQuickBooks
-                                    }
-                                    data-testid={`button-sync-quickbooks-${invoice.id}`}
-                                    title="Post journal entry to QuickBooks (Debit COGS 173, Credit Sales 135)"
-                                  >
-                                    <Send size={14} />
                                   </Button>
                                 </>
                               )}

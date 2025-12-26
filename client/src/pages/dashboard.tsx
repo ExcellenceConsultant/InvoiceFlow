@@ -81,10 +81,6 @@ export default function Dashboard() {
     return sorted.slice(0, 3);
   }, [allInvoices]);
 
-  const { data: journalEntryCount } = useQuery<{ count: number }>({
-    queryKey: ["/api/quickbooks/journal-entry-count"],
-  });
-
   const isQuickBooksConnected = !!user?.quickbooksCompanyId;
 
   const disconnectMutation = useMutation({
@@ -204,27 +200,14 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-accent/5 rounded-lg">
-                <p
-                  className="text-2xl font-bold text-accent"
-                  data-testid="quickbooks-journal-entry-sync"
-                >
-                  {journalEntryCount?.count ?? "..."}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Journal Entry Sync
-                </p>
-              </div>
-              <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <p
-                  className="text-2xl font-bold text-primary"
-                  data-testid="quickbooks-last-sync"
-                >
-                  2 min ago
-                </p>
-                <p className="text-sm text-muted-foreground">Last Sync</p>
-              </div>
+            <div className="text-center p-3 bg-primary/5 rounded-lg">
+              <p
+                className="text-2xl font-bold text-primary"
+                data-testid="quickbooks-connection-status"
+              >
+                {isQuickBooksConnected ? "Connected" : "Not Connected"}
+              </p>
+              <p className="text-sm text-muted-foreground">Connection Status</p>
             </div>
           </CardContent>
         </Card>
