@@ -3577,6 +3577,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Get single invoice with profit data (Super Admin only - for Profit Invoice View)
+  app.get(
+    "/api/profitability/invoices/:id",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        const { id } = req.params;
+
+        const invoice = await storage.getInvoice(id);
+        if (!invoice) {
+          return res.status(404).json({ message: "Invoice not found" });
+        }
+
+        // Verify invoice belongs to user
+        if (invoice.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+
+        // Fetch customer info
+        const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
+
+        // Fetch products for margin fallback and additional data
+        const products = await storage.getProducts(userId);
+        const productMap = new Map(products.map((p: any) => [p.id, p]));
+
+        // Fetch line items
+        const lineItems = await storage.getInvoiceLineItems(invoice.id);
+        const validLineItems = lineItems.filter((item: any) => item.quantity > 0);
+
+        let totalAmount = 0;
+        let totalMargin = 0;
+
+        const itemsWithMargin = validLineItems.map((item: any, index: number) => {
+          const qty = item.quantity || 0;
+          const rate = parseFloat(item.unitPrice) || 0;
+          const product = productMap.get(item.productId);
+          const productMargin = product ? parseFloat(product.marginPerCarton) || 0 : 0;
+          const lineItemMargin = parseFloat(item.marginPerCarton);
+          const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+          const amount = qty * rate;
+          const margin = qty * marginPerCarton;
+
+          totalAmount += amount;
+          totalMargin += margin;
+
+          return {
+            srNo: index + 1,
+            productCode: item.itemCode || product?.itemCode || "",
+            packingSize: item.packingSize || product?.packingSize || "",
+            productDescription: item.productName || product?.name || "",
+            qty,
+            ratePerCarton: rate,
+            marginPerCarton,
+            totalAmount: amount,
+            totalMargin: margin,
+          };
+        });
+
+        res.json({
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: invoice.invoiceDate,
+          customerName: customer?.name || "Unknown",
+          invoiceType: invoice.invoiceType,
+          lineItems: itemsWithMargin,
+          totalAmount,
+          totalMargin,
+          marginPercent: totalAmount > 0 ? (totalMargin / totalAmount) * 100 : 0,
+        });
+      } catch (error) {
+        console.error("Error fetching profit invoice data:", error);
+        res.status(500).json({ message: "Failed to fetch profit invoice data" });
+      }
+    }
+  );
+
   // Update margin per carton for a line item (Super Admin only)
   app.patch(
     "/api/profitability/line-items/:id/margin",

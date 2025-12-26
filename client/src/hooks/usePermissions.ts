@@ -40,5 +40,8 @@ export function usePermissions() {
     
     // QuickBooks
     canManageQuickBooks: role === "super_admin" || role === "admin",
+    
+    // Profitability
+    canViewProfitInvoice: role === "super_admin",
   };
 }

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { formatDateWithoutTimezone } from "@/lib/dateUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -182,6 +183,7 @@ const calculateDateRange = (option: DateFilterOption, customRange?: DateRange) =
 export default function Profitability() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canViewProfitInvoice } = usePermissions();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("invoices");
   const [dateFilterOption, setDateFilterOption] = useState<DateFilterOption>("last_12_months");
@@ -704,19 +706,21 @@ export default function Profitability() {
                               </span>
                             </TableCell>
                             <TableCell className="text-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLocation(`/invoices/${invoice.id}`);
-                                }}
-                                data-testid={`button-view-invoice-${invoice.id}`}
-                                title="View / Print Invoice"
-                              >
-                                <Eye size={14} />
-                              </Button>
+                              {canViewProfitInvoice && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLocation(`/profitability/invoices/${invoice.id}`);
+                                  }}
+                                  data-testid={`button-view-profit-invoice-${invoice.id}`}
+                                  title="View Profit Invoice"
+                                >
+                                  <Eye size={14} />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                           {expandedInvoices.has(invoice.id) && (
