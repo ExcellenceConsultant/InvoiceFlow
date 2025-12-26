@@ -1,7 +1,7 @@
 # InvoiceFlow - Invoice Management System
 
 ## Overview
-InvoiceFlow is a comprehensive invoice management application designed for businesses to manage customers, products, invoices (both AR and AP), and promotional schemes. It integrates seamlessly with QuickBooks for accounting workflows and features automatic price updates based on invoice rates. The system supports detailed inventory reporting, journal entry integration, and a full CARTOON BARCODE tracking system from inventory import to packing list display. It aims to streamline invoicing, inventory, and accounting processes, providing robust data integrity and efficient operations.
+InvoiceFlow is a comprehensive invoice management application designed for businesses to manage customers, products, invoices (both AR and AP), and promotional schemes. It integrates seamlessly with QuickBooks for accounting workflows through direct invoice/bill posting. The system supports detailed inventory reporting and a full CARTOON BARCODE tracking system from inventory import to packing list display. It aims to streamline invoicing, inventory, and accounting processes, providing robust data integrity and efficient operations.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -26,12 +26,11 @@ Implements OAuth 2.0 integration with QuickBooks for accessing APIs, including s
 - **Inventory Management**: Automatic stock quantity updates based on AR (reduces) and AP (increases) invoices.
 - **CARTOON BARCODE System**: Full barcode tracking from Excel import/manual entry to invoice line items. Displays `CARTOON BARCODE` on packing lists and `Item Code` on invoices.
 - **Manual Price Control**: Product prices (Base Price and Sales Price) are manually set in the inventory and are NOT automatically updated by invoices. This ensures price stability and allows complete control over pricing in the inventory management system.
-- **Journal Entry Integration**: Full AP and AR invoice journal entries, ensuring balanced accounting equations and updating existing entries to prevent duplicates.
 - **QuickBooks Integration**: 
   - **Inventory Sync**: Products sync by SKU (item code) first for accurate matching, then by name as fallback. When item code exists, products are created as Inventory items with SKU tracking in QuickBooks. Products without item codes are created as Service items. This prevents duplicates and ensures proper inventory tracking.
-  - **Direct Invoice/Bill Posting**: New endpoint `/api/invoices/:id/post-to-quickbooks` posts actual QB invoices (AR) or bills (AP) with all line items, automatically syncing products by item code first. AR invoices use `SalesItemLineDetail` and AP bills use `ItemBasedExpenseLineDetail` to properly reference inventory items.
-  - **Journal Entry Sync**: Legacy endpoint `/api/invoices/:id/sync-quickbooks` creates journal entries for accounting integration.
+  - **Direct Invoice/Bill Posting**: Endpoint `/api/invoices/:id/post-to-quickbooks` posts actual QB invoices (AR) or bills (AP) with all line items, automatically syncing products by item code first. AR invoices use `SalesItemLineDetail` and AP bills use `ItemBasedExpenseLineDetail` to properly reference inventory items.
   - **Automatic Customer/Vendor Sync**: Finds existing customers/vendors by name or creates new ones as needed.
+  - **Note**: Journal Entry integration has been deprecated and removed. Only direct invoice/bill posting is supported.
 - **Reporting**: Excel reporting for both inventory and invoices. Invoice reports include two sheets: Invoice Summary (invoice details, totals, status, journal entry info) and Line Items (detailed product information for each invoice). **Inventory Movement Report**: Tracks all product movements showing invoice transactions by product, with negative quantities for sales (AR) and positive for purchases (AP).
 - **Packing List Generation**: PDF generation displaying CARTOON BARCODE, with smart pagination (25 rows per page, category headers duplicated).
 - **Promotional Schemes**: Buy X get Y free functionality with intelligent edit-mode preservation. When editing invoices, promotional free items remain exactly where they were saved. Free items are automatically removed if main product quantity falls below scheme threshold (e.g., changing from 20 to 19 items). Users can manually change or remove free items at any time.
