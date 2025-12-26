@@ -46,6 +46,7 @@ import {
   ChevronRight,
   Download,
   DollarSign,
+  Eye,
   Percent,
   Package,
   Users,
@@ -669,6 +670,7 @@ export default function Profitability() {
                         <TableHead className="text-right">Amount</TableHead>
                         <TableHead className="text-right">Margin</TableHead>
                         <TableHead className="text-right">Margin %</TableHead>
+                        <TableHead className="text-center">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -701,10 +703,25 @@ export default function Profitability() {
                                 {invoice.marginPercent.toFixed(2)}%
                               </span>
                             </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLocation(`/invoices/${invoice.id}`);
+                                }}
+                                data-testid={`button-view-invoice-${invoice.id}`}
+                                title="View / Print Invoice"
+                              >
+                                <Eye size={14} />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                           {expandedInvoices.has(invoice.id) && (
                             <TableRow key={`${invoice.id}-items`}>
-                              <TableCell colSpan={8} className="bg-muted/30 p-0">
+                              <TableCell colSpan={9} className="bg-muted/30 p-0">
                                 <Table>
                                   <TableHeader>
                                     <TableRow className="bg-muted/50">
@@ -767,7 +784,7 @@ export default function Profitability() {
                       ))}
                       {(!invoicesData || invoicesData.length === 0) && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             No invoices found for the selected filters
                           </TableCell>
                         </TableRow>
