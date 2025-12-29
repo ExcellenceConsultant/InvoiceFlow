@@ -116,6 +116,7 @@ interface InventoryMarginItem {
   name: string;
   category: string;
   packingSize: string;
+  salesPrice: number;
   marginPerCarton: number | null;
   marginUpdatedBy: string | null;
   marginUpdatedAt: string | null;
@@ -393,7 +394,9 @@ export default function Profitability() {
 
   const handleSelectAllMargin = (checked: boolean) => {
     if (checked) {
-      setSelectedMarginItems(new Set(filteredInventoryMargins.map((item) => item.id)));
+      // Exclude free products (salesPrice <= 0) from bulk selection
+      const selectableItems = filteredInventoryMargins.filter((item) => item.salesPrice > 0);
+      setSelectedMarginItems(new Set(selectableItems.map((item) => item.id)));
     } else {
       setSelectedMarginItems(new Set());
     }
@@ -421,16 +424,32 @@ export default function Profitability() {
       toast({ title: "No items selected", description: "Please select at least one item", variant: "destructive" });
       return;
     }
-    const items = Array.from(selectedMarginItems).map((id) => ({
-      id,
-      marginPerCarton: marginValue,
-    }));
+    // Filter out free products (salesPrice <= 0) - they must always have zero margin
+    const selectableIds = new Set(
+      filteredInventoryMargins.filter((item) => item.salesPrice > 0).map((item) => item.id)
+    );
+    const items = Array.from(selectedMarginItems)
+      .filter((id) => selectableIds.has(id))
+      .map((id) => ({
+        id,
+        marginPerCarton: marginValue,
+      }));
+    if (items.length === 0) {
+      toast({ title: "No eligible items", description: "Free products cannot have margin applied", variant: "destructive" });
+      return;
+    }
     applyMarginMutation.mutate(items);
   };
 
   const handleApplyIndividualMargins = () => {
+    // Create a set of free product IDs to exclude
+    const freeProductIds = new Set(
+      inventoryMargins?.filter((item) => item.salesPrice <= 0).map((item) => item.id) || []
+    );
     const items: { id: string; marginPerCarton: number }[] = [];
     for (const [id, value] of Object.entries(individualMargins)) {
+      // Skip free products - they must always have zero margin
+      if (freeProductIds.has(id)) continue;
       const marginValue = parseFloat(value);
       if (!isNaN(marginValue) && marginValue >= 0) {
         items.push({ id, marginPerCarton: marginValue });
@@ -996,38 +1015,52 @@ export default function Profitability() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInventoryMargins.map((item) => (
-                      <TableRow key={item.id} data-testid={`margin-row-${item.id}`}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedMarginItems.has(item.id)}
-                            onCheckedChange={() => handleToggleMarginItem(item.id)}
-                            data-testid={`checkbox-item-${item.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.category || "-"}</TableCell>
-                        <TableCell>{item.packingSize || "-"}</TableCell>
-                        <TableCell className="text-right">
-                          {item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={individualMargins[item.id] || ""}
-                            onChange={(e) => setIndividualMargins((prev) => ({
-                              ...prev,
-                              [item.id]: e.target.value,
-                            }))}
-                            className="w-24 h-8 text-right"
-                            data-testid={`input-individual-margin-${item.id}`}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredInventoryMargins.map((item) => {
+                      const isFreeProduct = item.salesPrice <= 0;
+                      return (
+                        <TableRow key={item.id} data-testid={`margin-row-${item.id}`}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedMarginItems.has(item.id)}
+                              onCheckedChange={() => handleToggleMarginItem(item.id)}
+                              disabled={isFreeProduct}
+                              data-testid={`checkbox-item-${item.id}`}
+                            />
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell>{item.category || "-"}</TableCell>
+                          <TableCell>{item.packingSize || "-"}</TableCell>
+                          <TableCell className="text-right">
+                            {isFreeProduct ? (
+                              <span className="text-muted-foreground text-xs">$0.00</span>
+                            ) : (
+                              item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isFreeProduct ? (
+                              <span className="text-xs text-muted-foreground italic" data-testid={`text-free-item-${item.id}`}>
+                                Free Item – Margin not applicable
+                              </span>
+                            ) : (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={individualMargins[item.id] || ""}
+                                onChange={(e) => setIndividualMargins((prev) => ({
+                                  ...prev,
+                                  [item.id]: e.target.value,
+                                }))}
+                                className="w-24 h-8 text-right"
+                                data-testid={`input-individual-margin-${item.id}`}
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {filteredInventoryMargins.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">

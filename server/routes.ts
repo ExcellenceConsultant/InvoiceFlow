@@ -3540,10 +3540,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const itemsWithMargin = validLineItems.map((item: any) => {
               const qty = item.quantity || 0;
               const rate = parseFloat(item.unitPrice) || 0;
-              // Use line item margin if set, otherwise fall back to inventory product margin
-              const lineItemMargin = parseFloat(item.marginPerCarton);
-              const productMargin = productMarginMap.get(item.productId) || 0;
-              const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+              // Free products (rate <= 0) must always have zero margin
+              let marginPerCarton = 0;
+              if (rate > 0) {
+                // Use line item margin if set, otherwise fall back to inventory product margin
+                const lineItemMargin = parseFloat(item.marginPerCarton);
+                const productMargin = productMarginMap.get(item.productId) || 0;
+                marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+              }
               const amount = qty * rate;
               const margin = qty * marginPerCarton;
               
@@ -3615,9 +3619,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const qty = item.quantity || 0;
           const rate = parseFloat(item.unitPrice) || 0;
           const product = productMap.get(item.productId);
-          const productMargin = product ? parseFloat(product.marginPerCarton) || 0 : 0;
-          const lineItemMargin = parseFloat(item.marginPerCarton);
-          const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+          // Free products (rate <= 0) must always have zero margin
+          let marginPerCarton = 0;
+          if (rate > 0) {
+            const productMargin = product ? parseFloat(product.marginPerCarton) || 0 : 0;
+            const lineItemMargin = parseFloat(item.marginPerCarton);
+            marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+          }
           const amount = qty * rate;
           const margin = qty * marginPerCarton;
 
@@ -3847,13 +3855,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               marginCount: 0,
             };
 
-            // Use line item margin if set, otherwise fall back to inventory product margin
-            const lineItemMargin = parseFloat(item.marginPerCarton as any);
-            const productMargin = productMarginMap.get(prodId) || 0;
-            const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            // Free products (rate <= 0) must always have zero margin
+            const rate = parseFloat(item.unitPrice) || 0;
+            let marginPerCarton = 0;
+            if (rate > 0) {
+              // Use line item margin if set, otherwise fall back to inventory product margin
+              const lineItemMargin = parseFloat(item.marginPerCarton as any);
+              const productMargin = productMarginMap.get(prodId) || 0;
+              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            }
             
             existing.totalQty += item.quantity;
-            existing.totalAmount += item.quantity * parseFloat(item.unitPrice);
+            existing.totalAmount += item.quantity * rate;
             existing.totalMargin += item.quantity * marginPerCarton;
             if (marginPerCarton > 0) {
               existing.marginSum += marginPerCarton;
@@ -3921,6 +3934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: p.name,
           category: p.category || "",
           packingSize: p.packingSize || "",
+          salesPrice: p.salesPrice ? parseFloat(p.salesPrice) : 0,
           marginPerCarton: p.marginPerCarton ? parseFloat(p.marginPerCarton) : null,
           marginUpdatedBy: p.marginUpdatedBy,
           marginUpdatedAt: p.marginUpdatedAt,
@@ -3965,14 +3979,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
+        // Fetch all products to check for free products (salesPrice <= 0)
+        const allProducts = await storage.getProducts(user.userId);
+        const productMap = new Map(allProducts.map((p: any) => [p.id, p]));
+        
         const results = {
           success: 0,
           failed: 0,
+          skipped: 0,
           errors: [] as string[],
         };
 
         for (const item of items) {
           try {
+            const product = productMap.get(item.id);
+            // Skip free products - they must always have zero margin
+            if (product && parseFloat(product.salesPrice || 0) <= 0) {
+              results.skipped++;
+              continue;
+            }
             await storage.updateProduct(item.id, {
               marginPerCarton: item.marginPerCarton.toString(),
               marginUpdatedBy: user.userId,
