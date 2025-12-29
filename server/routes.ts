@@ -3497,7 +3497,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        const { startDate, endDate, customerId } = req.query;
+        const { startDate, endDate, customerId, sort_by, sort_order } = req.query;
+        
+        // Validate sort parameters (prevent SQL injection)
+        const allowedSortFields = ["invoiceNumber", "invoiceDate", "customerName", "totalAmount", "totalMargin"];
+        const sortField = allowedSortFields.includes(sort_by as string) ? (sort_by as string) : "invoiceDate";
+        const sortOrder = sort_order === "asc" ? "asc" : "desc";
 
         let invoices = await storage.getInvoices(userId);
         
@@ -3572,6 +3577,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
           })
         );
+
+        // Apply server-side sorting
+        invoicesWithItems.sort((a: any, b: any) => {
+          let aVal: any, bVal: any;
+          switch (sortField) {
+            case "invoiceNumber":
+              aVal = a.invoiceNumber || "";
+              bVal = b.invoiceNumber || "";
+              break;
+            case "invoiceDate":
+              aVal = new Date(a.invoiceDate).getTime();
+              bVal = new Date(b.invoiceDate).getTime();
+              break;
+            case "customerName":
+              aVal = (a.customerName || "").toLowerCase();
+              bVal = (b.customerName || "").toLowerCase();
+              break;
+            case "totalAmount":
+              aVal = a.totalAmount || 0;
+              bVal = b.totalAmount || 0;
+              break;
+            case "totalMargin":
+              aVal = a.totalMargin || 0;
+              bVal = b.totalMargin || 0;
+              break;
+            default:
+              aVal = new Date(a.invoiceDate).getTime();
+              bVal = new Date(b.invoiceDate).getTime();
+          }
+          if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+          if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+          return 0;
+        });
 
         res.json(invoicesWithItems);
       } catch (error) {
@@ -3705,7 +3743,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        const { startDate, endDate, customerId, productId } = req.query;
+        const { startDate, endDate, customerId, productId, sort_by, sort_order } = req.query;
+        
+        // Validate sort parameters (prevent SQL injection)
+        const allowedSortFields = ["customerName", "totalCartons", "totalAmount", "totalMargin"];
+        const sortField = allowedSortFields.includes(sort_by as string) ? (sort_by as string) : "customerName";
+        const sortOrder = sort_order === "desc" ? "desc" : "asc"; // Default ASC for customer report
 
         let invoices = await storage.getInvoices(userId);
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
@@ -3790,6 +3833,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marginPercent: c.totalAmount > 0 ? (c.totalMargin / c.totalAmount) * 100 : 0,
         }));
 
+        // Apply server-side sorting
+        report.sort((a: any, b: any) => {
+          let aVal: any, bVal: any;
+          switch (sortField) {
+            case "customerName":
+              aVal = (a.customerName || "").toLowerCase();
+              bVal = (b.customerName || "").toLowerCase();
+              break;
+            case "totalCartons":
+              aVal = a.totalCartons || 0;
+              bVal = b.totalCartons || 0;
+              break;
+            case "totalAmount":
+              aVal = a.totalAmount || 0;
+              bVal = b.totalAmount || 0;
+              break;
+            case "totalMargin":
+              aVal = a.totalMargin || 0;
+              bVal = b.totalMargin || 0;
+              break;
+            default:
+              aVal = (a.customerName || "").toLowerCase();
+              bVal = (b.customerName || "").toLowerCase();
+          }
+          if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+          if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+          return 0;
+        });
+
         res.json(report);
       } catch (error) {
         console.error("Error generating customer margin report:", error);
@@ -3806,7 +3878,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        const { startDate, endDate, customerId } = req.query;
+        const { startDate, endDate, customerId, categories, sort_by, sort_order } = req.query;
+
+        // Validate sort parameters (prevent SQL injection)
+        const allowedSortFields = ["productName", "totalQty", "totalAmount", "totalMargin"];
+        const sortField = allowedSortFields.includes(sort_by as string) ? (sort_by as string) : "productName";
+        const sortOrder = sort_order === "desc" ? "desc" : "asc"; // Default ASC for product report
+
+        // Parse categories filter (comma-separated string)
+        const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
         let invoices = await storage.getInvoices(userId);
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
@@ -3834,6 +3914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productId: string;
           itemCode: string;
           productName: string;
+          category: string;
           totalQty: number;
           totalAmount: number;
           totalMargin: number;
@@ -3849,10 +3930,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             const prodId = item.productId || "unknown";
             const product = productMap.get(prodId);
+            const productCategory = product?.category || "Uncategorized";
+            
+            // Apply category filter
+            if (categoryFilter.length > 0 && !categoryFilter.includes(productCategory)) {
+              continue;
+            }
+
             const existing = productData.get(prodId) || {
               productId: prodId,
               itemCode: item.productCode || product?.itemCode || "",
               productName: item.description || product?.name || "Unknown",
+              category: productCategory,
               totalQty: 0,
               totalAmount: 0,
               totalMargin: 0,
@@ -3886,6 +3975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productId: p.productId,
           itemCode: p.itemCode,
           productName: p.productName,
+          category: p.category,
           totalQty: p.totalQty,
           totalAmount: p.totalAmount,
           totalMargin: p.totalMargin,
@@ -3893,7 +3983,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marginPercent: p.totalAmount > 0 ? (p.totalMargin / p.totalAmount) * 100 : 0,
         }));
 
-        res.json(report);
+        // Apply server-side sorting
+        report.sort((a: any, b: any) => {
+          let aVal: any, bVal: any;
+          switch (sortField) {
+            case "productName":
+              aVal = (a.productName || "").toLowerCase();
+              bVal = (b.productName || "").toLowerCase();
+              break;
+            case "totalQty":
+              aVal = a.totalQty || 0;
+              bVal = b.totalQty || 0;
+              break;
+            case "totalAmount":
+              aVal = a.totalAmount || 0;
+              bVal = b.totalAmount || 0;
+              break;
+            case "totalMargin":
+              aVal = a.totalMargin || 0;
+              bVal = b.totalMargin || 0;
+              break;
+            default:
+              aVal = (a.productName || "").toLowerCase();
+              bVal = (b.productName || "").toLowerCase();
+          }
+          if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+          if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+          return 0;
+        });
+
+        // Get unique categories for filter dropdown
+        const categorySet = new Set(products.map((p: any) => p.category || "Uncategorized"));
+        const allCategories = Array.from(categorySet).sort();
+
+        res.json({ report, categories: allCategories });
       } catch (error) {
         console.error("Error generating product margin report:", error);
         res.status(500).json({ message: "Failed to generate report" });
@@ -3944,6 +4067,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marginUpdatedBy: p.marginUpdatedBy,
           marginUpdatedAt: p.marginUpdatedAt,
         }));
+
+        // Sort by product name ASC (for Add Margin modal ordering)
+        inventoryItems.sort((a: any, b: any) => {
+          const aName = (a.name || "").toLowerCase();
+          const bName = (b.name || "").toLowerCase();
+          if (aName < bName) return -1;
+          if (aName > bName) return 1;
+          return 0;
+        });
 
         // Get unique categories for filter dropdown
         const categories = Array.from(new Set(products.map((p: any) => p.category).filter(Boolean))).sort();

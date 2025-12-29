@@ -42,6 +42,9 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CalendarDays,
   ChevronDown,
   ChevronRight,
@@ -103,11 +106,19 @@ interface ProductReport {
   productId: string;
   itemCode: string;
   productName: string;
+  category: string;
   totalQty: number;
   totalAmount: number;
   totalMargin: number;
   avgMarginPerCarton: number;
   marginPercent: number;
+}
+
+type SortOrder = "asc" | "desc";
+
+interface SortConfig {
+  field: string;
+  order: SortOrder;
 }
 
 interface InventoryMarginItem {
@@ -199,6 +210,12 @@ export default function Profitability() {
   const [selectedMarginItems, setSelectedMarginItems] = useState<Set<string>>(new Set());
   const [bulkMarginValue, setBulkMarginValue] = useState("");
   const [individualMargins, setIndividualMargins] = useState<Record<string, string>>({});
+  
+  // Sorting state for each tab
+  const [invoiceSort, setInvoiceSort] = useState<SortConfig>({ field: "invoiceDate", order: "desc" });
+  const [customerSort, setCustomerSort] = useState<SortConfig>({ field: "customerName", order: "asc" });
+  const [productSort, setProductSort] = useState<SortConfig>({ field: "productName", order: "asc" });
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string[]>([]);
 
   const isSuperAdmin = user?.role === "super_admin";
 
@@ -227,11 +244,16 @@ export default function Profitability() {
   });
 
   const { data: invoicesData, isLoading: invoicesLoading } = useQuery<InvoiceWithItems[]>({
-    queryKey: ["/api/profitability/invoices", filterParams],
+    queryKey: ["/api/profitability/invoices", filterParams, invoiceSort],
     queryFn: async () => {
       const token = localStorage.getItem("token");
-      const params = buildQueryParamsString();
-      const response = await fetch(`/api/profitability/invoices?${params}`, {
+      const params = new URLSearchParams();
+      if (filterParams.startDate) params.append("startDate", filterParams.startDate);
+      if (filterParams.endDate) params.append("endDate", filterParams.endDate);
+      if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+      params.append("sort_by", invoiceSort.field);
+      params.append("sort_order", invoiceSort.order);
+      const response = await fetch(`/api/profitability/invoices?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to fetch profitability data");
@@ -241,11 +263,16 @@ export default function Profitability() {
   });
 
   const { data: customerReport, isLoading: customerReportLoading } = useQuery<CustomerReport[]>({
-    queryKey: ["/api/profitability/reports/customer", filterParams],
+    queryKey: ["/api/profitability/reports/customer", filterParams, customerSort],
     queryFn: async () => {
       const token = localStorage.getItem("token");
-      const params = buildQueryParamsString();
-      const response = await fetch(`/api/profitability/reports/customer?${params}`, {
+      const params = new URLSearchParams();
+      if (filterParams.startDate) params.append("startDate", filterParams.startDate);
+      if (filterParams.endDate) params.append("endDate", filterParams.endDate);
+      if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+      params.append("sort_by", customerSort.field);
+      params.append("sort_order", customerSort.order);
+      const response = await fetch(`/api/profitability/reports/customer?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to fetch customer report");
@@ -254,12 +281,18 @@ export default function Profitability() {
     enabled: isSuperAdmin && activeTab === "customers",
   });
 
-  const { data: productReport, isLoading: productReportLoading } = useQuery<ProductReport[]>({
-    queryKey: ["/api/profitability/reports/product", filterParams],
+  const { data: productReportData, isLoading: productReportLoading } = useQuery<{ report: ProductReport[]; categories: string[] }>({
+    queryKey: ["/api/profitability/reports/product", filterParams, productSort, productCategoryFilter],
     queryFn: async () => {
       const token = localStorage.getItem("token");
-      const params = buildQueryParamsString();
-      const response = await fetch(`/api/profitability/reports/product?${params}`, {
+      const params = new URLSearchParams();
+      if (filterParams.startDate) params.append("startDate", filterParams.startDate);
+      if (filterParams.endDate) params.append("endDate", filterParams.endDate);
+      if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+      if (productCategoryFilter.length > 0) params.append("categories", productCategoryFilter.join(","));
+      params.append("sort_by", productSort.field);
+      params.append("sort_order", productSort.order);
+      const response = await fetch(`/api/profitability/reports/product?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to fetch product report");
@@ -267,6 +300,9 @@ export default function Profitability() {
     },
     enabled: isSuperAdmin && activeTab === "products",
   });
+
+  const productReport = productReportData?.report || [];
+  const productCategories = productReportData?.categories || [];
 
   const { data: inventoryMarginsData, isLoading: inventoryMarginsLoading } = useQuery<{ items: InventoryMarginItem[]; categories: string[] }>({
     queryKey: ["/api/inventory/margins"],
@@ -364,6 +400,62 @@ export default function Profitability() {
     }
     updateMarginMutation.mutate({ itemId, marginPerCarton: value });
   };
+
+  // Sorting handlers
+  const handleInvoiceSort = (field: string) => {
+    setInvoiceSort((prev) => ({
+      field,
+      order: prev.field === field && prev.order === "desc" ? "asc" : prev.field === field && prev.order === "asc" ? "desc" : "desc",
+    }));
+  };
+
+  const handleCustomerSort = (field: string) => {
+    setCustomerSort((prev) => ({
+      field,
+      order: prev.field === field && prev.order === "asc" ? "desc" : prev.field === field && prev.order === "desc" ? "asc" : "asc",
+    }));
+  };
+
+  const handleProductSort = (field: string) => {
+    setProductSort((prev) => ({
+      field,
+      order: prev.field === field && prev.order === "asc" ? "desc" : prev.field === field && prev.order === "desc" ? "asc" : "asc",
+    }));
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ 
+    field, 
+    label, 
+    currentSort, 
+    onSort, 
+    className = "" 
+  }: { 
+    field: string; 
+    label: string; 
+    currentSort: SortConfig; 
+    onSort: (field: string) => void; 
+    className?: string;
+  }) => (
+    <TableHead 
+      className={cn("cursor-pointer select-none hover:bg-muted/50", className)}
+      onClick={() => onSort(field)}
+      data-testid={`sort-${field}`}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {currentSort.field === field ? (
+          currentSort.order === "asc" ? (
+            <ArrowUp className="h-4 w-4" />
+          ) : (
+            <ArrowDown className="h-4 w-4" />
+          )
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-30" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   const totals = useMemo(() => {
     if (!invoicesData) return { totalAmount: 0, totalMargin: 0, marginPercent: 0, invoiceCount: 0 };
@@ -684,12 +776,12 @@ export default function Profitability() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-8"></TableHead>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Customer</TableHead>
+                        <SortableHeader field="invoiceNumber" label="Invoice #" currentSort={invoiceSort} onSort={handleInvoiceSort} />
+                        <SortableHeader field="invoiceDate" label="Date" currentSort={invoiceSort} onSort={handleInvoiceSort} />
+                        <SortableHeader field="customerName" label="Customer" currentSort={invoiceSort} onSort={handleInvoiceSort} />
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="text-right">Margin</TableHead>
+                        <SortableHeader field="totalAmount" label="Amount" currentSort={invoiceSort} onSort={handleInvoiceSort} className="text-right" />
+                        <SortableHeader field="totalMargin" label="Margin" currentSort={invoiceSort} onSort={handleInvoiceSort} className="text-right" />
                         <TableHead className="text-right">Margin %</TableHead>
                         <TableHead className="text-center">Actions</TableHead>
                       </TableRow>
@@ -837,11 +929,11 @@ export default function Profitability() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Customer</TableHead>
+                        <SortableHeader field="customerName" label="Customer" currentSort={customerSort} onSort={handleCustomerSort} />
                         <TableHead className="text-right">Invoices</TableHead>
-                        <TableHead className="text-right">Total Cartons</TableHead>
-                        <TableHead className="text-right">Total Amount</TableHead>
-                        <TableHead className="text-right">Total Margin</TableHead>
+                        <SortableHeader field="totalCartons" label="Total Cartons" currentSort={customerSort} onSort={handleCustomerSort} className="text-right" />
+                        <SortableHeader field="totalAmount" label="Total Amount" currentSort={customerSort} onSort={handleCustomerSort} className="text-right" />
+                        <SortableHeader field="totalMargin" label="Total Margin" currentSort={customerSort} onSort={handleCustomerSort} className="text-right" />
                         <TableHead className="text-right">Margin %</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -878,10 +970,60 @@ export default function Profitability() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Product Margin Report</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => exportToExcel("products")} data-testid="export-products">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Excel
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="category-filter-trigger">
+                        <Package className="h-4 w-4 mr-2" />
+                        {productCategoryFilter.length > 0 
+                          ? `${productCategoryFilter.length} Categories` 
+                          : "All Categories"}
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-2" align="end">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-2 pb-2 border-b">
+                          <span className="text-sm font-medium">Categories</span>
+                          {productCategoryFilter.length > 0 && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setProductCategoryFilter([])}
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                        <ScrollArea className="h-[200px]">
+                          {productCategories.map((category) => (
+                            <div key={category} className="flex items-center space-x-2 py-1 px-2">
+                              <Checkbox
+                                id={`cat-${category}`}
+                                checked={productCategoryFilter.includes(category)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setProductCategoryFilter([...productCategoryFilter, category]);
+                                  } else {
+                                    setProductCategoryFilter(productCategoryFilter.filter((c) => c !== category));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`cat-${category}`} className="text-sm cursor-pointer flex-1">
+                                {category}
+                              </label>
+                            </div>
+                          ))}
+                        </ScrollArea>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="outline" size="sm" onClick={() => exportToExcel("products")} data-testid="export-products">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Excel
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {productReportLoading ? (
@@ -893,10 +1035,11 @@ export default function Profitability() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Item Code</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Total Qty</TableHead>
-                        <TableHead className="text-right">Total Amount</TableHead>
-                        <TableHead className="text-right">Total Margin</TableHead>
+                        <SortableHeader field="productName" label="Product" currentSort={productSort} onSort={handleProductSort} />
+                        <TableHead>Category</TableHead>
+                        <SortableHeader field="totalQty" label="Total Qty" currentSort={productSort} onSort={handleProductSort} className="text-right" />
+                        <SortableHeader field="totalAmount" label="Total Amount" currentSort={productSort} onSort={handleProductSort} className="text-right" />
+                        <SortableHeader field="totalMargin" label="Total Margin" currentSort={productSort} onSort={handleProductSort} className="text-right" />
                         <TableHead className="text-right">Avg Margin/Carton</TableHead>
                         <TableHead className="text-right">Margin %</TableHead>
                       </TableRow>
@@ -906,6 +1049,7 @@ export default function Profitability() {
                         <TableRow key={product.productId} data-testid={`product-row-${product.productId}`}>
                           <TableCell className="font-medium">{product.itemCode}</TableCell>
                           <TableCell>{product.productName}</TableCell>
+                          <TableCell>{product.category}</TableCell>
                           <TableCell className="text-right">{product.totalQty}</TableCell>
                           <TableCell className="text-right">{formatCurrency(product.totalAmount)}</TableCell>
                           <TableCell className="text-right">{formatCurrency(product.totalMargin)}</TableCell>
@@ -919,7 +1063,7 @@ export default function Profitability() {
                       ))}
                       {(!productReport || productReport.length === 0) && (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             No product data found for the selected filters
                           </TableCell>
                         </TableRow>
