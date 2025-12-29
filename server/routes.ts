@@ -3758,13 +3758,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               totalMargin: 0,
             };
 
-            // Use line item margin if set, otherwise fall back to inventory product margin
-            const lineItemMargin = parseFloat(item.marginPerCarton as any);
-            const productMargin = productMarginMap.get(item.productId) || 0;
-            const marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            // Free products (rate <= 0) must always have zero margin
+            const rate = parseFloat(item.unitPrice) || 0;
+            let marginPerCarton = 0;
+            if (rate > 0) {
+              // Use line item margin if set, otherwise fall back to inventory product margin
+              const lineItemMargin = parseFloat(item.marginPerCarton as any);
+              const productMargin = productMarginMap.get(item.productId) || 0;
+              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            }
 
             existing.totalCartons += item.quantity;
-            existing.totalAmount += item.quantity * parseFloat(item.unitPrice);
+            existing.totalAmount += item.quantity * rate;
             existing.totalMargin += item.quantity * marginPerCarton;
             
             customerData.set(custId, existing);
