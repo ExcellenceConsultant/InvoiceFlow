@@ -1,0 +1,169 @@
+You are enhancing the Profitability Module inside an Invoice Flow application.
+
+Tech Stack
+
+Backend: Node.js + Express
+
+Database: PostgreSQL
+
+Frontend: React.js
+
+A️⃣ Invoice Profitability Enhancements
+1. Sorting
+
+Add sorting functionality on the Invoice Profitability list for the following columns:
+
+Invoice Number
+
+Invoice Date
+
+Customer Name
+
+Total Amount
+
+Total Margin
+
+Requirements
+
+Support ascending and descending sort
+
+Sorting must work at API level, not only frontend
+
+Default order:
+
+Invoice Date DESC
+
+B️⃣ Customer Margin Report Enhancements
+1. Sorting
+
+Add sorting for:
+
+Customer Name
+
+Total Cartons
+
+Total Amount
+
+Total Margin
+
+2. Default Ordering
+
+Default sort:
+
+Customer Name ASC
+
+C️⃣ Product Margin Report Enhancements
+1. New Column
+
+Add a column:
+
+Category
+
+2. Category Filter
+
+Add multi-select category filter
+
+Allow selecting multiple categories
+
+If no category selected → show all
+
+3. Sorting
+
+Add sorting for:
+
+Product Name
+
+Total Quantity
+
+Total Amount
+
+Total Margin
+
+4. Default Ordering
+Product Name ASC
+
+D️⃣ Add Margin – Ordering Enhancement
+Requirement
+
+When opening Add Margin modal:
+
+Inventory items must be displayed in:
+
+Product Name ASC
+
+Applies To
+
+Full inventory list
+
+Search results
+
+Filtered results
+
+🗄️ Backend Requirements (MANDATORY)
+API Enhancements
+
+Accept sorting parameters:
+
+sort_by
+sort_order (asc | desc)
+
+Example
+GET /api/reports/customer-margin?sort_by=customer_name&sort_order=asc
+
+SQL Ordering Examples
+ORDER BY customer_name ASC
+ORDER BY product_name ASC
+ORDER BY total_margin DESC
+
+
+Ensure:
+
+Sorting is safe (no SQL injection)
+
+Only allowed columns can be sorted
+
+🖥️ Frontend Requirements (React)
+UI Controls
+
+Clickable column headers for sorting
+
+Visual indicator (↑ ↓)
+
+Multi-select dropdown for Category filter
+
+Sorting state synced with API
+
+📊 Reports Integrity
+
+Sorting must work with:
+
+Free item margin logic (rate = 0 → margin = 0)
+
+Date filters
+
+Category filters
+
+Reports must auto-refresh on sort/filter change
+
+🔐 Security & Performance
+
+Sorting enforced server-side
+
+Indexed columns where needed (invoice_date, customer_name, product_name)
+
+🎯 Expected Output
+
+Updated APIs with sorting & filtering
+
+Optimized SQL queries
+
+Updated React tables
+
+Clean, consistent ordering
+
+Production-ready implementation
+
+⚠️ IMPORTANT
+
+Do not implement sorting only on frontend.
+All sorting must be done via backend SQL queries.
