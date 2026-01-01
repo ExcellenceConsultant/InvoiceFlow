@@ -991,14 +991,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                       <FormControl>
                         <Input
                           type="number"
+                          min="0"
                           {...field}
-                          data-testid="input-payment-terms"
-                          onBlur={(e) => {
+                          value={field.value ?? 30}
+                          onChange={(e) => {
                             const value = Number(e.target.value);
-                            if (!Number.isFinite(value) || value < 0) {
-                              form.setValue("paymentTerms", 0);
-                            }
+                            field.onChange(Number.isFinite(value) ? value : 30);
                           }}
+                          data-testid="input-payment-terms"
                         />
                       </FormControl>
                       <FormMessage />
