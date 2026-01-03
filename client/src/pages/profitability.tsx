@@ -519,9 +519,7 @@ export default function Profitability() {
 
   const handleSelectAllMargin = (checked: boolean) => {
     if (checked) {
-      // Exclude free products (salesPrice <= 0) from bulk selection
-      const selectableItems = filteredInventoryMargins.filter((item) => item.salesPrice > 0);
-      setSelectedMarginItems(new Set(selectableItems.map((item) => item.id)));
+      setSelectedMarginItems(new Set(filteredInventoryMargins.map((item) => item.id)));
     } else {
       setSelectedMarginItems(new Set());
     }
@@ -549,32 +547,16 @@ export default function Profitability() {
       toast({ title: "No items selected", description: "Please select at least one item", variant: "destructive" });
       return;
     }
-    // Filter out free products (salesPrice <= 0) - they must always have zero margin
-    const selectableIds = new Set(
-      filteredInventoryMargins.filter((item) => item.salesPrice > 0).map((item) => item.id)
-    );
-    const items = Array.from(selectedMarginItems)
-      .filter((id) => selectableIds.has(id))
-      .map((id) => ({
-        id,
-        marginPerCarton: marginValue,
-      }));
-    if (items.length === 0) {
-      toast({ title: "No eligible items", description: "Free products cannot have margin applied", variant: "destructive" });
-      return;
-    }
+    const items = Array.from(selectedMarginItems).map((id) => ({
+      id,
+      marginPerCarton: marginValue,
+    }));
     applyMarginMutation.mutate(items);
   };
 
   const handleApplyIndividualMargins = () => {
-    // Create a set of free product IDs to exclude
-    const freeProductIds = new Set(
-      inventoryMargins?.filter((item) => item.salesPrice <= 0).map((item) => item.id) || []
-    );
     const items: { id: string; marginPerCarton: number }[] = [];
     for (const [id, value] of Object.entries(individualMargins)) {
-      // Skip free products - they must always have zero margin
-      if (freeProductIds.has(id)) continue;
       const marginValue = parseFloat(value);
       if (!isNaN(marginValue) && marginValue >= 0) {
         items.push({ id, marginPerCarton: marginValue });
