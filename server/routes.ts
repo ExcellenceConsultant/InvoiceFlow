@@ -4299,25 +4299,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Fetch all products to check for free products (salesPrice <= 0)
-        const allProducts = await storage.getProducts(user.userId);
-        const productMap = new Map(allProducts.map((p: any) => [p.id, p]));
-        
         const results = {
           success: 0,
           failed: 0,
-          skipped: 0,
           errors: [] as string[],
         };
 
         for (const item of items) {
           try {
-            const product = productMap.get(item.id);
-            // Skip free products - they must always have zero margin
-            if (product && parseFloat(product.salesPrice || 0) <= 0) {
-              results.skipped++;
-              continue;
-            }
             await storage.updateProduct(item.id, {
               marginPerCarton: item.marginPerCarton.toString(),
               marginUpdatedBy: user.userId,

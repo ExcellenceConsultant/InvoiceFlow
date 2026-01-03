@@ -1196,15 +1196,12 @@ export default function Profitability() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInventoryMargins.map((item) => {
-                      const isFreeProduct = item.salesPrice <= 0;
-                      return (
+                    {filteredInventoryMargins.map((item) => (
                         <TableRow key={item.id} data-testid={`margin-row-${item.id}`}>
                           <TableCell>
                             <Checkbox
                               checked={selectedMarginItems.has(item.id)}
                               onCheckedChange={() => handleToggleMarginItem(item.id)}
-                              disabled={isFreeProduct}
                               data-testid={`checkbox-item-${item.id}`}
                             />
                           </TableCell>
@@ -1213,35 +1210,25 @@ export default function Profitability() {
                           <TableCell>{item.category || "-"}</TableCell>
                           <TableCell>{item.packingSize || "-"}</TableCell>
                           <TableCell className="text-right">
-                            {isFreeProduct ? (
-                              <span className="text-muted-foreground text-xs">$0.00</span>
-                            ) : (
-                              item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"
-                            )}
+                            {item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"}
                           </TableCell>
                           <TableCell className="text-right">
-                            {isFreeProduct ? (
-                              <span className="text-xs text-muted-foreground italic" data-testid={`text-free-item-${item.id}`}>
-                                Free Item – Margin not applicable
-                              </span>
-                            ) : (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={individualMargins[item.id] || ""}
-                                onChange={(e) => setIndividualMargins((prev) => ({
-                                  ...prev,
-                                  [item.id]: e.target.value,
-                                }))}
-                                className="w-24 h-8 text-right"
-                                data-testid={`input-individual-margin-${item.id}`}
-                              />
-                            )}
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={individualMargins[item.id] || ""}
+                              onChange={(e) => setIndividualMargins((prev) => ({
+                                ...prev,
+                                [item.id]: e.target.value,
+                              }))}
+                              className="w-24 h-8 text-right"
+                              title="Margin applies only when product is sold at non-zero price"
+                              data-testid={`input-individual-margin-${item.id}`}
+                            />
                           </TableCell>
                         </TableRow>
-                      );
-                    })}
+                      ))}
                     {filteredInventoryMargins.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
