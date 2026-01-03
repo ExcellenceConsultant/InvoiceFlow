@@ -215,7 +215,9 @@ export default function Profitability() {
   const [invoiceSort, setInvoiceSort] = useState<SortConfig>({ field: "invoiceDate", order: "desc" });
   const [customerSort, setCustomerSort] = useState<SortConfig>({ field: "customerName", order: "asc" });
   const [productSort, setProductSort] = useState<SortConfig>({ field: "productName", order: "asc" });
-  const [productCategoryFilter, setProductCategoryFilter] = useState<string[]>([]);
+  
+  // Global category filter (applies to all tabs and KPI cards)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const isSuperAdmin = user?.role === "super_admin";
 
@@ -228,13 +230,15 @@ export default function Profitability() {
     startDate: selectedDateRange.start?.toISOString() || null,
     endDate: selectedDateRange.end?.toISOString() || null,
     customerId: customerFilter !== "all" ? customerFilter : null,
-  }), [selectedDateRange, customerFilter]);
+    categories: selectedCategories.length > 0 ? selectedCategories.join(",") : null,
+  }), [selectedDateRange, customerFilter, selectedCategories]);
 
   const buildQueryParamsString = () => {
     const params = new URLSearchParams();
     if (filterParams.startDate) params.append("startDate", filterParams.startDate);
     if (filterParams.endDate) params.append("endDate", filterParams.endDate);
     if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+    if (filterParams.categories) params.append("categories", filterParams.categories);
     return params.toString();
   };
 
@@ -242,6 +246,33 @@ export default function Profitability() {
     queryKey: ["/api/customers"],
     enabled: isSuperAdmin,
   });
+
+  // Profitability summary for KPI cards
+  const { data: summaryData, isLoading: summaryLoading } = useQuery<{
+    totalInvoices: number;
+    totalRevenue: number;
+    totalMargin: number;
+    marginPercent: number;
+    categories: string[];
+  }>({
+    queryKey: ["/api/profitability/summary", filterParams],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams();
+      if (filterParams.startDate) params.append("startDate", filterParams.startDate);
+      if (filterParams.endDate) params.append("endDate", filterParams.endDate);
+      if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+      if (filterParams.categories) params.append("categories", filterParams.categories);
+      const response = await fetch(`/api/profitability/summary?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch profitability summary");
+      return response.json();
+    },
+    enabled: isSuperAdmin,
+  });
+
+  const availableCategories = summaryData?.categories || [];
 
   const { data: invoicesData, isLoading: invoicesLoading } = useQuery<InvoiceWithItems[]>({
     queryKey: ["/api/profitability/invoices", filterParams, invoiceSort],
@@ -251,6 +282,7 @@ export default function Profitability() {
       if (filterParams.startDate) params.append("startDate", filterParams.startDate);
       if (filterParams.endDate) params.append("endDate", filterParams.endDate);
       if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+      if (filterParams.categories) params.append("categories", filterParams.categories);
       params.append("sort_by", invoiceSort.field);
       params.append("sort_order", invoiceSort.order);
       const response = await fetch(`/api/profitability/invoices?${params.toString()}`, {
@@ -270,6 +302,7 @@ export default function Profitability() {
       if (filterParams.startDate) params.append("startDate", filterParams.startDate);
       if (filterParams.endDate) params.append("endDate", filterParams.endDate);
       if (filterParams.customerId) params.append("customerId", filterParams.customerId);
+      if (filterParams.categories) params.append("categories", filterParams.categories);
       params.append("sort_by", customerSort.field);
       params.append("sort_order", customerSort.order);
       const response = await fetch(`/api/profitability/reports/customer?${params.toString()}`, {
@@ -282,14 +315,14 @@ export default function Profitability() {
   });
 
   const { data: productReportData, isLoading: productReportLoading } = useQuery<{ report: ProductReport[]; categories: string[] }>({
-    queryKey: ["/api/profitability/reports/product", filterParams, productSort, productCategoryFilter],
+    queryKey: ["/api/profitability/reports/product", filterParams, productSort],
     queryFn: async () => {
       const token = localStorage.getItem("token");
       const params = new URLSearchParams();
       if (filterParams.startDate) params.append("startDate", filterParams.startDate);
       if (filterParams.endDate) params.append("endDate", filterParams.endDate);
       if (filterParams.customerId) params.append("customerId", filterParams.customerId);
-      if (productCategoryFilter.length > 0) params.append("categories", productCategoryFilter.join(","));
+      if (filterParams.categories) params.append("categories", filterParams.categories);
       params.append("sort_by", productSort.field);
       params.append("sort_order", productSort.order);
       const response = await fetch(`/api/profitability/reports/product?${params.toString()}`, {
@@ -302,7 +335,6 @@ export default function Profitability() {
   });
 
   const productReport = productReportData?.report || [];
-  const productCategories = productReportData?.categories || [];
 
   const { data: inventoryMarginsData, isLoading: inventoryMarginsLoading } = useQuery<{ items: InventoryMarginItem[]; categories: string[] }>({
     queryKey: ["/api/inventory/margins"],
@@ -330,6 +362,7 @@ export default function Profitability() {
       queryClient.invalidateQueries({ queryKey: ["/api/profitability/invoices"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/profitability/reports/customer"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/profitability/reports/product"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/profitability/summary"], exact: false });
       toast({ title: "Success", description: `Updated margins for ${data.updated} products` });
       setIsAddMarginOpen(false);
       setSelectedMarginItems(new Set());
@@ -353,6 +386,7 @@ export default function Profitability() {
       queryClient.invalidateQueries({ queryKey: ["/api/profitability/invoices"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/profitability/reports/customer"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/profitability/reports/product"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/profitability/summary"], exact: false });
       toast({ title: "Success", description: "Margin updated successfully" });
       setEditingMargin(null);
     },
@@ -457,17 +491,16 @@ export default function Profitability() {
     </TableHead>
   );
 
+  // Use summary data from API for KPI cards (consistent with category filter)
   const totals = useMemo(() => {
-    if (!invoicesData) return { totalAmount: 0, totalMargin: 0, marginPercent: 0, invoiceCount: 0 };
-    const totalAmount = invoicesData.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const totalMargin = invoicesData.reduce((sum, inv) => sum + inv.totalMargin, 0);
+    if (!summaryData) return { totalAmount: 0, totalMargin: 0, marginPercent: 0, invoiceCount: 0 };
     return {
-      totalAmount,
-      totalMargin,
-      marginPercent: totalAmount > 0 ? (totalMargin / totalAmount) * 100 : 0,
-      invoiceCount: invoicesData.length,
+      totalAmount: summaryData.totalRevenue,
+      totalMargin: summaryData.totalMargin,
+      marginPercent: summaryData.marginPercent,
+      invoiceCount: summaryData.totalInvoices,
     };
-  }, [invoicesData]);
+  }, [summaryData]);
 
   const inventoryCategories = useMemo(() => {
     return inventoryMarginsData?.categories || [];
@@ -739,6 +772,60 @@ export default function Profitability() {
               ))}
             </SelectContent>
           </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[200px] justify-between" data-testid="global-category-filter">
+                <Package className="h-4 w-4 mr-2" />
+                {selectedCategories.length > 0 
+                  ? `${selectedCategories.length} Categories` 
+                  : "All Categories"}
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] p-2" align="start">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-2 pb-2 border-b">
+                  <span className="text-sm font-medium">Filter by Category</span>
+                  {selectedCategories.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setSelectedCategories([])}
+                      data-testid="clear-category-filter"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <ScrollArea className="h-[200px]">
+                  {availableCategories.map((category) => (
+                    <div key={category} className="flex items-center space-x-2 py-1 px-2">
+                      <Checkbox
+                        id={`global-cat-${category}`}
+                        checked={selectedCategories.includes(category)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedCategories([...selectedCategories, category]);
+                          } else {
+                            setSelectedCategories(selectedCategories.filter((c) => c !== category));
+                          }
+                        }}
+                        data-testid={`category-checkbox-${category}`}
+                      />
+                      <label htmlFor={`global-cat-${category}`} className="text-sm cursor-pointer flex-1">
+                        {category}
+                      </label>
+                    </div>
+                  ))}
+                  {availableCategories.length === 0 && (
+                    <p className="text-sm text-muted-foreground p-2">No categories available</p>
+                  )}
+                </ScrollArea>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -970,60 +1057,10 @@ export default function Profitability() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Product Margin Report</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" data-testid="category-filter-trigger">
-                        <Package className="h-4 w-4 mr-2" />
-                        {productCategoryFilter.length > 0 
-                          ? `${productCategoryFilter.length} Categories` 
-                          : "All Categories"}
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[200px] p-2" align="end">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between px-2 pb-2 border-b">
-                          <span className="text-sm font-medium">Categories</span>
-                          {productCategoryFilter.length > 0 && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 px-2 text-xs"
-                              onClick={() => setProductCategoryFilter([])}
-                            >
-                              Clear
-                            </Button>
-                          )}
-                        </div>
-                        <ScrollArea className="h-[200px]">
-                          {productCategories.map((category) => (
-                            <div key={category} className="flex items-center space-x-2 py-1 px-2">
-                              <Checkbox
-                                id={`cat-${category}`}
-                                checked={productCategoryFilter.includes(category)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setProductCategoryFilter([...productCategoryFilter, category]);
-                                  } else {
-                                    setProductCategoryFilter(productCategoryFilter.filter((c) => c !== category));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`cat-${category}`} className="text-sm cursor-pointer flex-1">
-                                {category}
-                              </label>
-                            </div>
-                          ))}
-                        </ScrollArea>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <Button variant="outline" size="sm" onClick={() => exportToExcel("products")} data-testid="export-products">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Excel
-                  </Button>
-                </div>
+                <Button variant="outline" size="sm" onClick={() => exportToExcel("products")} data-testid="export-products">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
               </CardHeader>
               <CardContent>
                 {productReportLoading ? (

@@ -1,0 +1,134 @@
+You are enhancing the Profitability Analysis module in an existing Invoice Flow web application.
+
+Tech Stack
+
+Backend: Node.js + Express
+
+Database: PostgreSQL
+
+Frontend: React.js
+
+🎯 Objective
+
+Add a Category filter beside the Customer filter so that when a category is selected:
+
+All profitability data is calculated only for that category
+
+UI views and reports update exactly like current behavior (no new screens)
+
+Works consistently across Invoices, Customers, and Products tabs
+
+📍 UI REQUIREMENTS (Frontend – React)
+Filter Placement
+
+Add Category dropdown beside Customer filter
+
+Layout order:
+
+Date Range | Customer | Category
+
+Category Filter Behavior
+
+Multi-select dropdown
+
+Default value: All Categories
+
+When category is selected:
+
+All numbers, tables, and reports must reflect only selected category data
+
+Applies To Views
+
+Invoice Profitability (Invoices tab)
+
+Customer Margin Report (Customers tab)
+
+Product Margin Report (Products tab)
+
+Top Summary Cards
+
+AR Invoices
+
+Total Revenue
+
+Total Margin
+
+Margin %
+
+📊 FUNCTIONAL EXPECTATION (VERY IMPORTANT)
+
+When Category filter is applied:
+
+Show only invoice items belonging to selected category
+
+Invoice totals must be recalculated based on that category
+
+Margin %, totals, and counts must update correctly
+
+UI behavior must remain exactly as current (only filtered)
+
+⚠️ Example
+If invoice has 3 categories and user selects Dry:
+
+Invoice row still visible
+
+Amount & Margin shown = Dry category items only
+
+🗄️ BACKEND REQUIREMENTS (MANDATORY)
+API Enhancements
+
+Accept category filter parameter:
+
+categories[]=Dry&categories[]=Frozen
+
+Apply Category Filter At:
+
+Invoice profitability API
+
+Customer margin report API
+
+Product margin report API
+
+Summary KPI API
+
+SQL Filtering Rule
+WHERE inventory.category = ANY(:categories)
+
+Invoice-Level Calculation
+
+Aggregate only filtered category items
+
+Do NOT exclude invoice if it contains other categories
+
+📐 Margin Rules (Must Stay Intact)
+
+Free items (rate = 0) → margin = 0
+
+Margin per carton logic unchanged
+
+Inventory margin fallback unchanged
+
+🔐 Data Integrity & Performance
+
+Category filtering must be done at SQL level
+
+Use indexed category column
+
+Prevent SQL injection (whitelist params)
+
+🎯 EXPECTED OUTPUT
+
+Updated APIs with category filtering
+
+Updated SQL aggregation logic
+
+Updated React filters
+
+Summary cards reflect category filter
+
+No breaking changes to existing functionality
+
+⚠️ IMPORTANT
+
+Do not implement category filter only on frontend.
+All calculations must be filtered at backend & database level.

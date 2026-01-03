@@ -3497,12 +3497,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        const { startDate, endDate, customerId, sort_by, sort_order } = req.query;
+        const { startDate, endDate, customerId, categories, sort_by, sort_order } = req.query;
         
         // Validate sort parameters (prevent SQL injection)
         const allowedSortFields = ["invoiceNumber", "invoiceDate", "customerName", "totalAmount", "totalMargin"];
         const sortField = allowedSortFields.includes(sort_by as string) ? (sort_by as string) : "invoiceDate";
         const sortOrder = sort_order === "asc" ? "asc" : "desc";
+
+        // Parse categories filter (comma-separated string)
+        const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
         let invoices = await storage.getInvoices(userId);
         
@@ -3528,17 +3531,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
-        // Fetch products for margin fallback
+        // Fetch products for margin fallback and category lookup
         const products = await storage.getProducts(userId);
         const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
+        const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
         // Fetch line items for each invoice
         const invoicesWithItems = await Promise.all(
           invoices.map(async (invoice: any) => {
             const lineItems = await storage.getInvoiceLineItems(invoice.id);
-            const validLineItems = lineItems.filter((item: any) => item.quantity > 0);
+            let validLineItems = lineItems.filter((item: any) => item.quantity > 0);
             
-            // Calculate totals
+            // Apply category filter to line items
+            if (categoryFilter.length > 0) {
+              validLineItems = validLineItems.filter((item: any) => {
+                const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
+                return categoryFilter.includes(itemCategory);
+              });
+            }
+            
+            // Calculate totals based on filtered line items
             let totalAmount = 0;
             let totalMargin = 0;
             
@@ -3577,9 +3589,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
           })
         );
+        
+        // Filter out invoices with no line items after category filtering (if category filter is applied)
+        const filteredInvoices = categoryFilter.length > 0 
+          ? invoicesWithItems.filter((inv: any) => inv.lineItems.length > 0)
+          : invoicesWithItems;
 
         // Apply server-side sorting
-        invoicesWithItems.sort((a: any, b: any) => {
+        filteredInvoices.sort((a: any, b: any) => {
           let aVal: any, bVal: any;
           switch (sortField) {
             case "invoiceNumber":
@@ -3611,7 +3628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return 0;
         });
 
-        res.json(invoicesWithItems);
+        res.json(filteredInvoices);
       } catch (error) {
         console.error("Error fetching profitability data:", error);
         res.status(500).json({ message: "Failed to fetch profitability data" });
@@ -3743,12 +3760,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userId = (req as any).user?.userId;
-        const { startDate, endDate, customerId, productId, sort_by, sort_order } = req.query;
+        const { startDate, endDate, customerId, productId, categories, sort_by, sort_order } = req.query;
         
         // Validate sort parameters (prevent SQL injection)
         const allowedSortFields = ["customerName", "totalCartons", "totalAmount", "totalMargin"];
         const sortField = allowedSortFields.includes(sort_by as string) ? (sort_by as string) : "customerName";
         const sortOrder = sort_order === "desc" ? "desc" : "asc"; // Default ASC for customer report
+
+        // Parse categories filter (comma-separated string)
+        const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
         let invoices = await storage.getInvoices(userId);
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
@@ -3770,9 +3790,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
-        // Fetch products for margin fallback
+        // Fetch products for margin fallback and category lookup
         const products = await storage.getProducts(userId);
         const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
+        const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
         // Aggregate by customer
         const customerData = new Map<string, {
@@ -3790,6 +3811,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const item of lineItems) {
             if (item.quantity <= 0) continue;
             if (productId && item.productId !== productId) continue;
+            
+            // Apply category filter
+            if (categoryFilter.length > 0) {
+              const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
+              if (!categoryFilter.includes(itemCategory)) continue;
+            }
 
             const custId = invoice.customerId || "unknown";
             const existing = customerData.get(custId) || {
@@ -4020,6 +4047,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error generating product margin report:", error);
         res.status(500).json({ message: "Failed to generate report" });
+      }
+    }
+  );
+
+  // Profitability summary for KPI cards (with category filter support)
+  app.get(
+    "/api/profitability/summary",
+    isAuthenticated,
+    requireRole(["super_admin"]),
+    async (req, res) => {
+      try {
+        const userId = (req as any).user?.userId;
+        const { startDate, endDate, customerId, categories } = req.query;
+
+        // Parse categories filter (comma-separated string)
+        const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
+
+        let invoices = await storage.getInvoices(userId);
+        invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
+
+        if (startDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) >= new Date(startDate as string)
+          );
+        }
+        if (endDate) {
+          invoices = invoices.filter((inv: any) => 
+            new Date(inv.invoiceDate) <= new Date(endDate as string)
+          );
+        }
+        if (customerId) {
+          invoices = invoices.filter((inv: any) => inv.customerId === customerId);
+        }
+
+        // Fetch products for margin fallback and category lookup
+        const products = await storage.getProducts(userId);
+        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
+        const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
+
+        // Get unique categories for filter dropdown
+        const categorySet = new Set(products.map((p: any) => p.category || "Uncategorized"));
+        const allCategories = Array.from(categorySet).sort();
+
+        let totalInvoices = 0;
+        let totalRevenue = 0;
+        let totalMargin = 0;
+        const invoicesWithCategoryItems = new Set<string>();
+
+        for (const invoice of invoices) {
+          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+          let invoiceHasCategoryItems = false;
+          
+          for (const item of lineItems) {
+            if (item.quantity <= 0) continue;
+            
+            // Apply category filter
+            if (categoryFilter.length > 0) {
+              const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
+              if (!categoryFilter.includes(itemCategory)) continue;
+            }
+            
+            invoiceHasCategoryItems = true;
+            const qty = item.quantity || 0;
+            const rate = parseFloat(item.unitPrice) || 0;
+            
+            // Free products (rate <= 0) must always have zero margin
+            let marginPerCarton = 0;
+            if (rate > 0) {
+              const lineItemMargin = parseFloat(item.marginPerCarton as any);
+              const productMargin = productMarginMap.get(item.productId) || 0;
+              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            }
+            
+            totalRevenue += qty * rate;
+            totalMargin += qty * marginPerCarton;
+          }
+          
+          if (invoiceHasCategoryItems) {
+            invoicesWithCategoryItems.add(invoice.id);
+          }
+        }
+
+        totalInvoices = categoryFilter.length > 0 ? invoicesWithCategoryItems.size : invoices.length;
+        const marginPercent = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+
+        res.json({
+          totalInvoices,
+          totalRevenue,
+          totalMargin,
+          marginPercent,
+          categories: allCategories,
+        });
+      } catch (error) {
+        console.error("Error generating profitability summary:", error);
+        res.status(500).json({ message: "Failed to generate summary" });
       }
     }
   );
