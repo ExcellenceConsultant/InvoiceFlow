@@ -1079,7 +1079,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create invoice
       const createdInvoice = await storage.createInvoice(invoiceData);
 
-      // Create line items with scheme application
+      // Pre-fetch all products for margin snapshotting (avoid N+1 queries)
+      const allProducts = await storage.getProducts(user.userId);
+      const productMarginMap = new Map(allProducts.map((p: any) => [
+        p.id, 
+        p.marginPerCarton ? parseFloat(p.marginPerCarton) : 0
+      ]));
+
+      // Create line items with scheme application and margin snapshot
       const createdLineItems = [];
       const hasFrontendFreeItems = lineItems.some(
         (li: any) => li.isFreeFromScheme,
@@ -1092,9 +1099,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
+        // MARGIN SNAPSHOT: Capture inventory margin at invoice creation time
+        // This value is IMMUTABLE - margin changes to inventory won't affect past invoices
+        const rate = parseFloat(item.unitPrice) || 0;
+        let snapshotMargin: string;
+        
+        // Free products (rate <= 0 or isFreeFromScheme) MUST have zero margin
+        if (rate <= 0 || item.isFreeFromScheme) {
+          snapshotMargin = "0";
+        } else {
+          // Snapshot margin from inventory product at creation time
+          const inventoryMargin = productMarginMap.get(item.productId) || 0;
+          snapshotMargin = inventoryMargin.toString();
+        }
+
         const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
           ...item,
           invoiceId: createdInvoice.id,
+          marginPerCarton: snapshotMargin, // Always set from server-side snapshot
         });
 
         if (lineItemValidation.success) {
@@ -1118,6 +1140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 Math.floor(item.quantity / applicableScheme.buyQuantity) *
                 applicableScheme.freeQuantity;
               if (freeQuantity > 0) {
+                // Free scheme items MUST have zero margin (rate = 0)
                 const freeLineItem = await storage.createLineItem({
                   invoiceId: createdInvoice.id,
                   productId: item.productId,
@@ -1126,6 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   quantity: freeQuantity,
                   unitPrice: "0.00",
                   lineTotal: "0.00",
+                  marginPerCarton: "0", // Free items always have zero margin
                   isFreeFromScheme: true,
                   schemeId: applicableScheme.id,
                   category: item.category,
@@ -1567,8 +1591,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date(),
       });
 
+      // PRESERVE EXISTING MARGINS: Create a map of existing line item margins BEFORE deleting
+      // This ensures margin immutability - editing an invoice won't change stored margins
+      // Key by line item ID (unique per line) to handle multiple items for same product
+      const existingMarginByIdMap = new Map<string, string>();
+      for (const oldItem of existingLineItems) {
+        if (oldItem.id && oldItem.marginPerCarton) {
+          existingMarginByIdMap.set(oldItem.id, oldItem.marginPerCarton);
+        }
+      }
+
       // Delete existing line items and create new ones
       await storage.deleteInvoiceLineItemsByInvoiceId(invoiceId);
+
+      // Pre-fetch all products for margin snapshotting when adding NEW products
+      const user = (req as any).user;
+      const allProducts = await storage.getProducts(user.userId);
+      const productMarginMap = new Map(allProducts.map((p: any) => [
+        p.id, 
+        p.marginPerCarton ? parseFloat(p.marginPerCarton) : 0
+      ]));
 
       const createdLineItems = [];
       for (const item of lineItems) {
@@ -1577,9 +1619,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
+        // MARGIN IMMUTABILITY: Preserve existing margins for existing line items
+        // Only snapshot from inventory for truly NEW line items added to this invoice
+        const rate = parseFloat(item.unitPrice) || 0;
+        let snapshotMargin: string;
+        
+        // Free products (rate <= 0 or isFreeFromScheme) MUST have zero margin
+        if (rate <= 0 || item.isFreeFromScheme) {
+          snapshotMargin = "0";
+        } else if (item.marginPerCarton !== undefined && item.marginPerCarton !== null && item.marginPerCarton !== "") {
+          // Use margin provided by client (from existing invoice data)
+          snapshotMargin = item.marginPerCarton.toString();
+        } else if (item.id && existingMarginByIdMap.has(item.id)) {
+          // PRESERVE: Use the previously stored margin for this specific line item
+          snapshotMargin = existingMarginByIdMap.get(item.id)!;
+        } else {
+          // NEW LINE ITEM: Snapshot margin from current inventory
+          const inventoryMargin = productMarginMap.get(item.productId) || 0;
+          snapshotMargin = inventoryMargin.toString();
+        }
+
         const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
           ...item,
           invoiceId: invoiceId,
+          marginPerCarton: snapshotMargin, // Always set margin
         });
 
         if (lineItemValidation.success) {
@@ -3531,9 +3594,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
-        // Fetch products for margin fallback and category lookup
+        // Fetch products for category lookup only (margin is read from invoice_items)
         const products = await storage.getProducts(userId);
-        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
         const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
         // Fetch line items for each invoice
@@ -3558,12 +3620,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const qty = item.quantity || 0;
               const rate = parseFloat(item.unitPrice) || 0;
               // Free products (rate <= 0) must always have zero margin
+              // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
               let marginPerCarton = 0;
               if (rate > 0) {
-                // Use line item margin if set, otherwise fall back to inventory product margin
                 const lineItemMargin = parseFloat(item.marginPerCarton);
-                const productMargin = productMarginMap.get(item.productId) || 0;
-                marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+                marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
               }
               const amount = qty * rate;
               const margin = qty * marginPerCarton;
@@ -3659,7 +3720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fetch customer info
         const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
 
-        // Fetch products for margin fallback and additional data
+        // Fetch products for additional data only (margin is read from invoice_items)
         const products = await storage.getProducts(userId);
         const productMap = new Map(products.map((p: any) => [p.id, p]));
 
@@ -3675,11 +3736,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rate = parseFloat(item.unitPrice) || 0;
           const product = productMap.get(item.productId);
           // Free products (rate <= 0) must always have zero margin
+          // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
           let marginPerCarton = 0;
           if (rate > 0) {
-            const productMargin = product ? parseFloat(product.marginPerCarton) || 0 : 0;
             const lineItemMargin = parseFloat(item.marginPerCarton);
-            marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+            marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
           }
           const amount = qty * rate;
           const margin = qty * marginPerCarton;
@@ -3738,8 +3799,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Line item not found" });
         }
 
+        // ENFORCE FREE PRODUCT RULE: Free products (rate <= 0) must always have zero margin
+        const rate = parseFloat(lineItem.unitPrice as any) || 0;
+        const effectiveMargin = rate <= 0 ? "0" : marginPerCarton.toString();
+
         const updated = await storage.updateInvoiceLineItem(id, {
-          marginPerCarton: marginPerCarton.toString(),
+          marginPerCarton: effectiveMargin,
           marginUpdatedBy: user.userId,
           marginUpdatedAt: new Date(),
         });
@@ -3790,9 +3855,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
 
-        // Fetch products for margin fallback and category lookup
+        // Fetch products for category lookup only (margin is read from invoice_items)
         const products = await storage.getProducts(userId);
-        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
         const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
         // Aggregate by customer
@@ -3829,13 +3893,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
 
             // Free products (rate <= 0) must always have zero margin
+            // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
             const rate = parseFloat(item.unitPrice) || 0;
             let marginPerCarton = 0;
             if (rate > 0) {
-              // Use line item margin if set, otherwise fall back to inventory product margin
               const lineItemMargin = parseFloat(item.marginPerCarton as any);
-              const productMargin = productMarginMap.get(item.productId) || 0;
-              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
             }
 
             existing.totalCartons += item.quantity;
@@ -3932,9 +3995,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoices = invoices.filter((inv: any) => inv.customerId === customerId);
         }
 
+        // Fetch products for category lookup only (margin is read from invoice_items)
         const products = await storage.getProducts(userId);
         const productMap = new Map(products.map((p: any) => [p.id, p]));
-        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
 
         // Aggregate by product
         const productData = new Map<string, {
@@ -3977,13 +4040,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
 
             // Free products (rate <= 0) must always have zero margin
+            // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
             const rate = parseFloat(item.unitPrice) || 0;
             let marginPerCarton = 0;
             if (rate > 0) {
-              // Use line item margin if set, otherwise fall back to inventory product margin
               const lineItemMargin = parseFloat(item.marginPerCarton as any);
-              const productMargin = productMarginMap.get(prodId) || 0;
-              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
             }
             
             existing.totalQty += item.quantity;
@@ -4081,9 +4143,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoices = invoices.filter((inv: any) => inv.customerId === customerId);
         }
 
-        // Fetch products for margin fallback and category lookup
+        // Fetch products for category lookup only (margin is read from invoice_items)
         const products = await storage.getProducts(userId);
-        const productMarginMap = new Map(products.map((p: any) => [p.id, parseFloat(p.marginPerCarton) || 0]));
         const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
         // Get unique categories for filter dropdown
@@ -4113,11 +4174,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const rate = parseFloat(item.unitPrice) || 0;
             
             // Free products (rate <= 0) must always have zero margin
+            // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
             let marginPerCarton = 0;
             if (rate > 0) {
               const lineItemMargin = parseFloat(item.marginPerCarton as any);
-              const productMargin = productMarginMap.get(item.productId) || 0;
-              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin > 0) ? lineItemMargin : productMargin;
+              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
             }
             
             totalRevenue += qty * rate;

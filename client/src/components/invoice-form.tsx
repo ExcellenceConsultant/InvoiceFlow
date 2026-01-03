@@ -293,7 +293,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       let currentRegularIndex = -1;
 
       existingLineItems.forEach((item: any, idx: number) => {
-        // Format the item
+        // Format the item - IMPORTANT: Include id and marginPerCarton for margin immutability
         const formattedItem = {
           id: item.id,
           productId: item.productId || "",
@@ -308,6 +308,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           grossWeightKgs: parseFloat(item.grossWeightKgs) || 0,
           netWeightKgs: parseFloat(item.netWeightKgs) || 0,
           category: item.category || "",
+          marginPerCarton: item.marginPerCarton || "", // Preserve stored margin
           isFreeFromScheme: item.isFreeFromScheme || false,
           isSchemeDescription: item.isSchemeDescription || false,
           schemeDescription: item.description || "",
@@ -334,10 +335,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
               schemeItemsMap[currentRegularIndex] = [];
             }
             schemeItemsMap[currentRegularIndex].push({
+              id: formattedItem.id, // Preserve line item ID for margin immutability
               description: formattedItem.description,
               quantity: formattedItem.quantity,
               unitPrice: formattedItem.unitPrice,
               lineTotal: formattedItem.lineTotal,
+              marginPerCarton: formattedItem.marginPerCarton, // Preserve stored margin
               isFreeFromScheme: true,
               schemeId: formattedItem.schemeId,
               category: formattedItem.category,
@@ -654,9 +657,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     }
 
     // Prepare all line items including scheme items
+    // IMPORTANT: Include id and marginPerCarton for margin immutability
     const allLineItems: any[] = [];
     validLineItems.forEach((item, index) => {
       allLineItems.push({
+        id: item.id || undefined, // Preserve line item ID for margin immutability
         productId: item.productId,
         variantId: item.variantId || null,
         description: item.description,
@@ -671,6 +676,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           : null,
         netWeightKgs: item.netWeightKgs ? item.netWeightKgs.toString() : null,
         category: item.category || null,
+        marginPerCarton: item.marginPerCarton || undefined, // Preserve stored margin
         isFreeFromScheme: false,
         isSchemeDescription: item.isSchemeDescription || false,
         schemeId: null,
@@ -680,6 +686,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
       if (showSchemeItems[index]) {
         showSchemeItems[index].forEach((schemeItem) => {
           allLineItems.push({
+            id: schemeItem.id || undefined, // Preserve line item ID for margin immutability
             productId: item.productId,
             variantId: item.variantId || null,
             description: schemeItem.description,
@@ -696,6 +703,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
               ? item.netWeightKgs.toString()
               : null,
             category: item.category || null,
+            marginPerCarton: schemeItem.marginPerCarton || "0", // Free items always have 0 margin
             isFreeFromScheme: true,
             schemeId: schemeItem.schemeId,
           });
@@ -706,6 +714,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     // Add manual free items (from total quantity-based schemes)
     manualFreeItems.forEach((freeItem) => {
       allLineItems.push({
+        id: freeItem.id || undefined, // Preserve line item ID for margin immutability
         productId: freeItem.productId,
         variantId: null,
         description: freeItem.description,
@@ -722,6 +731,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
           ? freeItem.netWeightKgs.toString()
           : null,
         category: freeItem.category || null,
+        marginPerCarton: "0", // Free items always have 0 margin
         isFreeFromScheme: true,
         isSchemeDescription: false,
         schemeId: freeItem.schemeId || null,
