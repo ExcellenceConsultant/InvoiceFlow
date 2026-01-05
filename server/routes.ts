@@ -1612,10 +1612,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         p.marginPerCarton ? parseFloat(p.marginPerCarton) : 0
       ]));
 
+      console.log(`Processing ${lineItems.length} line items for invoice ${invoiceId}`);
+      
       const createdLineItems = [];
-      for (const item of lineItems) {
+      for (let idx = 0; idx < lineItems.length; idx++) {
+        const item = lineItems[idx];
+        console.log(`Line item ${idx + 1}:`, JSON.stringify({ 
+          productId: item.productId, 
+          quantity: item.quantity, 
+          unitPrice: item.unitPrice,
+          description: item.description?.substring(0, 30)
+        }));
+        
         if (!item.productId || item.productId.trim() === "") {
-          console.log("Skipping line item with empty productId:", item);
+          console.log(`Skipping line item ${idx + 1}: empty productId`);
           continue;
         }
 
@@ -1639,26 +1649,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           snapshotMargin = inventoryMargin.toString();
         }
 
-        const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
-          ...item,
+        // Prepare clean line item data for validation
+        const lineItemData = {
           invoiceId: invoiceId,
-          marginPerCarton: snapshotMargin, // Always set margin
-        });
+          productId: item.productId,
+          variantId: item.variantId || null,
+          description: item.description || "",
+          quantity: parseInt(item.quantity) || 0,
+          unitPrice: item.unitPrice?.toString() || "0",
+          lineTotal: item.lineTotal?.toString() || "0",
+          productCode: item.productCode || null,
+          cartoonBarcode: item.cartoonBarcode || null,
+          packingSize: item.packingSize || null,
+          grossWeightKgs: item.grossWeightKgs?.toString() || null,
+          netWeightKgs: item.netWeightKgs?.toString() || null,
+          category: item.category || null,
+          marginPerCarton: snapshotMargin,
+          isFreeFromScheme: item.isFreeFromScheme || false,
+          isSchemeDescription: item.isSchemeDescription || false,
+          schemeId: item.schemeId || null,
+        };
+
+        const lineItemValidation = insertInvoiceLineItemSchema.safeParse(lineItemData);
 
         if (lineItemValidation.success) {
           const lineItem = await storage.createLineItem(
             lineItemValidation.data,
           );
           createdLineItems.push(lineItem);
+          console.log(`Line item ${idx + 1} created successfully`);
         } else {
           console.error(
-            "Line item validation failed:",
+            `Line item ${idx + 1} validation failed:`,
             lineItemValidation.error.errors,
             "for item:",
-            item,
+            lineItemData,
           );
         }
       }
+      
+      console.log(`Created ${createdLineItems.length} line items out of ${lineItems.length} submitted`);
 
       // Apply new inventory changes for AP invoices
       if (invoiceData.invoiceType === "payable") {
