@@ -1601,9 +1601,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Delete existing line items and create new ones
-      await storage.deleteInvoiceLineItemsByInvoiceId(invoiceId);
-
       // Pre-fetch all products for margin snapshotting when adding NEW products
       const user = (req as any).user;
       const allProducts = await storage.getProducts(user.userId);
@@ -1614,7 +1611,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Processing ${lineItems.length} line items for invoice ${invoiceId}`);
       
-      const createdLineItems = [];
+      // PHASE 1: Validate ALL line items BEFORE deleting existing ones
+      // This prevents data loss if validation fails
+      const validatedLineItems: any[] = [];
+      const validationErrors: string[] = [];
+      
       for (let idx = 0; idx < lineItems.length; idx++) {
         const item = lineItems[idx];
         console.log(`Line item ${idx + 1}:`, JSON.stringify({ 
@@ -1624,45 +1625,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: item.description?.substring(0, 30)
         }));
         
-        if (!item.productId || item.productId.trim() === "") {
+        // Skip items with no productId (empty rows)
+        if (!item.productId || (typeof item.productId === 'string' && item.productId.trim() === "")) {
           console.log(`Skipping line item ${idx + 1}: empty productId`);
           continue;
         }
 
         // MARGIN IMMUTABILITY: Preserve existing margins for existing line items
-        // Only snapshot from inventory for truly NEW line items added to this invoice
-        const rate = parseFloat(item.unitPrice) || 0;
+        const rate = parseFloat(String(item.unitPrice)) || 0;
         let snapshotMargin: string;
         
         // Free products (rate <= 0 or isFreeFromScheme) MUST have zero margin
         if (rate <= 0 || item.isFreeFromScheme) {
           snapshotMargin = "0";
         } else if (item.marginPerCarton !== undefined && item.marginPerCarton !== null && item.marginPerCarton !== "") {
-          // Use margin provided by client (from existing invoice data)
-          snapshotMargin = item.marginPerCarton.toString();
+          snapshotMargin = String(item.marginPerCarton);
         } else if (item.id && existingMarginByIdMap.has(item.id)) {
-          // PRESERVE: Use the previously stored margin for this specific line item
           snapshotMargin = existingMarginByIdMap.get(item.id)!;
         } else {
-          // NEW LINE ITEM: Snapshot margin from current inventory
           const inventoryMargin = productMarginMap.get(item.productId) || 0;
-          snapshotMargin = inventoryMargin.toString();
+          snapshotMargin = String(inventoryMargin);
         }
 
-        // Prepare clean line item data for validation
+        // Prepare line item data - preserve numeric values faithfully
+        // Schema uses integer for quantity, so use Math.round to handle any floats
+        const rawQuantity = typeof item.quantity === 'number' ? item.quantity : Number(item.quantity);
+        const quantity = isNaN(rawQuantity) ? 0 : Math.round(rawQuantity);
+        
         const lineItemData = {
           invoiceId: invoiceId,
           productId: item.productId,
           variantId: item.variantId || null,
           description: item.description || "",
-          quantity: parseInt(item.quantity) || 0,
-          unitPrice: item.unitPrice?.toString() || "0",
-          lineTotal: item.lineTotal?.toString() || "0",
+          quantity: quantity,
+          unitPrice: item.unitPrice != null ? String(item.unitPrice) : "0",
+          lineTotal: item.lineTotal != null ? String(item.lineTotal) : "0",
           productCode: item.productCode || null,
           cartoonBarcode: item.cartoonBarcode || null,
           packingSize: item.packingSize || null,
-          grossWeightKgs: item.grossWeightKgs?.toString() || null,
-          netWeightKgs: item.netWeightKgs?.toString() || null,
+          grossWeightKgs: item.grossWeightKgs != null ? String(item.grossWeightKgs) : null,
+          netWeightKgs: item.netWeightKgs != null ? String(item.netWeightKgs) : null,
           category: item.category || null,
           marginPerCarton: snapshotMargin,
           isFreeFromScheme: item.isFreeFromScheme || false,
@@ -1673,19 +1675,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const lineItemValidation = insertInvoiceLineItemSchema.safeParse(lineItemData);
 
         if (lineItemValidation.success) {
-          const lineItem = await storage.createLineItem(
-            lineItemValidation.data,
-          );
-          createdLineItems.push(lineItem);
-          console.log(`Line item ${idx + 1} created successfully`);
+          validatedLineItems.push(lineItemValidation.data);
+          console.log(`Line item ${idx + 1} validated successfully`);
         } else {
-          console.error(
-            `Line item ${idx + 1} validation failed:`,
-            lineItemValidation.error.errors,
-            "for item:",
-            lineItemData,
-          );
+          const errorMsg = `Line item ${idx + 1} validation failed: ${JSON.stringify(lineItemValidation.error.errors)}`;
+          console.error(errorMsg, "for item:", lineItemData);
+          validationErrors.push(errorMsg);
         }
+      }
+      
+      // Fail the entire update if ANY line item fails validation (except empty productId which are intentionally skipped)
+      // This prevents partial data loss where some items are saved but others are lost
+      if (validationErrors.length > 0) {
+        console.error("Line item validation failed:", validationErrors);
+        return res.status(400).json({ 
+          message: "Line item validation failed - invoice not updated to prevent data loss",
+          errors: validationErrors 
+        });
+      }
+      
+      // If user submitted items but all had empty productIds (all skipped), don't proceed
+      if (validatedLineItems.length === 0 && lineItems.length > 0) {
+        console.error("All submitted line items had empty productIds");
+        return res.status(400).json({ 
+          message: "At least one line item with a valid product is required"
+        });
+      }
+      
+      // PHASE 2: Now safe to delete and recreate
+      await storage.deleteInvoiceLineItemsByInvoiceId(invoiceId);
+      
+      const createdLineItems = [];
+      for (const validatedItem of validatedLineItems) {
+        const lineItem = await storage.createLineItem(validatedItem);
+        createdLineItems.push(lineItem);
       }
       
       console.log(`Created ${createdLineItems.length} line items out of ${lineItems.length} submitted`);
