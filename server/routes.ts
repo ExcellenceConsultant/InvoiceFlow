@@ -1492,7 +1492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/invoices/:id", async (req, res) => {
+  app.put("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       console.log(
         "Updating invoice with data:",
