@@ -377,8 +377,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ws = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(wb, ws, "Accounts");
 
-      // Generate buffer
-      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      // Generate buffer - wrap with Buffer.from() to ensure proper Node.js Buffer
+      const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const buffer = Buffer.from(excelBuffer);
 
       // Set response headers
       const filename = "accounts.xlsx";
