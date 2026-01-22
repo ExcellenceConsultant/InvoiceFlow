@@ -398,6 +398,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export customers only (type = 'customer') to Excel
+  app.get("/api/customers/export/customers-only", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const allCustomers = await storage.getCustomers(user.userId);
+      const customers = allCustomers.filter((c: any) => c.type === "customer");
+
+      // Prepare data for Excel
+      const excelData = customers.map((customer: any) => ({
+        Name: customer.name,
+        Email: customer.email || "",
+        Phone: customer.phone || "",
+        Street: customer.address?.street || "",
+        City: customer.address?.city || "",
+        State: customer.address?.state || "",
+        ZipCode: customer.address?.zipCode || "",
+        Country: customer.address?.country || "",
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Customers");
+
+      // Generate buffer - wrap with Buffer.from() to ensure proper Node.js Buffer
+      const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const buffer = Buffer.from(excelBuffer);
+
+      // Set response headers
+      const filename = "customers.xlsx";
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.send(buffer);
+    } catch (error) {
+      console.error("Export customers error:", error);
+      res.status(500).json({ message: "Failed to export customers" });
+    }
+  });
+
+  // Export vendors only (type = 'vendor') to Excel
+  app.get("/api/customers/export/vendors-only", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const allCustomers = await storage.getCustomers(user.userId);
+      const vendors = allCustomers.filter((c: any) => c.type === "vendor");
+
+      // Prepare data for Excel
+      const excelData = vendors.map((vendor: any) => ({
+        Name: vendor.name,
+        Email: vendor.email || "",
+        Phone: vendor.phone || "",
+        Street: vendor.address?.street || "",
+        City: vendor.address?.city || "",
+        State: vendor.address?.state || "",
+        ZipCode: vendor.address?.zipCode || "",
+        Country: vendor.address?.country || "",
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Vendors");
+
+      // Generate buffer - wrap with Buffer.from() to ensure proper Node.js Buffer
+      const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const buffer = Buffer.from(excelBuffer);
+
+      // Set response headers
+      const filename = "vendors.xlsx";
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.send(buffer);
+    } catch (error) {
+      console.error("Export vendors error:", error);
+      res.status(500).json({ message: "Failed to export vendors" });
+    }
+  });
+
   // Import customers/vendors from Excel/CSV
   app.post(
     "/api/customers/import",
