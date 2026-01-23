@@ -3220,6 +3220,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
 
+          // Add shipping/freight line item for AR invoices if freight exists
+          const freightAmount = parseFloat(String(invoice.freight || 0));
+          if (freightAmount > 0) {
+            const shippingItem = await quickBooksService.findOrCreateShippingItem(
+              validQbConfig.accessToken,
+              validQbConfig.companyId,
+            );
+            if (shippingItem) {
+              qbLineItems.push({
+                Amount: freightAmount,
+                DetailType: "SalesItemLineDetail",
+                SalesItemLineDetail: {
+                  ItemRef: {
+                    value: shippingItem.Id,
+                    name: shippingItem.Name,
+                  },
+                  UnitPrice: freightAmount,
+                  Qty: 1,
+                },
+              });
+            }
+          }
+
           const invoiceData = {
             CustomerRef: { value: qbCustomer.Id, name: qbCustomer.DisplayName },
             TxnDate: invoice.invoiceDate.toISOString().split("T")[0],
@@ -3295,6 +3318,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(400).json({
               message: "No line items found in this invoice.",
             });
+          }
+
+          // Add freight as account-based expense line for AP bills if freight exists
+          const billFreightAmount = parseFloat(String(invoice.freight || 0));
+          if (billFreightAmount > 0) {
+            // Find the "Freight Charges - COGS" account
+            const freightAccount = await quickBooksService.findAccountByName(
+              validQbConfig.accessToken,
+              validQbConfig.companyId,
+              "Freight Charges - COGS",
+            );
+            if (freightAccount) {
+              qbLineItems.push({
+                Amount: billFreightAmount,
+                DetailType: "AccountBasedExpenseLineDetail",
+                AccountBasedExpenseLineDetail: {
+                  AccountRef: {
+                    value: freightAccount.Id,
+                    name: freightAccount.Name,
+                  },
+                },
+              });
+            } else {
+              console.warn("Freight Charges - COGS account not found in QuickBooks. Freight will not be added to bill.");
+            }
           }
 
           const billData = {

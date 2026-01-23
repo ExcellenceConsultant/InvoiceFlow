@@ -763,6 +763,82 @@ export class QuickBooksService {
     }
   }
 
+  async findAccountByName(
+    accessToken: string,
+    companyId: string,
+    accountName: string,
+  ): Promise<any> {
+    try {
+      const escapedName = accountName.replace(/'/g, "''");
+      const query = `SELECT * FROM Account WHERE Name = '${escapedName}' AND Active = true`;
+      const response = await axios.get(
+        `${this.getBaseUrl()}/v3/company/${companyId}/query?query=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const accounts = response.data.QueryResponse?.Account || [];
+      return accounts.length > 0 ? accounts[0] : null;
+    } catch (error) {
+      console.error("QuickBooks account search failed:", error);
+      return null;
+    }
+  }
+
+  async findOrCreateShippingItem(
+    accessToken: string,
+    companyId: string,
+  ): Promise<any> {
+    try {
+      // First try to find existing "Shipping" item
+      const query = `SELECT * FROM Item WHERE Name = 'Shipping' AND Active = true`;
+      const response = await axios.get(
+        `${this.getBaseUrl()}/v3/company/${companyId}/query?query=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const items = response.data.QueryResponse?.Item || [];
+      if (items.length > 0) {
+        return items[0];
+      }
+
+      // Create a new Shipping service item
+      const itemData = {
+        Name: "Shipping",
+        Type: "Service",
+        IncomeAccountRef: {
+          name: "Sales",
+        },
+      };
+
+      const createResponse = await axios.post(
+        `${this.getBaseUrl()}/v3/company/${companyId}/item`,
+        itemData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      return createResponse.data.Item;
+    } catch (error) {
+      console.error("QuickBooks shipping item creation failed:", error);
+      return null;
+    }
+  }
+
   async getAccounts(accessToken: string, companyId: string): Promise<any> {
     try {
       const allAccounts: any[] = [];
