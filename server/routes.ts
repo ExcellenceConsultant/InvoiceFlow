@@ -2569,16 +2569,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (parseFloat(String(item.quantity)) <= 0) continue;
             const product = await storage.getProduct(item.productId);
             if (product && product.quickbooksItemId) {
+              const unitPrice = parseFloat(String(item.unitPrice));
+              const qty = parseFloat(String(item.quantity));
+              // QuickBooks requires Amount = UnitPrice * Qty exactly
+              const amount = Math.round(unitPrice * qty * 100) / 100;
               qbLineItems.push({
-                Amount: parseFloat(String(item.lineTotal)),
+                Amount: amount,
                 DetailType: "SalesItemLineDetail",
                 SalesItemLineDetail: {
                   ItemRef: {
                     value: product.quickbooksItemId,
                     name: product.name,
                   },
-                  UnitPrice: parseFloat(String(item.unitPrice)),
-                  Qty: parseFloat(String(item.quantity)),
+                  UnitPrice: unitPrice,
+                  Qty: qty,
                 },
               });
             }
@@ -2658,16 +2662,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (parseFloat(String(item.quantity)) <= 0) continue;
             const product = await storage.getProduct(item.productId);
             if (product && product.quickbooksItemId) {
+              const unitPrice = parseFloat(String(item.unitPrice));
+              const qty = parseFloat(String(item.quantity));
+              // QuickBooks requires Amount = UnitPrice * Qty exactly
+              const amount = Math.round(unitPrice * qty * 100) / 100;
               qbLineItems.push({
-                Amount: parseFloat(String(item.lineTotal)),
+                Amount: amount,
                 DetailType: "ItemBasedExpenseLineDetail",
                 ItemBasedExpenseLineDetail: {
                   ItemRef: {
                     value: product.quickbooksItemId,
                     name: product.name,
                   },
-                  UnitPrice: parseFloat(String(item.unitPrice)),
-                  Qty: parseFloat(String(item.quantity)),
+                  UnitPrice: unitPrice,
+                  Qty: qty,
                 },
               });
             }
@@ -3185,16 +3193,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (parseFloat(String(item.quantity)) <= 0) continue;
             const product = await storage.getProduct(item.productId);
             if (product && product.quickbooksItemId) {
+              const unitPrice = parseFloat(String(item.unitPrice));
+              const qty = parseFloat(String(item.quantity));
+              // QuickBooks requires Amount = UnitPrice * Qty exactly
+              const amount = Math.round(unitPrice * qty * 100) / 100;
               qbLineItems.push({
-                Amount: parseFloat(item.lineTotal),
+                Amount: amount,
                 DetailType: "SalesItemLineDetail",
                 SalesItemLineDetail: {
                   ItemRef: {
                     value: product.quickbooksItemId,
                     name: product.name,
                   },
-                  UnitPrice: parseFloat(item.unitPrice),
-                  Qty: parseFloat(String(item.quantity)),
+                  UnitPrice: unitPrice,
+                  Qty: qty,
                 },
               });
             }
@@ -3259,16 +3271,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (parseFloat(String(item.quantity)) <= 0) continue;
             const product = await storage.getProduct(item.productId);
             if (product && product.quickbooksItemId) {
+              const unitPrice = parseFloat(String(item.unitPrice));
+              const qty = parseFloat(String(item.quantity));
+              // QuickBooks requires Amount = UnitPrice * Qty exactly
+              const amount = Math.round(unitPrice * qty * 100) / 100;
               qbLineItems.push({
-                Amount: parseFloat(item.lineTotal),
+                Amount: amount,
                 DetailType: "ItemBasedExpenseLineDetail",
                 ItemBasedExpenseLineDetail: {
                   ItemRef: {
                     value: product.quickbooksItemId,
                     name: product.name,
                   },
-                  UnitPrice: parseFloat(item.unitPrice),
-                  Qty: parseFloat(String(item.quantity)),
+                  UnitPrice: unitPrice,
+                  Qty: qty,
                 },
               });
             }
