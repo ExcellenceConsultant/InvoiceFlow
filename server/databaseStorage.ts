@@ -195,6 +195,14 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
+  async getProductByQuickbooksItemId(quickbooksItemId: string): Promise<Product | undefined> {
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(eq(products.quickbooksItemId, quickbooksItemId));
+    return product;
+  }
+
   async createProduct(
     insertProduct: InsertProduct & { userId: string },
   ): Promise<Product> {

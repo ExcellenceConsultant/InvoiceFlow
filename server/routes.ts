@@ -2450,15 +2450,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   validQbConfig.companyId,
                   product.itemCode,
                 );
+                
+                // Verify the found item's SKU actually matches to prevent wrong linking
+                if (existingItem && existingItem.Sku !== product.itemCode) {
+                  console.log(`SKU mismatch: expected ${product.itemCode}, found ${existingItem.Sku}. Will create new item.`);
+                  existingItem = null;
+                }
+                
+                // Verify the QB item isn't already linked to a different local product
+                if (existingItem) {
+                  const existingLocalProduct = await storage.getProductByQuickbooksItemId(existingItem.Id);
+                  if (existingLocalProduct && existingLocalProduct.id !== product.id) {
+                    console.log(`QB item ${existingItem.Id} already linked to ${existingLocalProduct.name}. Will create new item for ${product.name}.`);
+                    existingItem = null;
+                  }
+                }
               }
 
-              // If not found by SKU, try by name
-              if (!existingItem) {
+              // If not found by SKU and product has no item code, try by name
+              if (!existingItem && !product.itemCode) {
                 existingItem = await quickBooksService.findItemByName(
                   validQbConfig.accessToken,
                   validQbConfig.companyId,
                   product.name,
                 );
+                
+                // Verify the QB item isn't already linked to a different local product
+                if (existingItem) {
+                  const existingLocalProduct = await storage.getProductByQuickbooksItemId(existingItem.Id);
+                  if (existingLocalProduct && existingLocalProduct.id !== product.id) {
+                    console.log(`QB item ${existingItem.Id} already linked to ${existingLocalProduct.name}. Will create new item for ${product.name}.`);
+                    existingItem = null;
+                  }
+                }
               }
 
               if (existingItem) {
@@ -3042,15 +3066,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   validQbConfig.companyId,
                   product.itemCode,
                 );
+                
+                // Verify the found item's SKU actually matches to prevent wrong linking
+                if (existingItem && existingItem.Sku !== product.itemCode) {
+                  console.log(`SKU mismatch: expected ${product.itemCode}, found ${existingItem.Sku}. Will create new item.`);
+                  existingItem = null;
+                }
+                
+                // Verify the QB item isn't already linked to a different local product
+                if (existingItem) {
+                  const existingLocalProduct = await storage.getProductByQuickbooksItemId(existingItem.Id);
+                  if (existingLocalProduct && existingLocalProduct.id !== product.id) {
+                    console.log(`QB item ${existingItem.Id} already linked to ${existingLocalProduct.name}. Will create new item for ${product.name}.`);
+                    existingItem = null;
+                  }
+                }
               }
 
-              // If not found by SKU, try by name
-              if (!existingItem) {
+              // If not found by SKU and product has no item code, try by name
+              if (!existingItem && !product.itemCode) {
                 existingItem = await quickBooksService.findItemByName(
                   validQbConfig.accessToken,
                   validQbConfig.companyId,
                   product.name,
                 );
+                
+                // Verify the QB item isn't already linked to a different local product
+                if (existingItem) {
+                  const existingLocalProduct = await storage.getProductByQuickbooksItemId(existingItem.Id);
+                  if (existingLocalProduct && existingLocalProduct.id !== product.id) {
+                    console.log(`QB item ${existingItem.Id} already linked to ${existingLocalProduct.name}. Will create new item for ${product.name}.`);
+                    existingItem = null;
+                  }
+                }
               }
 
               if (existingItem) {
