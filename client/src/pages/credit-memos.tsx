@@ -731,7 +731,7 @@ export default function CreditMemos() {
     setPendingCustomRange(undefined);
   };
 
-  // Check if credit memo can be edited based on 24-hour rule
+  // Check if credit memo can be edited based on 48-hour rule
   const canEditCreditMemo = (creditMemo: any): boolean => {
     // Super admin can always edit
     if (permissions.role === "super_admin") {
@@ -743,14 +743,14 @@ export default function CreditMemos() {
       return false;
     }
 
-    // Check if credit memo is within 24 hours of creation
+    // Check if credit memo is within 48 hours of creation
     const creditMemoDate = new Date(creditMemo.creditMemoDate);
     const now = new Date();
     const hoursDifference =
       (now.getTime() - creditMemoDate.getTime()) / (1000 * 60 * 60);
 
-    // Admin can edit within 24 hours, super_admin can always edit
-    return hoursDifference <= 24;
+    // Admin can edit within 48 hours, super_admin can always edit
+    return hoursDifference <= 48;
   };
 
   // Check if credit memo can be deleted based on 24-hour rule
