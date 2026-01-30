@@ -722,7 +722,7 @@ export default function Invoices() {
     setPendingCustomRange(undefined);
   };
 
-  // Check if invoice can be edited based on 48-hour rule
+  // Check if invoice can be edited based on 72-hour rule
   const canEditInvoice = (invoice: any): boolean => {
     // Super admin can always edit
     if (permissions.role === "super_admin") {
@@ -734,14 +734,14 @@ export default function Invoices() {
       return false;
     }
 
-    // Check if invoice is within 48 hours of creation
+    // Check if invoice is within 72 hours of creation
     const invoiceDate = new Date(invoice.invoiceDate);
     const now = new Date();
     const hoursDifference =
       (now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60);
 
-    // Admin can edit within 48 hours, super_admin can always edit
-    return hoursDifference <= 48;
+    // Admin can edit within 72 hours, super_admin can always edit
+    return hoursDifference <= 72;
   };
 
   // Check if invoice can be deleted based on 24-hour rule
