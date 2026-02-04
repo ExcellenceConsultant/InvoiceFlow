@@ -4,6 +4,7 @@ import {
   customers,
   invoiceLineItems,
   invoices,
+  priceRules,
   products,
   productSchemes,
   productVariants,
@@ -17,12 +18,14 @@ import {
   type InsertCustomer,
   type InsertInvoice,
   type InsertInvoiceLineItem,
+  type InsertPriceRule,
   type InsertProduct,
   type InsertProductScheme,
   type InsertProductVariant,
   type InsertUser,
   type Invoice,
   type InvoiceLineItem,
+  type PriceRule,
   type Product,
   type ProductScheme,
   type ProductVariant,
@@ -667,6 +670,80 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(systemSettings)
       .where(eq(systemSettings.key, key));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Price Rules
+  async getPriceRules(): Promise<PriceRule[]> {
+    return await db.select().from(priceRules);
+  }
+
+  async getPriceRulesByCategory(customerCategory: string): Promise<PriceRule[]> {
+    return await db
+      .select()
+      .from(priceRules)
+      .where(eq(priceRules.customerCategory, customerCategory));
+  }
+
+  async getPriceRule(customerCategory: string, productId: string): Promise<PriceRule | undefined> {
+    const [rule] = await db
+      .select()
+      .from(priceRules)
+      .where(
+        and(
+          eq(priceRules.customerCategory, customerCategory),
+          eq(priceRules.productId, productId)
+        )
+      );
+    return rule;
+  }
+
+  async createPriceRule(
+    insertPriceRule: InsertPriceRule & { userId: string },
+  ): Promise<PriceRule> {
+    const [rule] = await db
+      .insert(priceRules)
+      .values(insertPriceRule)
+      .returning();
+    return rule;
+  }
+
+  async updatePriceRule(
+    id: string,
+    updates: Partial<PriceRule>,
+  ): Promise<PriceRule | undefined> {
+    const [rule] = await db
+      .update(priceRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(priceRules.id, id))
+      .returning();
+    return rule;
+  }
+
+  async upsertPriceRule(
+    customerCategory: string,
+    productId: string,
+    customPrice: string,
+    userId: string,
+  ): Promise<PriceRule> {
+    const existing = await this.getPriceRule(customerCategory, productId);
+    if (existing) {
+      const updated = await this.updatePriceRule(existing.id, { customPrice });
+      return updated!;
+    } else {
+      return await this.createPriceRule({
+        customerCategory,
+        productId,
+        customPrice,
+        userId,
+      });
+    }
+  }
+
+  async deletePriceRule(id: string): Promise<boolean> {
+    const result = await db
+      .delete(priceRules)
+      .where(eq(priceRules.id, id));
     return (result.rowCount || 0) > 0;
   }
 }

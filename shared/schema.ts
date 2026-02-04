@@ -220,6 +220,19 @@ export const creditMemoLineItems = pgTable("credit_memo_line_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Price Rules - custom prices per customer category and product
+export const priceRules = pgTable("price_rules", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  customerCategory: text("customer_category").notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  customPrice: decimal("custom_price", { precision: 10, scale: 2 }).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -304,6 +317,13 @@ export const insertCreditMemoLineItemSchema = createInsertSchema(
   createdAt: true,
 });
 
+export const insertPriceRuleSchema = createInsertSchema(priceRules).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -325,3 +345,5 @@ export type CreditMemoLineItem = typeof creditMemoLineItems.$inferSelect;
 export type InsertCreditMemoLineItem = z.infer<
   typeof insertCreditMemoLineItemSchema
 >;
+export type PriceRule = typeof priceRules.$inferSelect;
+export type InsertPriceRule = z.infer<typeof insertPriceRuleSchema>;
