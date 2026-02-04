@@ -115,6 +115,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const [productSearchTerm, setProductSearchTerm] = useState<string>("");
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const [invoiceNumberError, setInvoiceNumberError] = useState<string>("");
+  const [selectedCustomerCategory, setSelectedCustomerCategory] = useState<string>("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -193,6 +194,30 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const { data: schemes } = useQuery<any[]>({
     queryKey: ["/api/schemes"],
   });
+
+  const { data: priceRulesForCategory = [] } = useQuery<any[]>({
+    queryKey: ["/api/price-rules/category", selectedCustomerCategory],
+    queryFn: async () => {
+      if (!selectedCustomerCategory) return [];
+      const response = await fetch(`/api/price-rules/category/${encodeURIComponent(selectedCustomerCategory)}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!selectedCustomerCategory,
+  });
+
+  useEffect(() => {
+    if (isEditMode && invoice?.customerId && customers) {
+      const customer = customers.find((c: any) => c.id === invoice.customerId);
+      if (customer?.customerCategory) {
+        setSelectedCustomerCategory(customer.customerCategory);
+      }
+    }
+  }, [isEditMode, invoice?.customerId, customers]);
 
   const { data: existingLineItems } = useQuery({
     queryKey: [`/api/invoices/${invoice?.id || "placeholder"}/line-items`],
@@ -559,6 +584,12 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
     setProductSearchTerm(""); // Clear search input when adding new item
   };
 
+  const getPriceRulePrice = (productId: string): number | null => {
+    if (!selectedCustomerCategory || !priceRulesForCategory.length) return null;
+    const rule = priceRulesForCategory.find((r: any) => r.productId === productId);
+    return rule ? parseFloat(rule.customPrice) : null;
+  };
+
   const removeLineItem = (index: number) => {
     const updatedItems = lineItems.filter((_, i) => i !== index);
     setLineItems(updatedItems);
@@ -859,7 +890,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                     <FormItem>
                       <FormLabel>Customer/Vendor</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          const customer = customers?.find((c: any) => c.id === value);
+                          setSelectedCustomerCategory(customer?.customerCategory || "");
+                        }}
                         defaultValue={field.value}
                       >
                         <FormControl>
@@ -1229,12 +1264,16 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                                 if (product) {
                                   let updatedItems = [...lineItems];
                                   // Use salesPrice for AR (receivable) invoices, basePrice for AP (payable) invoices
+                                  // For AR invoices, first check if there's a price rule for this customer category and product
                                   const invoiceType =
                                     form.getValues("invoiceType");
-                                  const unitPrice =
-                                    invoiceType === "receivable"
-                                      ? parseFloat(product.salesPrice) || 0
-                                      : parseFloat(product.basePrice) || 0;
+                                  let unitPrice: number;
+                                  if (invoiceType === "receivable") {
+                                    const priceRulePrice = getPriceRulePrice(value);
+                                    unitPrice = priceRulePrice !== null ? priceRulePrice : (parseFloat(product.salesPrice) || 0);
+                                  } else {
+                                    unitPrice = parseFloat(product.basePrice) || 0;
+                                  }
                                   updatedItems[index] = {
                                     ...updatedItems[index],
                                     productId: value,
