@@ -18,6 +18,7 @@ const customerVendorSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Please enter a valid email").optional().or(z.literal("")),
   phone: z.string().optional(),
+  customerCategory: z.string().optional(),
   address: z.object({
     street: z.string().optional(),
     city: z.string().optional(),
@@ -45,6 +46,7 @@ export default function CustomerVendorForm({ onClose, onSuccess, type, customer 
       name: customer?.name || "",
       email: customer?.email || "",
       phone: customer?.phone || "",
+      customerCategory: customer?.customerCategory || "",
       address: {
         street: customer?.address?.street || "",
         city: customer?.address?.city || "",
@@ -179,6 +181,20 @@ export default function CustomerVendorForm({ onClose, onSuccess, type, customer 
                       <FormLabel>Phone</FormLabel>
                       <FormControl>
                         <Input {...field} data-testid={`input-${type}-phone`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="customerCategory"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Category</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid={`input-${type}-category`} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
