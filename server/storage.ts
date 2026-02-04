@@ -17,6 +17,8 @@ import {
   type InsertCreditMemo,
   type CreditMemoLineItem,
   type InsertCreditMemoLineItem,
+  type PriceRule,
+  type InsertPriceRule,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -122,6 +124,15 @@ export interface IStorage {
   // System Settings (for system-wide QuickBooks config)
   getSystemSetting(key: string): Promise<any>;
   setSystemSetting(key: string, value: any): Promise<void>;
+
+  // Price Rules
+  getPriceRules(): Promise<PriceRule[]>;
+  getPriceRulesByCategory(customerCategory: string): Promise<PriceRule[]>;
+  getPriceRule(customerCategory: string, productId: string): Promise<PriceRule | undefined>;
+  createPriceRule(priceRule: InsertPriceRule & { userId: string }): Promise<PriceRule>;
+  updatePriceRule(id: string, updates: Partial<PriceRule>): Promise<PriceRule | undefined>;
+  upsertPriceRule(customerCategory: string, productId: string, customPrice: string, userId: string): Promise<PriceRule>;
+  deletePriceRule(id: string): Promise<boolean>;
   deleteSystemSetting(key: string): Promise<boolean>;
 }
 
@@ -704,6 +715,57 @@ export class MemStorage implements IStorage {
 
   async deleteSystemSetting(key: string): Promise<boolean> {
     return this.systemSettings.delete(key);
+  }
+
+  // Price Rules (in-memory implementation)
+  private priceRules: Map<string, PriceRule> = new Map();
+
+  async getPriceRules(): Promise<PriceRule[]> {
+    return Array.from(this.priceRules.values());
+  }
+
+  async getPriceRulesByCategory(customerCategory: string): Promise<PriceRule[]> {
+    return Array.from(this.priceRules.values()).filter(
+      (rule) => rule.customerCategory === customerCategory
+    );
+  }
+
+  async getPriceRule(customerCategory: string, productId: string): Promise<PriceRule | undefined> {
+    return Array.from(this.priceRules.values()).find(
+      (rule) => rule.customerCategory === customerCategory && rule.productId === productId
+    );
+  }
+
+  async createPriceRule(priceRule: InsertPriceRule & { userId: string }): Promise<PriceRule> {
+    const id = randomUUID();
+    const newRule: PriceRule = {
+      id,
+      ...priceRule,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.priceRules.set(id, newRule);
+    return newRule;
+  }
+
+  async updatePriceRule(id: string, updates: Partial<PriceRule>): Promise<PriceRule | undefined> {
+    const rule = this.priceRules.get(id);
+    if (!rule) return undefined;
+    const updated = { ...rule, ...updates, updatedAt: new Date() };
+    this.priceRules.set(id, updated);
+    return updated;
+  }
+
+  async upsertPriceRule(customerCategory: string, productId: string, customPrice: string, userId: string): Promise<PriceRule> {
+    const existing = await this.getPriceRule(customerCategory, productId);
+    if (existing) {
+      return (await this.updatePriceRule(existing.id, { customPrice }))!;
+    }
+    return this.createPriceRule({ customerCategory, productId, customPrice, userId });
+  }
+
+  async deletePriceRule(id: string): Promise<boolean> {
+    return this.priceRules.delete(id);
   }
 }
 

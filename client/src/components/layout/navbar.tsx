@@ -79,6 +79,15 @@ export default function Navbar() {
                   Inventory
                 </Button>
               </Link>
+              <Link href="/price-rules">
+                <Button
+                  variant={location === "/price-rules" ? "default" : "ghost"}
+                  size="sm"
+                  data-testid="link-price-rules"
+                >
+                  Price Rule
+                </Button>
+              </Link>
               <Link href="/schemes">
                 <Button
                   variant={location === "/schemes" ? "default" : "ghost"}

@@ -1035,6 +1035,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Price Rules routes
+  app.get("/api/price-rules", isAuthenticated, async (req, res) => {
+    try {
+      const rules = await storage.getPriceRules();
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price rules" });
+    }
+  });
+
+  app.get("/api/price-rules/category/:category", isAuthenticated, async (req, res) => {
+    try {
+      const rules = await storage.getPriceRulesByCategory(req.params.category);
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price rules for category" });
+    }
+  });
+
+  app.get("/api/price-rules/lookup", isAuthenticated, async (req, res) => {
+    try {
+      const { category, productId } = req.query;
+      if (!category || !productId) {
+        return res.status(400).json({ message: "Category and productId are required" });
+      }
+      const rule = await storage.getPriceRule(category as string, productId as string);
+      res.json(rule || null);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to lookup price rule" });
+    }
+  });
+
+  app.post("/api/price-rules", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { customerCategory, productId, customPrice } = req.body;
+      
+      if (!customerCategory || !productId || customPrice === undefined) {
+        return res.status(400).json({ message: "customerCategory, productId, and customPrice are required" });
+      }
+      
+      const rule = await storage.upsertPriceRule(
+        customerCategory,
+        productId,
+        customPrice.toString(),
+        user.userId
+      );
+      res.json(rule);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to save price rule" });
+    }
+  });
+
+  app.delete("/api/price-rules/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deletePriceRule(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Price rule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete price rule" });
+    }
+  });
+
+  // Customer categories endpoint for Price Rule module
+  app.get("/api/customer-categories", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const customers = await storage.getCustomers(user.userId);
+      // Extract unique categories (including null/empty as separate entries for each customer)
+      const categoriesMap = new Map<string, { category: string; customerCount: number }>();
+      
+      for (const customer of customers) {
+        const category = customer.customerCategory || "";
+        const existing = categoriesMap.get(category);
+        if (existing) {
+          existing.customerCount++;
+        } else {
+          categoriesMap.set(category, { category, customerCount: 1 });
+        }
+      }
+      
+      const categories = Array.from(categoriesMap.values()).filter(c => c.category !== "");
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customer categories" });
+    }
+  });
+
   // Invoice routes
   app.get("/api/invoices", isAuthenticated, async (req, res) => {
     try {
