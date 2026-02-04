@@ -699,6 +699,9 @@ export default function Accounts() {
                           Status
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                          Category
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                           Open Balance
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
@@ -744,6 +747,9 @@ export default function Accounts() {
                                 ? "Active"
                                 : "Inactive"}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">
+                            {customer.customerCategory || "-"}
                           </td>
                           <td
                             className="py-3 px-4 text-sm font-medium text-foreground"
