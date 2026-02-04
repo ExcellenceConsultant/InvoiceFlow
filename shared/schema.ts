@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   mobile: varchar("mobile").notNull().unique(), // Required for password reset
   password: text("password").notNull(),
   role: text("role").notNull().default("viewer"), // super_admin, admin, poster, viewer
+  invoiceEditLockHours: integer("invoice_edit_lock_hours").notNull().default(72), // Hours within which invoice can be edited
   quickbooksCompanyId: text("quickbooks_company_id"),
   quickbooksCompanyName: text("quickbooks_company_name"),
   quickbooksAccessToken: text("quickbooks_access_token"),

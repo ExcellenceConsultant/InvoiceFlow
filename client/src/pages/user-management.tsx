@@ -54,6 +54,7 @@ const editUserFormSchema = z.object({
   mobile: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid mobile number (use format: +919033316252)"),
   password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
   role: z.enum(["super_admin", "admin", "poster", "viewer"]),
+  invoiceEditLockHours: z.number().min(0, "Must be 0 or greater").default(72),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -89,6 +90,7 @@ export default function UserManagement() {
       mobile: "",
       password: "",
       role: "viewer",
+      invoiceEditLockHours: 72,
     },
   });
 
@@ -100,6 +102,7 @@ export default function UserManagement() {
         mobile: editingUser.mobile || "",
         password: "",
         role: editingUser.role,
+        invoiceEditLockHours: editingUser.invoiceEditLockHours ?? 72,
       });
     }
   }, [editingUser, editForm]);
@@ -140,6 +143,7 @@ export default function UserManagement() {
         username: data.username,
         mobile: data.mobile,
         role: data.role,
+        invoiceEditLockHours: data.invoiceEditLockHours,
       };
 
       const response = await apiRequest("PATCH", `/api/users/${id}`, updateData);
@@ -550,6 +554,29 @@ export default function UserManagement() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="invoiceEditLockHours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Invoice Edit Lock (Hours)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min="0"
+                        placeholder="72"
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        data-testid="input-edit-lock-hours"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Hours within which this user can edit invoices (0 = no edit allowed, Super Admin always has unlimited access)
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

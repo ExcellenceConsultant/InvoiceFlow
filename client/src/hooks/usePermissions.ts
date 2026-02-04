@@ -5,9 +5,11 @@ export type UserRole = "super_admin" | "admin" | "poster" | "viewer";
 export function usePermissions() {
   const { user } = useAuth();
   const role = (user?.role as UserRole) || "viewer";
+  const invoiceEditLockHours = user?.invoiceEditLockHours ?? 72;
 
   return {
     role,
+    invoiceEditLockHours,
     // User Management
     canManageUsers: role === "super_admin",
     canViewUsers: true, // All can view
