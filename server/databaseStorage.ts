@@ -1,4 +1,5 @@
 import {
+  categoryMargins,
   creditMemoLineItems,
   creditMemos,
   customers,
@@ -10,6 +11,7 @@ import {
   productVariants,
   systemSettings,
   users,
+  type CategoryMargin,
   type CreditMemo,
   type CreditMemoLineItem,
   type Customer,
@@ -31,7 +33,7 @@ import {
   type ProductVariant,
   type User,
 } from "@shared/schema";
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import { IStorage } from "./storage";
 
@@ -744,6 +746,68 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(priceRules)
       .where(eq(priceRules.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getCategoryMargins(): Promise<CategoryMargin[]> {
+    return await db.select().from(categoryMargins);
+  }
+
+  async getCategoryMarginsByCategory(customerCategory: string): Promise<CategoryMargin[]> {
+    return await db
+      .select()
+      .from(categoryMargins)
+      .where(eq(categoryMargins.customerCategory, customerCategory));
+  }
+
+  async getCategoryMargin(customerCategory: string, productId: string | null): Promise<CategoryMargin | undefined> {
+    const conditions = productId
+      ? and(
+          eq(categoryMargins.customerCategory, customerCategory),
+          eq(categoryMargins.productId, productId)
+        )
+      : and(
+          eq(categoryMargins.customerCategory, customerCategory),
+          isNull(categoryMargins.productId)
+        );
+    const [result] = await db
+      .select()
+      .from(categoryMargins)
+      .where(conditions);
+    return result;
+  }
+
+  async upsertCategoryMargin(
+    customerCategory: string,
+    productId: string | null,
+    marginPercent: string,
+    userId: string
+  ): Promise<CategoryMargin> {
+    const existing = await this.getCategoryMargin(customerCategory, productId);
+    if (existing) {
+      const [updated] = await db
+        .update(categoryMargins)
+        .set({ marginPercent, updatedAt: new Date() })
+        .where(eq(categoryMargins.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(categoryMargins)
+      .values({
+        customerCategory,
+        productId,
+        marginPercent,
+        userId,
+      })
+      .returning();
+    return created;
+  }
+
+  async deleteCategoryMargin(id: string): Promise<boolean> {
+    const result = await db
+      .delete(categoryMargins)
+      .where(eq(categoryMargins.id, id));
     return (result.rowCount || 0) > 0;
   }
 }

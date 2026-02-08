@@ -19,6 +19,8 @@ import {
   type InsertCreditMemoLineItem,
   type PriceRule,
   type InsertPriceRule,
+  type CategoryMargin,
+  type InsertCategoryMargin,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -134,6 +136,13 @@ export interface IStorage {
   upsertPriceRule(customerCategory: string, productId: string, customPrice: string, userId: string): Promise<PriceRule>;
   deletePriceRule(id: string): Promise<boolean>;
   deleteSystemSetting(key: string): Promise<boolean>;
+
+  // Category Margins
+  getCategoryMargins(): Promise<CategoryMargin[]>;
+  getCategoryMarginsByCategory(customerCategory: string): Promise<CategoryMargin[]>;
+  getCategoryMargin(customerCategory: string, productId: string | null): Promise<CategoryMargin | undefined>;
+  upsertCategoryMargin(customerCategory: string, productId: string | null, marginPercent: string, userId: string): Promise<CategoryMargin>;
+  deleteCategoryMargin(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -766,6 +775,49 @@ export class MemStorage implements IStorage {
 
   async deletePriceRule(id: string): Promise<boolean> {
     return this.priceRules.delete(id);
+  }
+
+  private categoryMarginsMap: Map<string, CategoryMargin> = new Map();
+
+  async getCategoryMargins(): Promise<CategoryMargin[]> {
+    return Array.from(this.categoryMarginsMap.values());
+  }
+
+  async getCategoryMarginsByCategory(customerCategory: string): Promise<CategoryMargin[]> {
+    return Array.from(this.categoryMarginsMap.values()).filter(
+      (m) => m.customerCategory === customerCategory
+    );
+  }
+
+  async getCategoryMargin(customerCategory: string, productId: string | null): Promise<CategoryMargin | undefined> {
+    return Array.from(this.categoryMarginsMap.values()).find(
+      (m) => m.customerCategory === customerCategory && m.productId === productId
+    );
+  }
+
+  async upsertCategoryMargin(customerCategory: string, productId: string | null, marginPercent: string, userId: string): Promise<CategoryMargin> {
+    const existing = await this.getCategoryMargin(customerCategory, productId);
+    if (existing) {
+      const updated = { ...existing, marginPercent, updatedAt: new Date() };
+      this.categoryMarginsMap.set(existing.id, updated);
+      return updated;
+    }
+    const id = randomUUID();
+    const newMargin: CategoryMargin = {
+      id,
+      customerCategory,
+      productId: productId || null,
+      marginPercent,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.categoryMarginsMap.set(id, newMargin);
+    return newMargin;
+  }
+
+  async deleteCategoryMargin(id: string): Promise<boolean> {
+    return this.categoryMarginsMap.delete(id);
   }
 }
 

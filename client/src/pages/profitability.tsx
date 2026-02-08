@@ -58,6 +58,8 @@ import {
   TrendingUp,
   Loader2,
   Plus,
+  RefreshCw,
+  Save,
   Search,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
@@ -210,6 +212,12 @@ export default function Profitability() {
   const [selectedMarginItems, setSelectedMarginItems] = useState<Set<string>>(new Set());
   const [bulkMarginValue, setBulkMarginValue] = useState("");
   const [individualMargins, setIndividualMargins] = useState<Record<string, string>>({});
+  const [marginDialogTab, setMarginDialogTab] = useState<"inventory" | "category">("inventory");
+  const [catMarginCustomerCategory, setCatMarginCustomerCategory] = useState<string>("");
+  const [catMarginProductMargins, setCatMarginProductMargins] = useState<Record<string, string>>({});
+  const [catMarginGlobalValue, setCatMarginGlobalValue] = useState<string>("");
+  const [catMarginSearch, setCatMarginSearch] = useState("");
+  const [catMarginInventoryFilter, setCatMarginInventoryFilter] = useState<string>("all");
   
   // Sorting state for each tab
   const [invoiceSort, setInvoiceSort] = useState<SortConfig>({ field: "invoiceDate", order: "desc" });
@@ -350,6 +358,92 @@ export default function Profitability() {
   });
 
   const inventoryMargins = inventoryMarginsData?.items || [];
+
+  const { data: customerCategories = [], refetch: refetchCustomerCategories } = useQuery<{ category: string; customerCount: number }[]>({
+    queryKey: ["/api/customer-categories"],
+    enabled: isSuperAdmin && isAddMarginOpen && marginDialogTab === "category",
+  });
+
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+    enabled: isSuperAdmin && isAddMarginOpen && marginDialogTab === "category",
+  });
+
+  const { data: categoryMarginsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/category-margins/category", catMarginCustomerCategory],
+    queryFn: async () => {
+      if (!catMarginCustomerCategory) return [];
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/category-margins/category/${encodeURIComponent(catMarginCustomerCategory)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!catMarginCustomerCategory,
+  });
+
+  const saveCategoryMarginMutation = useMutation({
+    mutationFn: async ({ customerCategory, productId, marginPercent }: { customerCategory: string; productId: string | null; marginPercent: number }) => {
+      const response = await apiRequest("POST", "/api/category-margins", {
+        customerCategory,
+        productId,
+        marginPercent,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/category-margins/category", catMarginCustomerCategory] });
+      toast({ title: "Success", description: "Category margin saved" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save category margin", variant: "destructive" });
+    },
+  });
+
+  const catMarginInventoryCategories = useMemo(() => {
+    const cats = new Set<string>();
+    products.forEach((p: any) => { if (p.category) cats.add(p.category); });
+    return Array.from(cats).sort();
+  }, [products]);
+
+  const filteredCatMarginProducts = useMemo(() => {
+    return products.filter((p: any) => {
+      const matchesSearch = catMarginSearch === "" ||
+        p.name?.toLowerCase().includes(catMarginSearch.toLowerCase()) ||
+        p.itemCode?.toLowerCase().includes(catMarginSearch.toLowerCase());
+      const matchesCategory = catMarginInventoryFilter === "all" || p.category === catMarginInventoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, catMarginSearch, catMarginInventoryFilter]);
+
+  const getCatMarginExisting = (productId: string | null): string => {
+    const m = categoryMarginsData.find((r: any) => r.productId === productId);
+    return m?.marginPercent || "";
+  };
+
+  const getCatMarginCurrent = (productId: string): string => {
+    if (catMarginProductMargins[productId] !== undefined) return catMarginProductMargins[productId];
+    return getCatMarginExisting(productId);
+  };
+
+  const handleSaveCatMarginProduct = (productId: string) => {
+    const val = parseFloat(catMarginProductMargins[productId]);
+    if (isNaN(val) || val < 0) {
+      toast({ title: "Invalid value", description: "Please enter a valid margin %", variant: "destructive" });
+      return;
+    }
+    saveCategoryMarginMutation.mutate({ customerCategory: catMarginCustomerCategory, productId, marginPercent: val });
+  };
+
+  const handleSaveCatMarginGlobal = () => {
+    const val = parseFloat(catMarginGlobalValue);
+    if (isNaN(val) || val < 0) {
+      toast({ title: "Invalid value", description: "Please enter a valid margin %", variant: "destructive" });
+      return;
+    }
+    saveCategoryMarginMutation.mutate({ customerCategory: catMarginCustomerCategory, productId: null, marginPercent: val });
+  };
 
   const applyMarginMutation = useMutation({
     mutationFn: async (items: { id: string; marginPerCarton: number }[]) => {
@@ -1099,154 +1193,315 @@ export default function Profitability() {
         <Dialog open={isAddMarginOpen} onOpenChange={setIsAddMarginOpen}>
           <DialogContent className="max-w-4xl max-h-[85vh]">
             <DialogHeader>
-              <DialogTitle>Add Margin to Inventory</DialogTitle>
+              <DialogTitle>Add Margin</DialogTitle>
               <DialogDescription>
-                Set margin per carton for products. This margin will be used as a fallback when invoice line items don't have a specific margin set.
+                Set margins for products. Use Inventory tab for per-carton margins, or Category tab for customer category-wise margin percentages.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex gap-4 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name or item code..."
-                  value={marginSearch}
-                  onChange={(e) => setMarginSearch(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-margin-search"
-                />
-              </div>
-              <Select value={marginCategoryFilter} onValueChange={setMarginCategoryFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-margin-category">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {inventoryCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Tabs value={marginDialogTab} onValueChange={(v) => setMarginDialogTab(v as any)}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="inventory">Inventory Margin</TabsTrigger>
+                <TabsTrigger value="category">Category Margin</TabsTrigger>
+              </TabsList>
 
-            <div className="flex gap-4 mb-4 items-center p-3 bg-muted rounded-lg">
-              <span className="text-sm font-medium">Bulk Apply:</span>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Margin value"
-                value={bulkMarginValue}
-                onChange={(e) => setBulkMarginValue(e.target.value)}
-                className="w-32"
-                data-testid="input-bulk-margin"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleApplyBulkMargin}
-                disabled={selectedMarginItems.size === 0 || applyMarginMutation.isPending}
-                data-testid="btn-apply-bulk"
-              >
-                Apply to {selectedMarginItems.size} selected
-              </Button>
-            </div>
-
-            <ScrollArea className="h-[400px] border rounded-lg">
-              {inventoryMarginsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={filteredInventoryMargins.length > 0 && selectedMarginItems.size === filteredInventoryMargins.length}
-                          onCheckedChange={(checked) => handleSelectAllMargin(!!checked)}
-                          data-testid="checkbox-select-all"
-                        />
-                      </TableHead>
-                      <TableHead>Item Code</TableHead>
-                      <TableHead>Product Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Pack Size</TableHead>
-                      <TableHead className="text-right">Current Margin</TableHead>
-                      <TableHead className="text-right w-32">New Margin</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInventoryMargins.map((item) => (
-                        <TableRow key={item.id} data-testid={`margin-row-${item.id}`}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedMarginItems.has(item.id)}
-                              onCheckedChange={() => handleToggleMarginItem(item.id)}
-                              data-testid={`checkbox-item-${item.id}`}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
-                          <TableCell>{item.name}</TableCell>
-                          <TableCell>{item.category || "-"}</TableCell>
-                          <TableCell>{item.packingSize || "-"}</TableCell>
-                          <TableCell className="text-right">
-                            {item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={individualMargins[item.id] || ""}
-                              onChange={(e) => setIndividualMargins((prev) => ({
-                                ...prev,
-                                [item.id]: e.target.value,
-                              }))}
-                              className="w-24 h-8 text-right"
-                              title="Margin applies only when product is sold at non-zero price"
-                              data-testid={`input-individual-margin-${item.id}`}
-                            />
-                          </TableCell>
-                        </TableRow>
+              <TabsContent value="inventory">
+                <div className="flex gap-4 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or item code..."
+                      value={marginSearch}
+                      onChange={(e) => setMarginSearch(e.target.value)}
+                      className="pl-10"
+                      data-testid="input-margin-search"
+                    />
+                  </div>
+                  <Select value={marginCategoryFilter} onValueChange={setMarginCategoryFilter}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-margin-category">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {inventoryCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
                       ))}
-                    {filteredInventoryMargins.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No products found
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </ScrollArea>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsAddMarginOpen(false);
-                  setSelectedMarginItems(new Set());
-                  setBulkMarginValue("");
-                  setIndividualMargins({});
-                  setMarginSearch("");
-                  setMarginCategoryFilter("all");
-                }}
-                data-testid="btn-cancel-margin"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleApplyIndividualMargins}
-                disabled={Object.keys(individualMargins).filter((k) => individualMargins[k]).length === 0 || applyMarginMutation.isPending}
-                data-testid="btn-apply-individual"
-              >
-                {applyMarginMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Apply Individual Margins
-              </Button>
-            </DialogFooter>
+                <div className="flex gap-4 mb-4 items-center p-3 bg-muted rounded-lg">
+                  <span className="text-sm font-medium">Bulk Apply:</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Margin value"
+                    value={bulkMarginValue}
+                    onChange={(e) => setBulkMarginValue(e.target.value)}
+                    className="w-32"
+                    data-testid="input-bulk-margin"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleApplyBulkMargin}
+                    disabled={selectedMarginItems.size === 0 || applyMarginMutation.isPending}
+                    data-testid="btn-apply-bulk"
+                  >
+                    Apply to {selectedMarginItems.size} selected
+                  </Button>
+                </div>
+
+                <ScrollArea className="h-[350px] border rounded-lg">
+                  {inventoryMarginsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">
+                            <Checkbox
+                              checked={filteredInventoryMargins.length > 0 && selectedMarginItems.size === filteredInventoryMargins.length}
+                              onCheckedChange={(checked) => handleSelectAllMargin(!!checked)}
+                              data-testid="checkbox-select-all"
+                            />
+                          </TableHead>
+                          <TableHead>Item Code</TableHead>
+                          <TableHead>Product Name</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Pack Size</TableHead>
+                          <TableHead className="text-right">Current Margin</TableHead>
+                          <TableHead className="text-right w-32">New Margin</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInventoryMargins.map((item) => (
+                            <TableRow key={item.id} data-testid={`margin-row-${item.id}`}>
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedMarginItems.has(item.id)}
+                                  onCheckedChange={() => handleToggleMarginItem(item.id)}
+                                  data-testid={`checkbox-item-${item.id}`}
+                                />
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
+                              <TableCell>{item.name}</TableCell>
+                              <TableCell>{item.category || "-"}</TableCell>
+                              <TableCell>{item.packingSize || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                {item.marginPerCarton !== null ? formatCurrency(item.marginPerCarton) : "-"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={individualMargins[item.id] || ""}
+                                  onChange={(e) => setIndividualMargins((prev) => ({
+                                    ...prev,
+                                    [item.id]: e.target.value,
+                                  }))}
+                                  className="w-24 h-8 text-right"
+                                  title="Margin applies only when product is sold at non-zero price"
+                                  data-testid={`input-individual-margin-${item.id}`}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        {filteredInventoryMargins.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              No products found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </ScrollArea>
+
+                <DialogFooter className="gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddMarginOpen(false);
+                      setSelectedMarginItems(new Set());
+                      setBulkMarginValue("");
+                      setIndividualMargins({});
+                      setMarginSearch("");
+                      setMarginCategoryFilter("all");
+                    }}
+                    data-testid="btn-cancel-margin"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleApplyIndividualMargins}
+                    disabled={Object.keys(individualMargins).filter((k) => individualMargins[k]).length === 0 || applyMarginMutation.isPending}
+                    data-testid="btn-apply-individual"
+                  >
+                    {applyMarginMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Apply Individual Margins
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+
+              <TabsContent value="category">
+                <div className="flex items-center gap-4 mb-4">
+                  <Select value={catMarginCustomerCategory} onValueChange={(v) => { setCatMarginCustomerCategory(v); setCatMarginProductMargins({}); setCatMarginGlobalValue(""); }}>
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Select Customer Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customerCategories.map((cat) => (
+                        <SelectItem key={cat.category} value={cat.category}>
+                          {cat.category} ({cat.customerCount} customers)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={() => refetchCustomerCategories()}>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh
+                  </Button>
+                </div>
+
+                {catMarginCustomerCategory && (
+                  <>
+                    <div className="flex gap-4 mb-4 items-center p-3 bg-muted rounded-lg">
+                      <span className="text-sm font-medium">Global Category Margin %:</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="e.g. 20"
+                        value={catMarginGlobalValue || getCatMarginExisting(null)}
+                        onChange={(e) => setCatMarginGlobalValue(e.target.value)}
+                        className="w-28"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveCatMarginGlobal}
+                        disabled={!catMarginGlobalValue || saveCategoryMarginMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-1" />
+                        Save Global
+                      </Button>
+                      {getCatMarginExisting(null) && (
+                        <span className="text-xs text-muted-foreground">Current: {getCatMarginExisting(null)}%</span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-4 mb-4">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by name or item code..."
+                          value={catMarginSearch}
+                          onChange={(e) => setCatMarginSearch(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      <Select value={catMarginInventoryFilter} onValueChange={setCatMarginInventoryFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {catMarginInventoryCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <ScrollArea className="h-[300px] border rounded-lg">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item Code</TableHead>
+                            <TableHead>Product Name</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Pack Size</TableHead>
+                            <TableHead className="text-right">Current %</TableHead>
+                            <TableHead className="text-right w-28">Margin %</TableHead>
+                            <TableHead>Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredCatMarginProducts.map((product: any) => (
+                            <TableRow key={product.id}>
+                              <TableCell className="font-mono text-sm">{product.itemCode || "-"}</TableCell>
+                              <TableCell>{product.name}</TableCell>
+                              <TableCell>{product.category || "-"}</TableCell>
+                              <TableCell>{product.packingSize || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                {getCatMarginExisting(product.id) ? `${getCatMarginExisting(product.id)}%` : "-"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0.00"
+                                  value={getCatMarginCurrent(product.id)}
+                                  onChange={(e) => setCatMarginProductMargins((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                                  className="w-24 h-8 text-right"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSaveCatMarginProduct(product.id)}
+                                  disabled={!catMarginProductMargins[product.id] || saveCategoryMarginMutation.isPending}
+                                >
+                                  <Save className="h-4 w-4 mr-1" />
+                                  Save
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {filteredCatMarginProducts.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                No products found
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </>
+                )}
+
+                {!catMarginCustomerCategory && (
+                  <p className="text-muted-foreground text-center py-8 text-sm">
+                    Select a customer category to set margin percentages for products.
+                  </p>
+                )}
+
+                <DialogFooter className="gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddMarginOpen(false);
+                      setCatMarginCustomerCategory("");
+                      setCatMarginProductMargins({});
+                      setCatMarginGlobalValue("");
+                      setCatMarginSearch("");
+                      setCatMarginInventoryFilter("all");
+                    }}
+                  >
+                    Close
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
         )}

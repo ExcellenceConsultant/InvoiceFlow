@@ -1125,6 +1125,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Category Margins endpoints
+  app.get("/api/category-margins", isAuthenticated, async (req, res) => {
+    try {
+      const margins = await storage.getCategoryMargins();
+      res.json(margins);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch category margins" });
+    }
+  });
+
+  app.get("/api/category-margins/category/:category", isAuthenticated, async (req, res) => {
+    try {
+      const margins = await storage.getCategoryMarginsByCategory(req.params.category);
+      res.json(margins);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch category margins" });
+    }
+  });
+
+  app.post("/api/category-margins", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { customerCategory, productId, marginPercent } = req.body;
+      if (!customerCategory || marginPercent === undefined) {
+        return res.status(400).json({ message: "customerCategory and marginPercent are required" });
+      }
+      const margin = await storage.upsertCategoryMargin(
+        customerCategory,
+        productId || null,
+        marginPercent.toString(),
+        user.userId
+      );
+      res.json(margin);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to save category margin" });
+    }
+  });
+
+  app.delete("/api/category-margins/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteCategoryMargin(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Category margin not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete category margin" });
+    }
+  });
+
   // Invoice routes
   app.get("/api/invoices", isAuthenticated, async (req, res) => {
     try {
@@ -1267,6 +1317,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         p.marginPerCarton ? parseFloat(p.marginPerCarton) : 0
       ]));
 
+      // Pre-fetch customer category and category margins for margin calculation
+      let customerCategory = "";
+      let categoryMarginsList: any[] = [];
+      if (invoiceData.customerId) {
+        const customer = await storage.getCustomer(invoiceData.customerId);
+        if (customer?.customerCategory) {
+          customerCategory = customer.customerCategory;
+          categoryMarginsList = await storage.getCategoryMarginsByCategory(customerCategory);
+        }
+      }
+
       // Create line items with scheme application and margin snapshot
       const createdLineItems = [];
       const hasFrontendFreeItems = lineItems.some(
@@ -1280,18 +1341,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
-        // MARGIN SNAPSHOT: Capture inventory margin at invoice creation time
-        // This value is IMMUTABLE - margin changes to inventory won't affect past invoices
+        // MARGIN SNAPSHOT: Capture margin at invoice creation time
+        // This value is IMMUTABLE - margin changes won't affect past invoices
+        // Priority: 1) Category + Product margin  2) Category global margin  3) Inventory margin
         const rate = parseFloat(item.unitPrice) || 0;
-        let snapshotMargin: string;
+        let snapshotMargin: string = "0";
         
         // Free products (rate <= 0 or isFreeFromScheme) MUST have zero margin
         if (rate <= 0 || item.isFreeFromScheme) {
           snapshotMargin = "0";
         } else {
-          // Snapshot margin from inventory product at creation time
-          const inventoryMargin = productMarginMap.get(item.productId) || 0;
-          snapshotMargin = inventoryMargin.toString();
+          let marginResolved = false;
+
+          if (customerCategory && categoryMarginsList.length > 0) {
+            // 1) Check category + product specific margin
+            const productCategoryMargin = categoryMarginsList.find(
+              (m: any) => m.productId === item.productId
+            );
+            if (productCategoryMargin) {
+              const marginPct = parseFloat(productCategoryMargin.marginPercent) || 0;
+              snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+              marginResolved = true;
+            }
+
+            // 2) Check category-wide global margin (productId is null)
+            if (!marginResolved) {
+              const globalCategoryMargin = categoryMarginsList.find(
+                (m: any) => m.productId === null
+              );
+              if (globalCategoryMargin) {
+                const marginPct = parseFloat(globalCategoryMargin.marginPercent) || 0;
+                snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+                marginResolved = true;
+              }
+            }
+          }
+
+          // 3) Fall back to inventory product margin
+          if (!marginResolved) {
+            const inventoryMargin = productMarginMap.get(item.productId) || 0;
+            snapshotMargin = inventoryMargin.toString();
+          }
         }
 
         const lineItemValidation = insertInvoiceLineItemSchema.safeParse({
@@ -1790,6 +1880,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         p.marginPerCarton ? parseFloat(p.marginPerCarton) : 0
       ]));
 
+      // Pre-fetch customer category and category margins for NEW item margin calculation
+      let editCustomerCategory = "";
+      let editCategoryMarginsList: any[] = [];
+      const editCustomerId = invoiceData.customerId || existingInvoice.customerId;
+      if (editCustomerId) {
+        const editCustomer = await storage.getCustomer(editCustomerId);
+        if (editCustomer?.customerCategory) {
+          editCustomerCategory = editCustomer.customerCategory;
+          editCategoryMarginsList = await storage.getCategoryMarginsByCategory(editCustomerCategory);
+        }
+      }
+
       console.log(`Processing ${lineItems.length} line items for invoice ${invoiceId}`);
       
       // PHASE 1: Validate ALL line items BEFORE deleting existing ones
@@ -1813,8 +1915,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // MARGIN IMMUTABILITY: Preserve existing margins for existing line items
+        // For NEW items: Priority: 1) Category+Product  2) Category global  3) Inventory margin
         const rate = parseFloat(String(item.unitPrice)) || 0;
-        let snapshotMargin: string;
+        let snapshotMargin: string = "0";
         
         // Free products (rate <= 0 or isFreeFromScheme) MUST have zero margin
         if (rate <= 0 || item.isFreeFromScheme) {
@@ -1824,8 +1927,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (item.id && existingMarginByIdMap.has(item.id)) {
           snapshotMargin = existingMarginByIdMap.get(item.id)!;
         } else {
-          const inventoryMargin = productMarginMap.get(item.productId) || 0;
-          snapshotMargin = String(inventoryMargin);
+          // NEW item - check category margins first, then fall back to inventory
+          let marginResolved = false;
+          if (editCustomerCategory && editCategoryMarginsList.length > 0) {
+            const productCatMargin = editCategoryMarginsList.find(
+              (m: any) => m.productId === item.productId
+            );
+            if (productCatMargin) {
+              const marginPct = parseFloat(productCatMargin.marginPercent) || 0;
+              snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+              marginResolved = true;
+            }
+            if (!marginResolved) {
+              const globalCatMargin = editCategoryMarginsList.find(
+                (m: any) => m.productId === null
+              );
+              if (globalCatMargin) {
+                const marginPct = parseFloat(globalCatMargin.marginPercent) || 0;
+                snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+                marginResolved = true;
+              }
+            }
+          }
+          if (!marginResolved) {
+            const inventoryMargin = productMarginMap.get(item.productId) || 0;
+            snapshotMargin = String(inventoryMargin);
+          }
         }
 
         // Prepare line item data - preserve numeric values faithfully
