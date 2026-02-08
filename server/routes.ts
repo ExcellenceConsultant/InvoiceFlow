@@ -1147,14 +1147,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/category-margins", isAuthenticated, async (req, res) => {
     try {
       const user = (req as any).user;
-      const { customerCategory, productId, marginPercent } = req.body;
-      if (!customerCategory || marginPercent === undefined) {
-        return res.status(400).json({ message: "customerCategory and marginPercent are required" });
+      const { customerCategory, productId, marginAmount } = req.body;
+      if (!customerCategory || marginAmount === undefined) {
+        return res.status(400).json({ message: "customerCategory and marginAmount are required" });
       }
       const margin = await storage.upsertCategoryMargin(
         customerCategory,
         productId || null,
-        marginPercent.toString(),
+        marginAmount.toString(),
         user.userId
       );
       res.json(margin);
@@ -1359,8 +1359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               (m: any) => m.productId === item.productId
             );
             if (productCategoryMargin) {
-              const marginPct = parseFloat(productCategoryMargin.marginPercent) || 0;
-              snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+              snapshotMargin = String(parseFloat(productCategoryMargin.marginAmount) || 0);
               marginResolved = true;
             }
 
@@ -1370,8 +1369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (m: any) => m.productId === null
               );
               if (globalCategoryMargin) {
-                const marginPct = parseFloat(globalCategoryMargin.marginPercent) || 0;
-                snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+                snapshotMargin = String(parseFloat(globalCategoryMargin.marginAmount) || 0);
                 marginResolved = true;
               }
             }
@@ -1934,8 +1932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               (m: any) => m.productId === item.productId
             );
             if (productCatMargin) {
-              const marginPct = parseFloat(productCatMargin.marginPercent) || 0;
-              snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+              snapshotMargin = String(parseFloat(productCatMargin.marginAmount) || 0);
               marginResolved = true;
             }
             if (!marginResolved) {
@@ -1943,8 +1940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (m: any) => m.productId === null
               );
               if (globalCatMargin) {
-                const marginPct = parseFloat(globalCatMargin.marginPercent) || 0;
-                snapshotMargin = ((rate * marginPct) / 100).toFixed(2);
+                snapshotMargin = String(parseFloat(globalCatMargin.marginAmount) || 0);
                 marginResolved = true;
               }
             }

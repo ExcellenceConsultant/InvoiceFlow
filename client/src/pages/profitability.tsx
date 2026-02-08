@@ -384,11 +384,11 @@ export default function Profitability() {
   });
 
   const saveCategoryMarginMutation = useMutation({
-    mutationFn: async ({ customerCategory, productId, marginPercent }: { customerCategory: string; productId: string | null; marginPercent: number }) => {
+    mutationFn: async ({ customerCategory, productId, marginAmount }: { customerCategory: string; productId: string | null; marginAmount: number }) => {
       const response = await apiRequest("POST", "/api/category-margins", {
         customerCategory,
         productId,
-        marginPercent,
+        marginAmount,
       });
       return response.json();
     },
@@ -419,7 +419,7 @@ export default function Profitability() {
 
   const getCatMarginExisting = (productId: string | null): string => {
     const m = categoryMarginsData.find((r: any) => r.productId === productId);
-    return m?.marginPercent || "";
+    return m?.marginAmount || "";
   };
 
   const getCatMarginCurrent = (productId: string): string => {
@@ -430,19 +430,19 @@ export default function Profitability() {
   const handleSaveCatMarginProduct = (productId: string) => {
     const val = parseFloat(catMarginProductMargins[productId]);
     if (isNaN(val) || val < 0) {
-      toast({ title: "Invalid value", description: "Please enter a valid margin %", variant: "destructive" });
+      toast({ title: "Invalid value", description: "Please enter a valid margin amount", variant: "destructive" });
       return;
     }
-    saveCategoryMarginMutation.mutate({ customerCategory: catMarginCustomerCategory, productId, marginPercent: val });
+    saveCategoryMarginMutation.mutate({ customerCategory: catMarginCustomerCategory, productId, marginAmount: val });
   };
 
   const handleSaveCatMarginGlobal = () => {
     const val = parseFloat(catMarginGlobalValue);
     if (isNaN(val) || val < 0) {
-      toast({ title: "Invalid value", description: "Please enter a valid margin %", variant: "destructive" });
+      toast({ title: "Invalid value", description: "Please enter a valid margin amount", variant: "destructive" });
       return;
     }
-    saveCategoryMarginMutation.mutate({ customerCategory: catMarginCustomerCategory, productId: null, marginPercent: val });
+    saveCategoryMarginMutation.mutate({ customerCategory: catMarginCustomerCategory, productId: null, marginAmount: val });
   };
 
   const applyMarginMutation = useMutation({
@@ -1195,7 +1195,7 @@ export default function Profitability() {
             <DialogHeader>
               <DialogTitle>Add Margin</DialogTitle>
               <DialogDescription>
-                Set margins for products. Use Inventory tab for per-carton margins, or Category tab for customer category-wise margin percentages.
+                Set margins for products. Use Inventory tab for per-carton margins, or Category tab for customer category-wise margin amounts.
               </DialogDescription>
             </DialogHeader>
 
@@ -1373,12 +1373,12 @@ export default function Profitability() {
                 {catMarginCustomerCategory && (
                   <>
                     <div className="flex gap-4 mb-4 items-center p-3 bg-muted rounded-lg">
-                      <span className="text-sm font-medium">Global Category Margin %:</span>
+                      <span className="text-sm font-medium">Global Category Margin $:</span>
                       <Input
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder="e.g. 20"
+                        placeholder="e.g. 5.00"
                         value={catMarginGlobalValue || getCatMarginExisting(null)}
                         onChange={(e) => setCatMarginGlobalValue(e.target.value)}
                         className="w-28"
@@ -1392,7 +1392,7 @@ export default function Profitability() {
                         Save Global
                       </Button>
                       {getCatMarginExisting(null) && (
-                        <span className="text-xs text-muted-foreground">Current: {getCatMarginExisting(null)}%</span>
+                        <span className="text-xs text-muted-foreground">Current: ${getCatMarginExisting(null)}</span>
                       )}
                     </div>
 
@@ -1427,8 +1427,8 @@ export default function Profitability() {
                             <TableHead>Product Name</TableHead>
                             <TableHead>Category</TableHead>
                             <TableHead>Pack Size</TableHead>
-                            <TableHead className="text-right">Current %</TableHead>
-                            <TableHead className="text-right w-28">Margin %</TableHead>
+                            <TableHead className="text-right">Current $</TableHead>
+                            <TableHead className="text-right w-28">Margin $</TableHead>
                             <TableHead>Action</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1440,7 +1440,7 @@ export default function Profitability() {
                               <TableCell>{product.category || "-"}</TableCell>
                               <TableCell>{product.packingSize || "-"}</TableCell>
                               <TableCell className="text-right">
-                                {getCatMarginExisting(product.id) ? `${getCatMarginExisting(product.id)}%` : "-"}
+                                {getCatMarginExisting(product.id) ? `$${getCatMarginExisting(product.id)}` : "-"}
                               </TableCell>
                               <TableCell className="text-right">
                                 <Input

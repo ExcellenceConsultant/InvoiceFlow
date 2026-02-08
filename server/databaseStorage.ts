@@ -780,14 +780,14 @@ export class DatabaseStorage implements IStorage {
   async upsertCategoryMargin(
     customerCategory: string,
     productId: string | null,
-    marginPercent: string,
+    marginAmount: string,
     userId: string
   ): Promise<CategoryMargin> {
     const existing = await this.getCategoryMargin(customerCategory, productId);
     if (existing) {
       const [updated] = await db
         .update(categoryMargins)
-        .set({ marginPercent, updatedAt: new Date() })
+        .set({ marginAmount, updatedAt: new Date() })
         .where(eq(categoryMargins.id, existing.id))
         .returning();
       return updated;
@@ -797,7 +797,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         customerCategory,
         productId,
-        marginPercent,
+        marginAmount,
         userId,
       })
       .returning();

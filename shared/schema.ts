@@ -240,7 +240,7 @@ export const categoryMargins = pgTable("category_margins", {
     .default(sql`gen_random_uuid()`),
   customerCategory: text("customer_category").notNull(),
   productId: varchar("product_id").references(() => products.id),
-  marginPercent: decimal("margin_percent", { precision: 10, scale: 2 }).notNull(),
+  marginAmount: decimal("margin_amount", { precision: 10, scale: 2 }).notNull(),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -141,7 +141,7 @@ export interface IStorage {
   getCategoryMargins(): Promise<CategoryMargin[]>;
   getCategoryMarginsByCategory(customerCategory: string): Promise<CategoryMargin[]>;
   getCategoryMargin(customerCategory: string, productId: string | null): Promise<CategoryMargin | undefined>;
-  upsertCategoryMargin(customerCategory: string, productId: string | null, marginPercent: string, userId: string): Promise<CategoryMargin>;
+  upsertCategoryMargin(customerCategory: string, productId: string | null, marginAmount: string, userId: string): Promise<CategoryMargin>;
   deleteCategoryMargin(id: string): Promise<boolean>;
 }
 
@@ -795,10 +795,10 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async upsertCategoryMargin(customerCategory: string, productId: string | null, marginPercent: string, userId: string): Promise<CategoryMargin> {
+  async upsertCategoryMargin(customerCategory: string, productId: string | null, marginAmount: string, userId: string): Promise<CategoryMargin> {
     const existing = await this.getCategoryMargin(customerCategory, productId);
     if (existing) {
-      const updated = { ...existing, marginPercent, updatedAt: new Date() };
+      const updated = { ...existing, marginAmount, updatedAt: new Date() };
       this.categoryMarginsMap.set(existing.id, updated);
       return updated;
     }
@@ -807,7 +807,7 @@ export class MemStorage implements IStorage {
       id,
       customerCategory,
       productId: productId || null,
-      marginPercent,
+      marginAmount,
       userId,
       createdAt: new Date(),
       updatedAt: new Date(),
