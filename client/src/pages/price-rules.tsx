@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { apiRequest } from "@/lib/queryClient";
-import { RefreshCw, DollarSign, Save, Tag } from "lucide-react";
+import { RefreshCw, DollarSign, Save, Tag, Filter, X } from "lucide-react";
 import type { Product, PriceRule } from "@shared/schema";
 
 export default function PriceRules() {
@@ -19,6 +20,7 @@ export default function PriceRules() {
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
+  const [selectedInventoryCategories, setSelectedInventoryCategories] = useState<string[]>([]);
 
   const { data: categories = [], refetch: refetchCategories, isLoading: categoriesLoading } = useQuery<{ category: string; customerCount: number }[]>({
     queryKey: ["/api/customer-categories"],
@@ -74,6 +76,29 @@ export default function PriceRules() {
       title: "Success",
       description: "Customer categories refreshed",
     });
+  };
+
+  const inventoryCategories = useMemo(() => {
+    const cats = new Set<string>();
+    products.forEach((p) => {
+      if (p.category) cats.add(p.category);
+    });
+    return Array.from(cats).sort();
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (selectedInventoryCategories.length === 0) return products;
+    return products.filter((p) => p.category && selectedInventoryCategories.includes(p.category));
+  }, [products, selectedInventoryCategories]);
+
+  const toggleInventoryCategory = (cat: string) => {
+    setSelectedInventoryCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const clearInventoryFilters = () => {
+    setSelectedInventoryCategories([]);
   };
 
   const handleCategoryChange = (category: string) => {
@@ -174,6 +199,35 @@ export default function PriceRules() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Filter by Inventory Category:</span>
+                  {selectedInventoryCategories.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearInventoryFilters} className="h-6 px-2 text-xs">
+                      <X className="h-3 w-3 mr-1" />
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {inventoryCategories.map((cat) => (
+                    <Badge
+                      key={cat}
+                      variant={selectedInventoryCategories.includes(cat) ? "default" : "outline"}
+                      className="cursor-pointer select-none"
+                      onClick={() => toggleInventoryCategory(cat)}
+                    >
+                      {cat}
+                    </Badge>
+                  ))}
+                </div>
+                {selectedInventoryCategories.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Showing {filteredProducts.length} of {products.length} products
+                  </p>
+                )}
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -186,7 +240,7 @@ export default function PriceRules() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((product) => (
+                  {filteredProducts.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-mono">{product.itemCode || "-"}</TableCell>
                       <TableCell>{product.name}</TableCell>
@@ -226,9 +280,9 @@ export default function PriceRules() {
                 </TableBody>
               </Table>
 
-              {products.length === 0 && (
+              {filteredProducts.length === 0 && (
                 <p className="text-muted-foreground text-center py-8">
-                  No products found in inventory.
+                  {products.length === 0 ? "No products found in inventory." : "No products match the selected category filters."}
                 </p>
               )}
             </CardContent>
