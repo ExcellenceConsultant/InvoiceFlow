@@ -6,9 +6,10 @@ import path from "path";
 
 function findFile(filename: string): string | null {
   const paths = [
-    path.join(__dirname, filename),
     path.join(process.cwd(), "server", filename),
     path.join(process.cwd(), filename),
+    path.join(__dirname, filename),
+    path.join(__dirname, "..", "server", filename),
   ];
   for (const p of paths) {
     if (fs.existsSync(p)) return p;
@@ -38,11 +39,12 @@ export function registerMigrationRoutes(app: Express) {
           } catch (err: any) {
             if (!err?.message?.includes("already exists")) {
               schemaErrors++;
-              console.error("Schema error:", err?.message?.substring(0, 200));
             }
           }
         }
         console.log(`Schema: ${schemaApplied} applied, ${schemaErrors} errors`);
+      } else {
+        console.log("No schema file found, skipping schema setup");
       }
 
       if (schemaOnly) {
@@ -51,7 +53,12 @@ export function registerMigrationRoutes(app: Express) {
 
       const dataFile = findFile("migration-data.sql");
       if (!dataFile) {
-        return res.status(404).json({ message: "Migration data file not found" });
+        return res.status(404).json({ 
+          message: "Migration data file not found",
+          cwd: process.cwd(),
+          dirname: __dirname,
+          files: fs.readdirSync(process.cwd()).filter(f => f.includes("migration")).slice(0, 10)
+        });
       }
 
       console.log("Reading data from:", dataFile);
