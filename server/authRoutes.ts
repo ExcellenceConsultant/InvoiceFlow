@@ -90,7 +90,7 @@ export function registerAuthRoutes(app: Express) {
       });
     } catch (error: any) {
       console.error("[LOGIN] Error logging in:", error?.message, error?.stack);
-      res.status(500).json({ message: "Failed to login" });
+      res.status(500).json({ message: "Failed to login", debug: error?.message });
     }
   });
 
