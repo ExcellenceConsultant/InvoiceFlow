@@ -3,15 +3,20 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const currentDir = typeof import.meta.dirname === "string" 
+  ? import.meta.dirname 
+  : path.dirname(fileURLToPath(import.meta.url));
 
 function findFile(filename: string): string | null {
-  const paths = [
+  const searchPaths = [
     path.join(process.cwd(), "server", filename),
     path.join(process.cwd(), filename),
-    path.join(__dirname, filename),
-    path.join(__dirname, "..", "server", filename),
+    path.join(currentDir, filename),
+    path.join(currentDir, "..", "server", filename),
   ];
-  for (const p of paths) {
+  for (const p of searchPaths) {
     if (fs.existsSync(p)) return p;
   }
   return null;
@@ -56,8 +61,10 @@ export function registerMigrationRoutes(app: Express) {
         return res.status(404).json({ 
           message: "Migration data file not found",
           cwd: process.cwd(),
-          dirname: __dirname,
-          files: fs.readdirSync(process.cwd()).filter(f => f.includes("migration")).slice(0, 10)
+          dir: currentDir,
+          serverFiles: fs.existsSync(path.join(process.cwd(), "server")) 
+            ? fs.readdirSync(path.join(process.cwd(), "server")).filter(f => f.includes("migration"))
+            : "server dir not found"
         });
       }
 
