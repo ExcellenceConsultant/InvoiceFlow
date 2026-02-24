@@ -49,11 +49,14 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
+      console.log("[LOGIN] Attempting login for:", username);
 
       // Find user by username or email
       let user = await storage.getUserByUsername(username);
+      console.log("[LOGIN] Found by username:", !!user);
       if (!user) {
         user = await storage.getUserByEmail(username);
+        console.log("[LOGIN] Found by email:", !!user);
       }
 
       if (!user) {
@@ -61,7 +64,9 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Verify password
+      console.log("[LOGIN] Verifying password, hash length:", user.password?.length);
       const isValid = await comparePassword(password, user.password);
+      console.log("[LOGIN] Password valid:", isValid);
       if (!isValid) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
@@ -73,6 +78,7 @@ export function registerAuthRoutes(app: Express) {
         role: user.role,
       });
 
+      console.log("[LOGIN] Login successful for:", username);
       res.json({
         token,
         user: {
@@ -82,8 +88,8 @@ export function registerAuthRoutes(app: Express) {
           role: user.role,
         },
       });
-    } catch (error) {
-      console.error("Error logging in:", error);
+    } catch (error: any) {
+      console.error("[LOGIN] Error logging in:", error?.message, error?.stack);
       res.status(500).json({ message: "Failed to login" });
     }
   });
