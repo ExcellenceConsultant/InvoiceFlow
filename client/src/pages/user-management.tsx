@@ -563,7 +563,9 @@ export default function UserManagement() {
               {isLoadingKeys ? (
                 <p className="text-muted-foreground text-sm">Loading...</p>
               ) : activeKeys.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No active API keys. Generate one above.</p>
+                <p className="text-muted-foreground text-sm">
+                  No API keys yet. Use the "Generate New API Key" section above to create one. Once created, a delete button will appear next to each key.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {activeKeys.map((key) => (
