@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import kitchenXpressLogo from "@assets/logo png _1762639803507.png";
-import { Bell, LogOut, TrendingUp, Key } from "lucide-react";
+import { Bell, LogOut, TrendingUp } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export default function Navbar() {
@@ -114,17 +114,7 @@ export default function Navbar() {
                   size="sm"
                   data-testid="link-users"
                 >
-                  Users
-                </Button>
-              </Link>
-              <Link href="/api-keys">
-                <Button
-                  variant={location === "/api-keys" ? "default" : "ghost"}
-                  size="sm"
-                  data-testid="link-api-keys"
-                >
-                  <Key className="h-4 w-4 mr-1" />
-                  API Keys
+                  User/Development
                 </Button>
               </Link>
               {user?.role === "super_admin" && (

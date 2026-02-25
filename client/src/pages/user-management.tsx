@@ -1,14 +1,25 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Shield, Eye, EyeOff } from "lucide-react";
+import { Plus, Edit, Trash2, Shield, Eye, EyeOff, Key, Copy, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -24,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -60,6 +72,15 @@ const editUserFormSchema = z.object({
 type UserFormValues = z.infer<typeof userFormSchema>;
 type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
+type ApiKey = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
+};
+
 export default function UserManagement() {
   const { toast } = useToast();
   const permissions = usePermissions();
@@ -69,8 +90,18 @@ export default function UserManagement() {
   const [showPassword, setShowPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
 
+  // API Keys state
+  const [newKeyName, setNewKeyName] = useState("");
+  const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
+  const [newKeySecret, setNewKeySecret] = useState<{ name: string; rawKey: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["/api/users"],
+  });
+
+  const { data: apiKeys = [], isLoading: isLoadingKeys } = useQuery<ApiKey[]>({
+    queryKey: ["/api/api-keys"],
   });
 
   const form = useForm<UserFormValues>({
@@ -94,7 +125,6 @@ export default function UserManagement() {
     },
   });
 
-  // Update edit form when editingUser changes
   useEffect(() => {
     if (editingUser) {
       editForm.reset({
@@ -118,41 +148,29 @@ export default function UserManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({
-        title: "Success",
-        description: "User created successfully",
-      });
+      toast({ title: "Success", description: "User created successfully" });
       setIsDialogOpen(false);
       form.reset();
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: EditUserFormValues }) => {
-      let passwordChanged = false;
-      
-      // Update basic info
       const updateData: any = {
         username: data.username,
         mobile: data.mobile,
         role: data.role,
         invoiceEditLockHours: data.invoiceEditLockHours,
       };
-
       const response = await apiRequest("PATCH", `/api/users/${id}`, updateData);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Failed to update user");
       }
-
-      // If password is provided, reset it
+      let passwordChanged = false;
       if (data.password && data.password.trim() !== "") {
         passwordChanged = true;
         const passwordResponse = await apiRequest("POST", `/api/auth/reset-password/${id}`, {
@@ -163,15 +181,14 @@ export default function UserManagement() {
           throw new Error(error.message || "Failed to update password");
         }
       }
-
       return { user: await response.json(), passwordChanged };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "Success",
-        description: result.passwordChanged 
-          ? "User and password updated successfully. The new password is now active." 
+        description: result.passwordChanged
+          ? "User and password updated successfully. The new password is now active."
           : "User updated successfully",
       });
       setIsEditDialogOpen(false);
@@ -180,275 +197,434 @@ export default function UserManagement() {
       editForm.reset();
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       const response = await apiRequest("DELETE", `/api/users/${userId}`, {});
-      if (!response.ok) {
-        throw new Error("Failed to delete user");
-      }
+      if (!response.ok) throw new Error("Failed to delete user");
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
+      toast({ title: "Success", description: "User deleted successfully" });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete user",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to delete user", variant: "destructive" });
     },
   });
 
-  const onSubmit = (data: UserFormValues) => {
-    createUserMutation.mutate(data);
-  };
+  // API Key mutations
+  const createKeyMutation = useMutation({
+    mutationFn: (name: string) => apiRequest("POST", "/api/api-keys", { name }),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      setNewKeySecret({ name: data.name, rawKey: data.rawKey });
+      setNewKeyName("");
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create API key", variant: "destructive" });
+    },
+  });
 
+  const revokeKeyMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/api-keys/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      toast({ title: "API key revoked", description: "The key has been deactivated." });
+      setDeleteKeyId(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to revoke API key", variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (data: UserFormValues) => createUserMutation.mutate(data);
   const onEditSubmit = (data: EditUserFormValues) => {
-    if (editingUser) {
-      updateUserMutation.mutate({ id: editingUser.id, data });
-    }
+    if (editingUser) updateUserMutation.mutate({ id: editingUser.id, data });
   };
-
   const handleEdit = (user: any) => {
     setEditingUser(user);
     setIsEditDialogOpen(true);
   };
 
-  const getRoleColor = (role: string) => {
-    return roleOptions.find((r) => r.value === role)?.color || "bg-gray-500";
+  const getRoleColor = (role: string) => roleOptions.find((r) => r.value === role)?.color || "bg-gray-500";
+  const getRoleLabel = (role: string) => roleOptions.find((r) => r.value === role)?.label || role;
+
+  const handleGenerateKey = () => {
+    if (!newKeyName.trim()) {
+      toast({ title: "Name required", description: "Please enter a name for the API key.", variant: "destructive" });
+      return;
+    }
+    createKeyMutation.mutate(newKeyName.trim());
   };
 
-  const getRoleLabel = (role: string) => {
-    return roleOptions.find((r) => r.value === role)?.label || role;
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
+
+  const activeKeys = (apiKeys as ApiKey[]).filter((k) => k.isActive);
+  const revokedKeys = (apiKeys as ApiKey[]).filter((k) => !k.isActive);
+  const baseUrl = window.location.origin;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">User Management</h1>
-          <p className="text-muted-foreground">
-            Create and manage users with different access roles
-          </p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              data-testid="button-create-user"
-              disabled={!permissions.canManageUsers}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create User
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Enter username"
-                          data-testid="input-username"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="mobile"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mobile Number</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="tel"
-                          placeholder="+919033316252"
-                          data-testid="input-mobile"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            {...field}
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Enter password"
-                            data-testid="input-password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() => setShowPassword(!showPassword)}
-                            data-testid="button-toggle-password"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Role</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-role">
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {roleOptions.map((role) => (
-                            <SelectItem
-                              key={role.value}
-                              value={role.value}
-                              data-testid={`select-role-${role.value}`}
-                            >
-                              {role.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                    data-testid="button-cancel"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createUserMutation.isPending}
-                    data-testid="button-submit-user"
-                  >
-                    {createUserMutation.isPending ? "Creating..." : "Create User"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-foreground mb-2">User / Development</h1>
+        <p className="text-muted-foreground">Manage users, roles, and API access for external integrations</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading users...</div>
-          ) : users.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No users found. Create your first user to get started.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {users.map((user: any) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                  data-testid={`user-card-${user.id}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-full ${getRoleColor(user.role || 'viewer')}`}>
-                      <Shield className="h-5 w-5 text-white" />
+      <Tabs defaultValue="users">
+        <TabsList className="mb-6">
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+        </TabsList>
+
+        {/* ── Users Tab ── */}
+        <TabsContent value="users">
+          <div className="flex justify-end mb-4">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-create-user" disabled={!permissions.canManageUsers}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create User
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New User</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter username" data-testid="input-username" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="mobile"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mobile Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="tel" placeholder="+919033316252" data-testid="input-mobile" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                {...field}
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Enter password"
+                                data-testid="input-password"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                                data-testid="button-toggle-password"
+                              >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Role</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-role">
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {roleOptions.map((role) => (
+                                <SelectItem key={role.value} value={role.value} data-testid={`select-role-${role.value}`}>
+                                  {role.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} data-testid="button-cancel">
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={createUserMutation.isPending} data-testid="button-submit-user">
+                        {createUserMutation.isPending ? "Creating..." : "Create User"}
+                      </Button>
                     </div>
-                    <div>
-                      <h3 className="font-semibold" data-testid={`text-username-${user.id}`}>
-                        {user.username}
-                      </h3>
-                      <p className="text-sm text-muted-foreground" data-testid={`text-mobile-${user.id}`}>
-                        {user.mobile || "No mobile number"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      className={`${getRoleColor(user.role || 'viewer')} text-white`}
-                      data-testid={`badge-role-${user.id}`}
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading users...</div>
+              ) : (users as any[]).length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No users found. Create your first user to get started.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(users as any[]).map((user: any) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                      data-testid={`user-card-${user.id}`}
                     >
-                      {getRoleLabel(user.role || 'viewer')}
-                    </Badge>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-full ${getRoleColor(user.role || "viewer")}`}>
+                          <Shield className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold" data-testid={`text-username-${user.id}`}>
+                            {user.username}
+                          </h3>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-mobile-${user.id}`}>
+                            {user.mobile || "No mobile number"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${getRoleColor(user.role || "viewer")} text-white`} data-testid={`badge-role-${user.id}`}>
+                          {getRoleLabel(user.role || "viewer")}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(user)}
+                          disabled={!permissions.canEditUsers}
+                          data-testid={`button-edit-${user.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {user.id !== DEFAULT_USER_ID && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteUserMutation.mutate(user.id)}
+                            disabled={deleteUserMutation.isPending || !permissions.canEditUsers}
+                            data-testid={`button-delete-${user.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── API Keys Tab ── */}
+        <TabsContent value="api-keys" className="space-y-6">
+          {/* Generate New Key */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Generate New API Key
+              </CardTitle>
+              <CardDescription>
+                Give your key a descriptive name so you can identify it later.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3">
+                <Input
+                  placeholder="e.g. Sales Order App"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleGenerateKey()}
+                  className="max-w-sm"
+                />
+                <Button onClick={handleGenerateKey} disabled={createKeyMutation.isPending}>
+                  {createKeyMutation.isPending ? "Generating..." : "Generate Key"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* External API Documentation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">External API Endpoints</CardTitle>
+              <CardDescription>
+                Share these endpoint details with the other developer. All requests require an API key in the Authorization header.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted rounded-md p-3 text-sm font-mono space-y-1">
+                <p className="text-muted-foreground text-xs mb-2 font-sans font-medium">Authorization header (required on all requests):</p>
+                <p>Authorization: Bearer {"<your_api_key>"}</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="border rounded-md p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="secondary" className="text-xs">GET</Badge>
+                    <code className="text-sm font-mono">{baseUrl}/api/external/products</code>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEdit(user)}
-                      disabled={!permissions.canEditUsers}
-                      data-testid={`button-edit-${user.id}`}
+                      className="h-6 w-6 p-0 ml-auto"
+                      onClick={() => copyToClipboard(`${baseUrl}/api/external/products`)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Copy className="h-3 w-3" />
                     </Button>
-                    {user.id !== DEFAULT_USER_ID && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteUserMutation.mutate(user.id)}
-                        disabled={deleteUserMutation.isPending || !permissions.canEditUsers}
-                        data-testid={`button-delete-${user.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Returns all inventory products. Response: <code>{"{ success, count, data: [...] }"}</code>
+                  </p>
                 </div>
-              ))}
-            </div>
+
+                <div className="border rounded-md p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="secondary" className="text-xs">GET</Badge>
+                    <code className="text-sm font-mono">{baseUrl}/api/external/customers</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 ml-auto"
+                      onClick={() => copyToClipboard(`${baseUrl}/api/external/customers`)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Returns all customers. Response: <code>{"{ success, count, data: [...] }"}</code>
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-md p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground mb-1">Example request (curl):</p>
+                <pre className="overflow-x-auto whitespace-pre-wrap break-all">
+{`curl -H "Authorization: Bearer if_xxxxx..." \\
+  ${baseUrl}/api/external/products`}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Active Keys */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                Active API Keys {activeKeys.length > 0 && <Badge variant="outline">{activeKeys.length}</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingKeys ? (
+                <p className="text-muted-foreground text-sm">Loading...</p>
+              ) : activeKeys.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No active API keys. Generate one above.</p>
+              ) : (
+                <div className="space-y-2">
+                  {activeKeys.map((key) => (
+                    <div key={key.id} className="flex items-center justify-between border rounded-md px-4 py-3">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-sm">{key.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {key.keyPrefix}••••••••••••••••••••••••••••••••••••••
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Created {new Date(key.createdAt).toLocaleDateString()}
+                          </span>
+                          {key.lastUsedAt && (
+                            <span>Last used {new Date(key.lastUsedAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-green-600 border-green-300 text-xs">Active</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteKeyId(key.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Revoked Keys */}
+          {revokedKeys.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base text-muted-foreground">Revoked Keys</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {revokedKeys.map((key) => (
+                    <div key={key.id} className="flex items-center justify-between border rounded-md px-4 py-3 opacity-60">
+                      <div>
+                        <p className="font-medium text-sm">{key.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{key.keyPrefix}•••••••••••</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs text-muted-foreground">Revoked</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -465,11 +641,7 @@ export default function UserManagement() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Enter username"
-                        data-testid="input-edit-username"
-                      />
+                      <Input {...field} placeholder="Enter username" data-testid="input-edit-username" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -482,12 +654,7 @@ export default function UserManagement() {
                   <FormItem>
                     <FormLabel>Mobile Number</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="tel"
-                        placeholder="+919033316252"
-                        data-testid="input-edit-mobile"
-                      />
+                      <Input {...field} type="tel" placeholder="+919033316252" data-testid="input-edit-mobile" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -515,11 +682,7 @@ export default function UserManagement() {
                           onClick={() => setShowEditPassword(!showEditPassword)}
                           data-testid="button-toggle-edit-password"
                         >
-                          {showEditPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
+                          {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
                     </FormControl>
@@ -533,10 +696,7 @@ export default function UserManagement() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-edit-role">
                           <SelectValue placeholder="Select role" />
@@ -544,11 +704,7 @@ export default function UserManagement() {
                       </FormControl>
                       <SelectContent>
                         {roleOptions.map((role) => (
-                          <SelectItem
-                            key={role.value}
-                            value={role.value}
-                            data-testid={`select-edit-role-${role.value}`}
-                          >
+                          <SelectItem key={role.value} value={role.value} data-testid={`select-edit-role-${role.value}`}>
                             {role.label}
                           </SelectItem>
                         ))}
@@ -594,16 +750,70 @@ export default function UserManagement() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={updateUserMutation.isPending}
-                  data-testid="button-edit-submit"
-                >
+                <Button type="submit" disabled={updateUserMutation.isPending} data-testid="button-edit-submit">
                   {updateUserMutation.isPending ? "Updating..." : "Update User"}
                 </Button>
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Key Confirmation */}
+      <AlertDialog open={!!deleteKeyId} onOpenChange={(open) => !open && setDeleteKeyId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API Key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Any external application using this key will immediately lose access. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteKeyId && revokeKeyMutation.mutate(deleteKeyId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Revoke Key
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* New Key Secret Dialog */}
+      <Dialog open={!!newKeySecret} onOpenChange={(open) => !open && setNewKeySecret(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              API Key Created
+            </DialogTitle>
+            <DialogDescription>
+              Copy your API key now. It will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Key name: <span className="font-medium text-foreground">{newKeySecret?.name}</span>
+            </p>
+            <div className="flex items-center gap-2 bg-muted rounded-md px-3 py-2">
+              <code className="text-sm font-mono flex-1 break-all">{newKeySecret?.rawKey}</code>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                onClick={() => newKeySecret && copyToClipboard(newKeySecret.rawKey)}
+              >
+                {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded p-2">
+              Store this key securely. Once you close this dialog, you won't be able to see the full key again.
+            </p>
+            <Button className="w-full" onClick={() => setNewKeySecret(null)}>
+              Done
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
