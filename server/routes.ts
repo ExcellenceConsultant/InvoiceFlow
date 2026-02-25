@@ -4842,6 +4842,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── External API Endpoints (API key auth via Bearer token) ───────────────
 
+  app.use("/api/external", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    if (req.method === "OPTIONS") return res.sendStatus(200);
+    next();
+  });
+
   async function authenticateApiKey(req: any, res: any): Promise<{ userId: string; keyId: string } | null> {
     const authHeader = req.headers["authorization"];
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

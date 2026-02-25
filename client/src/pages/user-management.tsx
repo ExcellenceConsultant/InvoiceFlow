@@ -488,6 +488,36 @@ export default function UserManagement() {
             </CardContent>
           </Card>
 
+          {/* API Endpoint URLs */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                Available API Endpoints
+              </CardTitle>
+              <CardDescription>Use your API key as a Bearer token to access these endpoints from external systems.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {[
+                { label: "Products", path: "/api/external/products" },
+                { label: "Customers", path: "/api/external/customers" },
+              ].map(({ label, path }) => {
+                const url = `${window.location.origin}${path}`;
+                return (
+                  <div key={path} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                      <code className="text-xs font-mono break-all">{url}</code>
+                    </div>
+                    <Button variant="ghost" size="sm" className="shrink-0" onClick={() => copyToClipboard(url)}>
+                      {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
           {/* Active Keys */}
           <Card>
             <CardHeader>
@@ -727,6 +757,17 @@ export default function UserManagement() {
             <p className="text-xs text-muted-foreground bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded p-2">
               Store this key securely. Once you close this dialog, you won't be able to see the full key again.
             </p>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Use this key with these endpoints:</p>
+              {["/api/external/products", "/api/external/customers"].map((path) => (
+                <div key={path} className="flex items-center gap-2 bg-muted rounded px-2 py-1.5">
+                  <code className="text-xs font-mono flex-1 break-all">{window.location.origin}{path}</code>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => copyToClipboard(`${window.location.origin}${path}`)}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
             <Button className="w-full" onClick={() => setNewKeySecret(null)}>
               Done
             </Button>
