@@ -23,6 +23,7 @@ import QuickBooksSync from "@/pages/quickbooks-sync";
 import UserManagement from "@/pages/user-management";
 import Profitability from "@/pages/profitability";
 import ProfitInvoiceView from "@/pages/profit-invoice-view";
+import ApiKeys from "@/pages/api-keys";
 import Navbar from "@/components/layout/navbar";
 import NotFound from "@/pages/not-found";
 
@@ -112,6 +113,9 @@ function Router() {
         </Route>
         <Route path="/profitability/invoices/:id">
           {(params) => <ProtectedRoute component={ProfitInvoiceView} {...params} />}
+        </Route>
+        <Route path="/api-keys">
+          <ProtectedRoute component={ApiKeys} />
         </Route>
         <Route component={NotFound} />
       </Switch>

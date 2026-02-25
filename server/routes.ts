@@ -10,6 +10,7 @@ import {
 } from "@shared/schema";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createHash, randomBytes } from "crypto";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { z } from "zod";
@@ -4798,6 +4799,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // ─── API Key Management (authenticated) ───────────────────────────────────
+
+  app.get("/api/api-keys", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const keys = await storage.getApiKeys(user.userId);
+      res.json(keys.map(k => ({ ...k, keyHash: undefined })));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch API keys" });
+    }
+  });
+
+  app.post("/api/api-keys", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { name } = req.body;
+      if (!name || typeof name !== "string" || name.trim() === "") {
+        return res.status(400).json({ message: "API key name is required" });
+      }
+      const rawKey = `if_${randomBytes(24).toString("hex")}`;
+      const keyHash = createHash("sha256").update(rawKey).digest("hex");
+      const keyPrefix = rawKey.substring(0, 10);
+      const key = await storage.createApiKey(user.userId, name.trim(), keyHash, keyPrefix);
+      res.json({ ...key, keyHash: undefined, rawKey });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create API key" });
+    }
+  });
+
+  app.delete("/api/api-keys/:id", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const success = await storage.revokeApiKey(req.params.id, user.userId);
+      if (!success) return res.status(404).json({ message: "API key not found" });
+      res.json({ message: "API key revoked" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to revoke API key" });
+    }
+  });
+
+  // ─── External API Endpoints (API key auth via Bearer token) ───────────────
+
+  async function authenticateApiKey(req: any, res: any): Promise<{ userId: string; keyId: string } | null> {
+    const authHeader = req.headers["authorization"];
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      res.status(401).json({ message: "Missing or invalid Authorization header. Use: Authorization: Bearer <api_key>" });
+      return null;
+    }
+    const rawKey = authHeader.substring(7);
+    const keyHash = createHash("sha256").update(rawKey).digest("hex");
+    const apiKey = await storage.getApiKeyByHash(keyHash);
+    if (!apiKey) {
+      res.status(401).json({ message: "Invalid or revoked API key" });
+      return null;
+    }
+    storage.updateApiKeyLastUsed(apiKey.id).catch(() => {});
+    return { userId: apiKey.userId, keyId: apiKey.id };
+  }
+
+  app.get("/api/external/products", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const products = await storage.getProducts(auth.userId);
+      res.json({ success: true, count: products.length, data: products });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.get("/api/external/customers", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const customers = await storage.getCustomers(auth.userId);
+      res.json({ success: true, count: customers.length, data: customers });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

@@ -234,6 +234,19 @@ export const priceRules = pgTable("price_rules", {
 });
 
 // Category Margins - customer category-wise margin settings
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull().unique(),
+  keyPrefix: text("key_prefix").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const categoryMargins = pgTable("category_margins", {
   id: varchar("id")
     .primaryKey()
@@ -344,6 +357,14 @@ export const insertCategoryMarginSchema = createInsertSchema(categoryMargins).om
   updatedAt: true,
 });
 
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  keyHash: true,
+  keyPrefix: true,
+  lastUsedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -369,3 +390,5 @@ export type PriceRule = typeof priceRules.$inferSelect;
 export type InsertPriceRule = z.infer<typeof insertPriceRuleSchema>;
 export type CategoryMargin = typeof categoryMargins.$inferSelect;
 export type InsertCategoryMargin = z.infer<typeof insertCategoryMarginSchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;

@@ -21,6 +21,7 @@ import {
   type InsertPriceRule,
   type CategoryMargin,
   type InsertCategoryMargin,
+  type ApiKey,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -143,6 +144,13 @@ export interface IStorage {
   getCategoryMargin(customerCategory: string, productId: string | null): Promise<CategoryMargin | undefined>;
   upsertCategoryMargin(customerCategory: string, productId: string | null, marginAmount: string, userId: string): Promise<CategoryMargin>;
   deleteCategoryMargin(id: string): Promise<boolean>;
+
+  // API Keys
+  getApiKeys(userId: string): Promise<ApiKey[]>;
+  getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined>;
+  createApiKey(userId: string, name: string, keyHash: string, keyPrefix: string): Promise<ApiKey>;
+  revokeApiKey(id: string, userId: string): Promise<boolean>;
+  updateApiKeyLastUsed(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -818,6 +826,35 @@ export class MemStorage implements IStorage {
 
   async deleteCategoryMargin(id: string): Promise<boolean> {
     return this.categoryMarginsMap.delete(id);
+  }
+
+  private apiKeysMap: Map<string, ApiKey> = new Map();
+
+  async getApiKeys(userId: string): Promise<ApiKey[]> {
+    return Array.from(this.apiKeysMap.values()).filter(k => k.userId === userId);
+  }
+
+  async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
+    return Array.from(this.apiKeysMap.values()).find(k => k.keyHash === keyHash && k.isActive);
+  }
+
+  async createApiKey(userId: string, name: string, keyHash: string, keyPrefix: string): Promise<ApiKey> {
+    const id = randomUUID();
+    const key: ApiKey = { id, userId, name, keyHash, keyPrefix, isActive: true, lastUsedAt: null, createdAt: new Date() };
+    this.apiKeysMap.set(id, key);
+    return key;
+  }
+
+  async revokeApiKey(id: string, userId: string): Promise<boolean> {
+    const key = this.apiKeysMap.get(id);
+    if (!key || key.userId !== userId) return false;
+    this.apiKeysMap.set(id, { ...key, isActive: false });
+    return true;
+  }
+
+  async updateApiKeyLastUsed(id: string): Promise<void> {
+    const key = this.apiKeysMap.get(id);
+    if (key) this.apiKeysMap.set(id, { ...key, lastUsedAt: new Date() });
   }
 }
 

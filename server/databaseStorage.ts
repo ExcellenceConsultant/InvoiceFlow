@@ -1,4 +1,5 @@
 import {
+  apiKeys,
   categoryMargins,
   creditMemoLineItems,
   creditMemos,
@@ -11,6 +12,7 @@ import {
   productVariants,
   systemSettings,
   users,
+  type ApiKey,
   type CategoryMargin,
   type CreditMemo,
   type CreditMemoLineItem,
@@ -809,5 +811,44 @@ export class DatabaseStorage implements IStorage {
       .delete(categoryMargins)
       .where(eq(categoryMargins.id, id));
     return (result.rowCount || 0) > 0;
+  }
+
+  async getApiKeys(userId: string): Promise<ApiKey[]> {
+    return db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.userId, userId))
+      .orderBy(asc(apiKeys.createdAt));
+  }
+
+  async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
+    const [key] = await db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, true)));
+    return key;
+  }
+
+  async createApiKey(userId: string, name: string, keyHash: string, keyPrefix: string): Promise<ApiKey> {
+    const [key] = await db
+      .insert(apiKeys)
+      .values({ userId, name, keyHash, keyPrefix, isActive: true })
+      .returning();
+    return key;
+  }
+
+  async revokeApiKey(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .update(apiKeys)
+      .set({ isActive: false })
+      .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async updateApiKeyLastUsed(id: string): Promise<void> {
+    await db
+      .update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeys.id, id));
   }
 }
