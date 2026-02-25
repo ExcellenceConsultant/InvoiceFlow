@@ -149,7 +149,7 @@ export interface IStorage {
   getApiKeys(userId: string): Promise<ApiKey[]>;
   getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined>;
   createApiKey(userId: string, name: string, keyHash: string, keyPrefix: string): Promise<ApiKey>;
-  revokeApiKey(id: string, userId: string): Promise<boolean>;
+  deleteApiKey(id: string, userId: string): Promise<boolean>;
   updateApiKeyLastUsed(id: string): Promise<void>;
 }
 
@@ -845,11 +845,10 @@ export class MemStorage implements IStorage {
     return key;
   }
 
-  async revokeApiKey(id: string, userId: string): Promise<boolean> {
+  async deleteApiKey(id: string, userId: string): Promise<boolean> {
     const key = this.apiKeysMap.get(id);
     if (!key || key.userId !== userId) return false;
-    this.apiKeysMap.set(id, { ...key, isActive: false });
-    return true;
+    return this.apiKeysMap.delete(id);
   }
 
   async updateApiKeyLastUsed(id: string): Promise<void> {

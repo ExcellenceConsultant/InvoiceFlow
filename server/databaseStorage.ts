@@ -837,10 +837,9 @@ export class DatabaseStorage implements IStorage {
     return key;
   }
 
-  async revokeApiKey(id: string, userId: string): Promise<boolean> {
+  async deleteApiKey(id: string, userId: string): Promise<boolean> {
     const result = await db
-      .update(apiKeys)
-      .set({ isActive: false })
+      .delete(apiKeys)
       .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)));
     return (result.rowCount || 0) > 0;
   }

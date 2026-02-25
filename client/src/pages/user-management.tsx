@@ -230,15 +230,15 @@ export default function UserManagement() {
     },
   });
 
-  const revokeKeyMutation = useMutation({
+  const deleteKeyMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/api-keys/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
-      toast({ title: "API key revoked", description: "The key has been deactivated." });
+      toast({ title: "API key deleted", description: "The key has been permanently deleted." });
       setDeleteKeyId(null);
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to revoke API key", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to delete API key", variant: "destructive" });
     },
   });
 
@@ -269,8 +269,7 @@ export default function UserManagement() {
     });
   };
 
-  const activeKeys = (apiKeys as ApiKey[]).filter((k) => k.isActive);
-  const revokedKeys = (apiKeys as ApiKey[]).filter((k) => !k.isActive);
+  const activeKeys = apiKeys as ApiKey[];
   const baseUrl = window.location.origin;
 
   return (
@@ -602,27 +601,6 @@ export default function UserManagement() {
             </CardContent>
           </Card>
 
-          {/* Revoked Keys */}
-          {revokedKeys.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base text-muted-foreground">Revoked Keys</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {revokedKeys.map((key) => (
-                    <div key={key.id} className="flex items-center justify-between border rounded-md px-4 py-3 opacity-60">
-                      <div>
-                        <p className="font-medium text-sm">{key.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{key.keyPrefix}•••••••••••</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs text-muted-foreground">Revoked</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
 
@@ -759,22 +737,22 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Revoke Key Confirmation */}
+      {/* Delete Key Confirmation */}
       <AlertDialog open={!!deleteKeyId} onOpenChange={(open) => !open && setDeleteKeyId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke API Key?</AlertDialogTitle>
+            <AlertDialogTitle>Delete API Key?</AlertDialogTitle>
             <AlertDialogDescription>
-              Any external application using this key will immediately lose access. This cannot be undone.
+              This key will be permanently deleted. Any external application using it will immediately lose access. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteKeyId && revokeKeyMutation.mutate(deleteKeyId)}
+              onClick={() => deleteKeyId && deleteKeyMutation.mutate(deleteKeyId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Revoke Key
+              Delete Key
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

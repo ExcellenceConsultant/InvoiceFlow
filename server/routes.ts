@@ -4832,11 +4832,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/api-keys/:id", isAuthenticated, async (req, res) => {
     try {
       const user = (req as any).user;
-      const success = await storage.revokeApiKey(req.params.id, user.userId);
+      const success = await storage.deleteApiKey(req.params.id, user.userId);
       if (!success) return res.status(404).json({ message: "API key not found" });
-      res.json({ message: "API key revoked" });
+      res.json({ message: "API key deleted" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to revoke API key" });
+      res.status(500).json({ message: "Failed to delete API key" });
     }
   });
 
