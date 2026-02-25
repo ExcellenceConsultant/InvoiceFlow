@@ -270,7 +270,6 @@ export default function UserManagement() {
   };
 
   const activeKeys = apiKeys as ApiKey[];
-  const baseUrl = window.location.origin;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -485,68 +484,6 @@ export default function UserManagement() {
                 <Button onClick={handleGenerateKey} disabled={createKeyMutation.isPending}>
                   {createKeyMutation.isPending ? "Generating..." : "Generate Key"}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* External API Documentation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">External API Endpoints</CardTitle>
-              <CardDescription>
-                Share these endpoint details with the other developer. All requests require an API key in the Authorization header.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted rounded-md p-3 text-sm font-mono space-y-1">
-                <p className="text-muted-foreground text-xs mb-2 font-sans font-medium">Authorization header (required on all requests):</p>
-                <p>Authorization: Bearer {"<your_api_key>"}</p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="border rounded-md p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="secondary" className="text-xs">GET</Badge>
-                    <code className="text-sm font-mono">{baseUrl}/api/external/products</code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 ml-auto"
-                      onClick={() => copyToClipboard(`${baseUrl}/api/external/products`)}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Returns all inventory products. Response: <code>{"{ success, count, data: [...] }"}</code>
-                  </p>
-                </div>
-
-                <div className="border rounded-md p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="secondary" className="text-xs">GET</Badge>
-                    <code className="text-sm font-mono">{baseUrl}/api/external/customers</code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 ml-auto"
-                      onClick={() => copyToClipboard(`${baseUrl}/api/external/customers`)}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Returns all customers. Response: <code>{"{ success, count, data: [...] }"}</code>
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-muted/50 rounded-md p-3 text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Example request (curl):</p>
-                <pre className="overflow-x-auto whitespace-pre-wrap break-all">
-{`curl -H "Authorization: Bearer if_xxxxx..." \\
-  ${baseUrl}/api/external/products`}
-                </pre>
               </div>
             </CardContent>
           </Card>
