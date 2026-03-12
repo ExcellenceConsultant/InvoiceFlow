@@ -138,6 +138,7 @@ export default function SalesOrders() {
   const [formFreight, setFormFreight] = useState("0");
   const [formDiscount, setFormDiscount] = useState("0");
   const [formLineItems, setFormLineItems] = useState<LineItem[]>([emptyLineItem()]);
+  const [lineItemCategoryFilter, setLineItemCategoryFilter] = useState("__all__");
 
   const { data: orders = [], isLoading, refetch } = useQuery<SalesOrder[]>({
     queryKey: ["/api/sales-orders"],
@@ -208,6 +209,7 @@ export default function SalesOrders() {
     setFormFreight("0");
     setFormDiscount("0");
     setFormLineItems([emptyLineItem()]);
+    setLineItemCategoryFilter("__all__");
   }
 
   function openCreate() {
@@ -635,97 +637,129 @@ export default function SalesOrders() {
 
             {/* Line Items */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-semibold">Line Items</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFormLineItems((prev) => [...prev, emptyLineItem()])}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add Row
-                </Button>
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold">Invoice Items</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Filter by Category:</span>
+                  <Select
+                    value={lineItemCategoryFilter}
+                    onValueChange={setLineItemCategoryFilter}
+                  >
+                    <SelectTrigger className="h-8 w-32 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All</SelectItem>
+                      {Array.from(new Set(products.map((p) => p.category).filter(Boolean))).map((cat) => (
+                        <SelectItem key={cat!} value={cat!}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                {formLineItems.map((item, idx) => (
-                  <div key={idx} className="border rounded-md p-3 space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-2 space-y-1">
-                        <Label className="text-xs">Product</Label>
-                        <Select
-                          value={item.productId || "__none__"}
-                          onValueChange={(v) => {
-                            if (v && v !== "__none__") selectProduct(idx, v);
-                            else updateLineItem(idx, "productId", null);
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Select product..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— Manual entry —</SelectItem>
-                            {products.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} {p.itemCode ? `(${p.itemCode})` : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+
+              {/* Column headers */}
+              <div className="grid grid-cols-[2fr_2fr_80px_100px_100px_36px] gap-2 mb-1 px-1">
+                <span className="text-xs text-muted-foreground font-medium">Product</span>
+                <span className="text-xs text-muted-foreground font-medium">Description</span>
+                <span className="text-xs text-muted-foreground font-medium">Qty</span>
+                <span className="text-xs text-muted-foreground font-medium">Rate</span>
+                <span className="text-xs text-muted-foreground font-medium">Amount</span>
+                <span />
+              </div>
+
+              {/* Rows */}
+              <div className="space-y-1.5">
+                {formLineItems.map((item, idx) => {
+                  const filteredProducts = lineItemCategoryFilter === "__all__"
+                    ? products
+                    : products.filter((p) => p.category === lineItemCategoryFilter);
+                  return (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-[2fr_2fr_80px_100px_100px_36px] gap-2 items-center"
+                    >
+                      {/* Product */}
+                      <Select
+                        value={item.productId || "__none__"}
+                        onValueChange={(v) => {
+                          if (v && v !== "__none__") selectProduct(idx, v);
+                          else updateLineItem(idx, "productId", null);
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Select Product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Select Product</SelectItem>
+                          {filteredProducts.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} {p.itemCode ? `(${p.itemCode})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Description */}
+                      <Input
+                        className="h-9 text-xs"
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => updateLineItem(idx, "description", e.target.value)}
+                      />
+
+                      {/* Qty */}
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-9 text-xs text-center"
+                        value={item.quantity}
+                        onChange={(e) => updateLineItem(idx, "quantity", parseInt(e.target.value) || 1)}
+                      />
+
+                      {/* Rate */}
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        className="h-9 text-xs"
+                        value={item.unitPrice}
+                        onChange={(e) => updateLineItem(idx, "unitPrice", e.target.value)}
+                      />
+
+                      {/* Amount */}
+                      <div className="h-9 flex items-center justify-center px-2 bg-muted rounded-md text-xs font-medium border border-border">
+                        ${parseFloat(item.lineTotal || "0").toFixed(2)}
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Qty</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          className="h-8 text-xs"
-                          value={item.quantity}
-                          onChange={(e) => updateLineItem(idx, "quantity", parseInt(e.target.value) || 1)}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-1 space-y-1">
-                        <Label className="text-xs">Description</Label>
-                        <Input
-                          className="h-8 text-xs"
-                          placeholder="Item description"
-                          value={item.description}
-                          onChange={(e) => updateLineItem(idx, "description", e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Unit Price</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-8 text-xs"
-                          value={item.unitPrice}
-                          onChange={(e) => updateLineItem(idx, "unitPrice", e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Line Total</Label>
-                        <div className="h-8 flex items-center px-2 bg-muted rounded text-xs font-medium">
-                          ${parseFloat(item.lineTotal || "0").toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                    {formLineItems.length > 1 && (
+
+                      {/* Delete */}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-xs text-destructive px-1"
+                        className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() =>
                           setFormLineItems((prev) => prev.filter((_, i) => i !== idx))
                         }
+                        disabled={formLineItems.length === 1}
                       >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Remove
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Add Item button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => setFormLineItems((prev) => [...prev, emptyLineItem()])}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Item
+              </Button>
             </div>
 
             <Separator />
