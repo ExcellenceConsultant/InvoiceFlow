@@ -566,12 +566,15 @@ export default function SalesOrders() {
               {/* Customer */}
               <div className="space-y-1.5">
                 <Label>Customer</Label>
-                <Select value={formCustomerId} onValueChange={setFormCustomerId}>
+                <Select
+                  value={formCustomerId || "__none__"}
+                  onValueChange={(v) => setFormCustomerId(v === "__none__" ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select customer..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">— No customer —</SelectItem>
+                    <SelectItem value="__none__">— No customer —</SelectItem>
                     {customers
                       .filter((c) => c.type === "customer" && c.isActive)
                       .map((c) => (
@@ -650,9 +653,9 @@ export default function SalesOrders() {
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Product</Label>
                         <Select
-                          value={item.productId || ""}
+                          value={item.productId || "__none__"}
                           onValueChange={(v) => {
-                            if (v) selectProduct(idx, v);
+                            if (v && v !== "__none__") selectProduct(idx, v);
                             else updateLineItem(idx, "productId", null);
                           }}
                         >
@@ -660,7 +663,7 @@ export default function SalesOrders() {
                             <SelectValue placeholder="Select product..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">— Manual entry —</SelectItem>
+                            <SelectItem value="__none__">— Manual entry —</SelectItem>
                             {products.map((p) => (
                               <SelectItem key={p.id} value={p.id}>
                                 {p.name} {p.itemCode ? `(${p.itemCode})` : ""}
