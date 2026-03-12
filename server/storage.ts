@@ -22,6 +22,9 @@ import {
   type CategoryMargin,
   type InsertCategoryMargin,
   type ApiKey,
+  type SalesOrder,
+  type SalesOrderLineItem,
+  type InsertSalesOrderLineItem,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -151,6 +154,18 @@ export interface IStorage {
   createApiKey(userId: string, name: string, keyHash: string, keyPrefix: string): Promise<ApiKey>;
   deleteApiKey(id: string, userId: string): Promise<boolean>;
   updateApiKeyLastUsed(id: string): Promise<void>;
+
+  // Sales Orders
+  getSalesOrders(userId: string): Promise<SalesOrder[]>;
+  getSalesOrder(id: string): Promise<SalesOrder | undefined>;
+  getSalesOrderByExternalId(externalId: string, userId: string): Promise<SalesOrder | undefined>;
+  getSalesOrderLineItems(salesOrderId: string): Promise<SalesOrderLineItem[]>;
+  createSalesOrder(order: Omit<SalesOrder, "id" | "createdAt" | "updatedAt">): Promise<SalesOrder>;
+  createSalesOrderLineItem(item: InsertSalesOrderLineItem): Promise<SalesOrderLineItem>;
+  updateSalesOrder(id: string, updates: Partial<SalesOrder>): Promise<SalesOrder | undefined>;
+  deleteSalesOrder(id: string): Promise<boolean>;
+  deleteSalesOrderLineItems(salesOrderId: string): Promise<void>;
+  getNextSalesOrderNumber(userId: string): Promise<string>;
 }
 
 export class MemStorage implements IStorage {
@@ -854,6 +869,64 @@ export class MemStorage implements IStorage {
   async updateApiKeyLastUsed(id: string): Promise<void> {
     const key = this.apiKeysMap.get(id);
     if (key) this.apiKeysMap.set(id, { ...key, lastUsedAt: new Date() });
+  }
+
+  // Sales Orders (MemStorage stubs — not used in production)
+  private salesOrdersMap: Map<string, SalesOrder> = new Map();
+  private salesOrderLineItemsMap: Map<string, SalesOrderLineItem> = new Map();
+
+  async getSalesOrders(userId: string): Promise<SalesOrder[]> {
+    return Array.from(this.salesOrdersMap.values()).filter(o => o.userId === userId);
+  }
+
+  async getSalesOrder(id: string): Promise<SalesOrder | undefined> {
+    return this.salesOrdersMap.get(id);
+  }
+
+  async getSalesOrderByExternalId(externalId: string, userId: string): Promise<SalesOrder | undefined> {
+    return Array.from(this.salesOrdersMap.values()).find(o => o.externalId === externalId && o.userId === userId);
+  }
+
+  async getSalesOrderLineItems(salesOrderId: string): Promise<SalesOrderLineItem[]> {
+    return Array.from(this.salesOrderLineItemsMap.values()).filter(i => i.salesOrderId === salesOrderId);
+  }
+
+  async createSalesOrder(order: Omit<SalesOrder, "id" | "createdAt" | "updatedAt">): Promise<SalesOrder> {
+    const id = randomUUID();
+    const so: SalesOrder = { ...order, id, createdAt: new Date(), updatedAt: new Date() };
+    this.salesOrdersMap.set(id, so);
+    return so;
+  }
+
+  async createSalesOrderLineItem(item: InsertSalesOrderLineItem): Promise<SalesOrderLineItem> {
+    const id = randomUUID();
+    const li: SalesOrderLineItem = { ...item, id, createdAt: new Date() } as SalesOrderLineItem;
+    this.salesOrderLineItemsMap.set(id, li);
+    return li;
+  }
+
+  async updateSalesOrder(id: string, updates: Partial<SalesOrder>): Promise<SalesOrder | undefined> {
+    const so = this.salesOrdersMap.get(id);
+    if (!so) return undefined;
+    const updated = { ...so, ...updates, updatedAt: new Date() };
+    this.salesOrdersMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteSalesOrder(id: string): Promise<boolean> {
+    return this.salesOrdersMap.delete(id);
+  }
+
+  async deleteSalesOrderLineItems(salesOrderId: string): Promise<void> {
+    for (const [key, item] of this.salesOrderLineItemsMap.entries()) {
+      if (item.salesOrderId === salesOrderId) this.salesOrderLineItemsMap.delete(key);
+    }
+  }
+
+  async getNextSalesOrderNumber(userId: string): Promise<string> {
+    const orders = await this.getSalesOrders(userId);
+    const num = orders.length + 1;
+    return `SO-${String(num).padStart(4, "0")}`;
   }
 }
 

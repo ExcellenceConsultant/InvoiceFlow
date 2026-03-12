@@ -7,6 +7,7 @@ import {
   insertProductSchema,
   insertProductSchemeSchema,
   insertProductVariantSchema,
+  insertSalesOrderSchema,
 } from "@shared/schema";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
@@ -4840,11 +4841,239 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Sales Orders ─────────────────────────────────────────────────────────
+
+  app.get("/api/sales-orders", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const orders = await storage.getSalesOrders(user.userId);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sales orders" });
+    }
+  });
+
+  app.get("/api/sales-orders/:id", isAuthenticated, async (req, res) => {
+    try {
+      const order = await storage.getSalesOrder(req.params.id);
+      if (!order) return res.status(404).json({ message: "Sales order not found" });
+      const lineItems = await storage.getSalesOrderLineItems(order.id);
+      res.json({ ...order, lineItems });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sales order" });
+    }
+  });
+
+  app.post("/api/sales-orders", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { order, lineItems } = req.body;
+      if (!order || !lineItems) return res.status(400).json({ message: "Order and line items are required" });
+
+      const orderNumber = order.orderNumber || await storage.getNextSalesOrderNumber(user.userId);
+
+      const createdOrder = await storage.createSalesOrder({
+        orderNumber,
+        customerId: order.customerId || null,
+        customerName: order.customerName || null,
+        status: order.status || "pending",
+        source: "manual",
+        externalId: order.externalId || null,
+        notes: order.notes || null,
+        purchaseOrder: order.purchaseOrder || null,
+        subtotal: order.subtotal || "0",
+        freight: order.freight || "0",
+        discount: order.discount || "0",
+        total: order.total || "0",
+        convertedInvoiceId: null,
+        userId: user.userId,
+      });
+
+      const createdLineItems = [];
+      for (const item of lineItems) {
+        const li = await storage.createSalesOrderLineItem({
+          salesOrderId: createdOrder.id,
+          productId: item.productId || null,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+          productCode: item.productCode || null,
+          cartoonBarcode: item.cartoonBarcode || null,
+          packingSize: item.packingSize || null,
+          category: item.category || null,
+        });
+        createdLineItems.push(li);
+      }
+
+      res.status(201).json({ ...createdOrder, lineItems: createdLineItems });
+    } catch (error) {
+      console.error("Failed to create sales order:", error);
+      res.status(500).json({ message: "Failed to create sales order" });
+    }
+  });
+
+  app.put("/api/sales-orders/:id", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const existing = await storage.getSalesOrder(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Sales order not found" });
+      if (existing.userId !== user.userId) return res.status(403).json({ message: "Forbidden" });
+      if (existing.status === "converted") return res.status(400).json({ message: "Cannot edit a converted sales order" });
+
+      const { order, lineItems } = req.body;
+
+      const updated = await storage.updateSalesOrder(req.params.id, {
+        customerId: order.customerId || null,
+        customerName: order.customerName || null,
+        status: order.status || existing.status,
+        notes: order.notes || null,
+        purchaseOrder: order.purchaseOrder || null,
+        subtotal: order.subtotal || "0",
+        freight: order.freight || "0",
+        discount: order.discount || "0",
+        total: order.total || "0",
+      });
+
+      if (lineItems) {
+        await storage.deleteSalesOrderLineItems(req.params.id);
+        for (const item of lineItems) {
+          await storage.createSalesOrderLineItem({
+            salesOrderId: req.params.id,
+            productId: item.productId || null,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+            productCode: item.productCode || null,
+            cartoonBarcode: item.cartoonBarcode || null,
+            packingSize: item.packingSize || null,
+            category: item.category || null,
+          });
+        }
+      }
+
+      const updatedLineItems = await storage.getSalesOrderLineItems(req.params.id);
+      res.json({ ...updated, lineItems: updatedLineItems });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update sales order" });
+    }
+  });
+
+  app.delete("/api/sales-orders/:id", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!["super_admin", "admin"].includes(user.role)) {
+        return res.status(403).json({ message: "Only admin users can delete sales orders" });
+      }
+      const existing = await storage.getSalesOrder(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Sales order not found" });
+      if (existing.userId !== user.userId) return res.status(403).json({ message: "Forbidden" });
+
+      await storage.deleteSalesOrderLineItems(req.params.id);
+      await storage.deleteSalesOrder(req.params.id);
+      res.json({ message: "Sales order deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete sales order" });
+    }
+  });
+
+  app.post("/api/sales-orders/:id/convert", isAuthenticated, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const order = await storage.getSalesOrder(req.params.id);
+      if (!order) return res.status(404).json({ message: "Sales order not found" });
+      if (order.userId !== user.userId) return res.status(403).json({ message: "Forbidden" });
+      if (order.status === "converted") return res.status(400).json({ message: "Sales order is already converted" });
+      if (order.status === "cancelled") return res.status(400).json({ message: "Cannot convert a cancelled sales order" });
+
+      const lineItems = await storage.getSalesOrderLineItems(order.id);
+
+      // Determine next invoice number
+      const allInvoices = await storage.getInvoices(user.userId);
+      const arInvoices = allInvoices.filter((inv: any) => inv.invoiceType === "receivable");
+      let nextNum = 1;
+      if (arInvoices.length > 0) {
+        const nums = arInvoices
+          .map((inv: any) => parseInt(inv.invoiceNumber))
+          .filter((n: number) => !isNaN(n));
+        if (nums.length > 0) nextNum = Math.max(...nums) + 1;
+      }
+
+      const invoiceDate = new Date();
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const invoice = await storage.createInvoice({
+        invoiceNumber: String(nextNum),
+        customerId: order.customerId || null,
+        purchaseOrder: order.purchaseOrder || null,
+        subtotal: order.subtotal,
+        freight: order.freight,
+        discount: order.discount,
+        total: order.total,
+        status: "draft",
+        invoiceType: "receivable",
+        invoiceDate,
+        dueDate,
+        paymentTerms: 30,
+        notes: order.notes || `Converted from Sales Order ${order.orderNumber}`,
+        bankDetails: null,
+        quickbooksInvoiceId: null,
+        userId: user.userId,
+      });
+
+      for (const item of lineItems) {
+        await storage.createInvoiceLineItem({
+          invoiceId: invoice.id,
+          productId: item.productId || null,
+          variantId: null,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+          productCode: item.productCode || null,
+          cartoonBarcode: item.cartoonBarcode || null,
+          packingSize: item.packingSize || null,
+          grossWeightKgs: null,
+          netWeightKgs: null,
+          category: item.category || null,
+          isFreeFromScheme: false,
+          isSchemeDescription: false,
+          schemeId: null,
+          marginPerCarton: null,
+          marginUpdatedBy: null,
+          marginUpdatedAt: null,
+        });
+      }
+
+      // Update stock for AR invoice
+      for (const item of lineItems) {
+        if (item.productId) {
+          const product = await storage.getProduct(item.productId);
+          if (product) {
+            await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
+          }
+        }
+      }
+
+      await storage.updateSalesOrder(order.id, {
+        status: "converted",
+        convertedInvoiceId: invoice.id,
+      });
+
+      res.json({ message: "Converted successfully", invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber });
+    } catch (error) {
+      console.error("Failed to convert sales order:", error);
+      res.status(500).json({ message: "Failed to convert sales order to invoice" });
+    }
+  });
+
   // ─── External API Endpoints (API key auth via Bearer token) ───────────────
 
   app.use("/api/external", (req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
     if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
@@ -4886,6 +5115,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, count: customers.length, data: customers });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  // External: Get all sales orders
+  app.get("/api/external/sales-orders", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const orders = await storage.getSalesOrders(auth.userId);
+      const withItems = await Promise.all(
+        orders.map(async (o) => ({
+          ...o,
+          lineItems: await storage.getSalesOrderLineItems(o.id),
+        }))
+      );
+      res.json({ success: true, count: withItems.length, data: withItems });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sales orders" });
+    }
+  });
+
+  // External: Create or upsert a sales order from a third-party app
+  app.post("/api/external/sales-orders", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+
+      const { order, lineItems = [] } = req.body;
+      if (!order) return res.status(400).json({ message: "order object is required" });
+
+      // Upsert by externalId if provided
+      if (order.externalId) {
+        const existing = await storage.getSalesOrderByExternalId(order.externalId, auth.userId);
+        if (existing && existing.status !== "converted") {
+          // Update existing
+          const updated = await storage.updateSalesOrder(existing.id, {
+            customerName: order.customerName || existing.customerName,
+            notes: order.notes || existing.notes,
+            purchaseOrder: order.purchaseOrder || existing.purchaseOrder,
+            subtotal: order.subtotal || existing.subtotal,
+            freight: order.freight || existing.freight,
+            discount: order.discount || existing.discount,
+            total: order.total || existing.total,
+            status: order.status || existing.status,
+          });
+          if (lineItems.length > 0) {
+            await storage.deleteSalesOrderLineItems(existing.id);
+            for (const item of lineItems) {
+              await storage.createSalesOrderLineItem({
+                salesOrderId: existing.id,
+                productId: item.productId || null,
+                description: item.description || item.name || "Item",
+                quantity: item.quantity || 1,
+                unitPrice: item.unitPrice || item.price || "0",
+                lineTotal: item.lineTotal || String((item.quantity || 1) * parseFloat(item.unitPrice || item.price || "0")),
+                productCode: item.productCode || item.sku || null,
+                cartoonBarcode: item.cartoonBarcode || null,
+                packingSize: item.packingSize || null,
+                category: item.category || null,
+              });
+            }
+          }
+          const updatedItems = await storage.getSalesOrderLineItems(existing.id);
+          return res.json({ success: true, action: "updated", data: { ...updated, lineItems: updatedItems } });
+        }
+      }
+
+      // Try to match customer by name
+      let customerId: string | null = null;
+      if (order.customerName) {
+        const allCustomers = await storage.getCustomers(auth.userId);
+        const matched = allCustomers.find(
+          (c) => c.name.toLowerCase() === order.customerName.toLowerCase()
+        );
+        if (matched) customerId = matched.id;
+      }
+
+      const orderNumber = order.orderNumber || await storage.getNextSalesOrderNumber(auth.userId);
+      const createdOrder = await storage.createSalesOrder({
+        orderNumber,
+        customerId,
+        customerName: order.customerName || null,
+        status: order.status || "pending",
+        source: "api",
+        externalId: order.externalId || null,
+        notes: order.notes || null,
+        purchaseOrder: order.purchaseOrder || null,
+        subtotal: order.subtotal || "0",
+        freight: order.freight || "0",
+        discount: order.discount || "0",
+        total: order.total || "0",
+        convertedInvoiceId: null,
+        userId: auth.userId,
+      });
+
+      const createdItems = [];
+      for (const item of lineItems) {
+        const li = await storage.createSalesOrderLineItem({
+          salesOrderId: createdOrder.id,
+          productId: item.productId || null,
+          description: item.description || item.name || "Item",
+          quantity: item.quantity || 1,
+          unitPrice: item.unitPrice || item.price || "0",
+          lineTotal: item.lineTotal || String((item.quantity || 1) * parseFloat(item.unitPrice || item.price || "0")),
+          productCode: item.productCode || item.sku || null,
+          cartoonBarcode: item.cartoonBarcode || null,
+          packingSize: item.packingSize || null,
+          category: item.category || null,
+        });
+        createdItems.push(li);
+      }
+
+      res.status(201).json({ success: true, action: "created", data: { ...createdOrder, lineItems: createdItems } });
+    } catch (error) {
+      console.error("External SO create error:", error);
+      res.status(500).json({ message: "Failed to create sales order" });
+    }
+  });
+
+  // External: Update a sales order by externalId
+  app.put("/api/external/sales-orders/:externalId", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+
+      const existing = await storage.getSalesOrderByExternalId(req.params.externalId, auth.userId);
+      if (!existing) return res.status(404).json({ message: "Sales order not found for this externalId" });
+      if (existing.status === "converted") return res.status(400).json({ message: "Cannot update a converted sales order" });
+
+      const { order, lineItems } = req.body;
+      const updated = await storage.updateSalesOrder(existing.id, {
+        customerName: order?.customerName ?? existing.customerName,
+        notes: order?.notes ?? existing.notes,
+        purchaseOrder: order?.purchaseOrder ?? existing.purchaseOrder,
+        subtotal: order?.subtotal ?? existing.subtotal,
+        freight: order?.freight ?? existing.freight,
+        discount: order?.discount ?? existing.discount,
+        total: order?.total ?? existing.total,
+        status: order?.status ?? existing.status,
+      });
+
+      if (lineItems?.length > 0) {
+        await storage.deleteSalesOrderLineItems(existing.id);
+        for (const item of lineItems) {
+          await storage.createSalesOrderLineItem({
+            salesOrderId: existing.id,
+            productId: item.productId || null,
+            description: item.description || item.name || "Item",
+            quantity: item.quantity || 1,
+            unitPrice: item.unitPrice || item.price || "0",
+            lineTotal: item.lineTotal || String((item.quantity || 1) * parseFloat(item.unitPrice || item.price || "0")),
+            productCode: item.productCode || item.sku || null,
+            cartoonBarcode: item.cartoonBarcode || null,
+            packingSize: item.packingSize || null,
+            category: item.category || null,
+          });
+        }
+      }
+
+      const updatedItems = await storage.getSalesOrderLineItems(existing.id);
+      res.json({ success: true, data: { ...updated, lineItems: updatedItems } });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update sales order" });
     }
   });
 

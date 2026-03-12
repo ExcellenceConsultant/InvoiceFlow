@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import kitchenXpressLogo from "@assets/logo png _1762639803507.png";
-import { Bell, LogOut, TrendingUp } from "lucide-react";
+import { Bell, LogOut, ShoppingCart, TrendingUp } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export default function Navbar() {
@@ -50,6 +50,16 @@ export default function Navbar() {
                   data-testid="link-invoices"
                 >
                   Invoices
+                </Button>
+              </Link>
+              <Link href="/sales-orders">
+                <Button
+                  variant={location === "/sales-orders" ? "default" : "ghost"}
+                  size="sm"
+                  data-testid="link-sales-orders"
+                >
+                  <ShoppingCart className="h-4 w-4 mr-1" />
+                  Sales Orders
                 </Button>
               </Link>
               <Link href="/credit-memos">

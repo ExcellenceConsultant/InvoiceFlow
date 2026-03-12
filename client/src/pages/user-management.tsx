@@ -499,12 +499,14 @@ export default function UserManagement() {
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { label: "Products", path: "/api/external/products" },
-                { label: "Customers", path: "/api/external/customers" },
-              ].map(({ label, path }) => {
+                { label: "Products", path: "/api/external/products", key: "products" },
+                { label: "Customers", path: "/api/external/customers", key: "customers" },
+                { label: "Sales Orders (GET — list)", path: "/api/external/sales-orders", key: "so-get" },
+                { label: "Sales Orders (POST — create/sync)", path: "/api/external/sales-orders", key: "so-post" },
+              ].map(({ label, path, key }) => {
                 const url = `${window.location.origin}${path}`;
                 return (
-                  <div key={path} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
+                  <div key={key} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
                       <code className="text-xs font-mono break-all">{url}</code>

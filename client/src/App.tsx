@@ -21,6 +21,7 @@ import QuickBooksAuth from "@/pages/quickbooks-auth";
 import QuickBooksCallback from "@/pages/quickbooks-callback";
 import QuickBooksSync from "@/pages/quickbooks-sync";
 import UserManagement from "@/pages/user-management";
+import SalesOrders from "@/pages/sales-orders";
 import Profitability from "@/pages/profitability";
 import ProfitInvoiceView from "@/pages/profit-invoice-view";
 import ApiKeys from "@/pages/api-keys";
@@ -104,6 +105,9 @@ function Router() {
         </Route>
         <Route path="/quickbooks/sync">
           <ProtectedRoute component={QuickBooksSync} />
+        </Route>
+        <Route path="/sales-orders">
+          <ProtectedRoute component={SalesOrders} />
         </Route>
         <Route path="/users">
           <ProtectedRoute component={UserManagement} />

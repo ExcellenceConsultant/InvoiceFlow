@@ -10,6 +10,8 @@ import {
   products,
   productSchemes,
   productVariants,
+  salesOrderLineItems,
+  salesOrders,
   systemSettings,
   users,
   type ApiKey,
@@ -26,6 +28,7 @@ import {
   type InsertProduct,
   type InsertProductScheme,
   type InsertProductVariant,
+  type InsertSalesOrderLineItem,
   type InsertUser,
   type Invoice,
   type InvoiceLineItem,
@@ -33,9 +36,11 @@ import {
   type Product,
   type ProductScheme,
   type ProductVariant,
+  type SalesOrder,
+  type SalesOrderLineItem,
   type User,
 } from "@shared/schema";
-import { and, asc, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import { IStorage } from "./storage";
 
@@ -849,5 +854,72 @@ export class DatabaseStorage implements IStorage {
       .update(apiKeys)
       .set({ lastUsedAt: new Date() })
       .where(eq(apiKeys.id, id));
+  }
+
+  // Sales Orders
+  async getSalesOrders(userId: string): Promise<SalesOrder[]> {
+    return db
+      .select()
+      .from(salesOrders)
+      .where(eq(salesOrders.userId, userId))
+      .orderBy(desc(salesOrders.createdAt));
+  }
+
+  async getSalesOrder(id: string): Promise<SalesOrder | undefined> {
+    const [order] = await db.select().from(salesOrders).where(eq(salesOrders.id, id));
+    return order;
+  }
+
+  async getSalesOrderByExternalId(externalId: string, userId: string): Promise<SalesOrder | undefined> {
+    const [order] = await db
+      .select()
+      .from(salesOrders)
+      .where(and(eq(salesOrders.externalId, externalId), eq(salesOrders.userId, userId)));
+    return order;
+  }
+
+  async getSalesOrderLineItems(salesOrderId: string): Promise<SalesOrderLineItem[]> {
+    return db
+      .select()
+      .from(salesOrderLineItems)
+      .where(eq(salesOrderLineItems.salesOrderId, salesOrderId))
+      .orderBy(asc(salesOrderLineItems.createdAt));
+  }
+
+  async createSalesOrder(order: Omit<SalesOrder, "id" | "createdAt" | "updatedAt">): Promise<SalesOrder> {
+    const [created] = await db.insert(salesOrders).values(order).returning();
+    return created;
+  }
+
+  async createSalesOrderLineItem(item: InsertSalesOrderLineItem): Promise<SalesOrderLineItem> {
+    const [created] = await db.insert(salesOrderLineItems).values(item).returning();
+    return created;
+  }
+
+  async updateSalesOrder(id: string, updates: Partial<SalesOrder>): Promise<SalesOrder | undefined> {
+    const [updated] = await db
+      .update(salesOrders)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(salesOrders.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSalesOrder(id: string): Promise<boolean> {
+    const result = await db.delete(salesOrders).where(eq(salesOrders.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deleteSalesOrderLineItems(salesOrderId: string): Promise<void> {
+    await db.delete(salesOrderLineItems).where(eq(salesOrderLineItems.salesOrderId, salesOrderId));
+  }
+
+  async getNextSalesOrderNumber(userId: string): Promise<string> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(salesOrders)
+      .where(eq(salesOrders.userId, userId));
+    const num = (result[0]?.count ?? 0) + 1;
+    return `SO-${String(num).padStart(4, "0")}`;
   }
 }

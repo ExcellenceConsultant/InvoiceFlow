@@ -259,6 +259,46 @@ export const categoryMargins = pgTable("category_margins", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Sales Orders
+export const salesOrders = pgTable("sales_orders", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  orderNumber: text("order_number").notNull(),
+  customerId: varchar("customer_id").references(() => customers.id),
+  customerName: text("customer_name"), // stored for external/unmatched customers
+  status: text("status").notNull().default("pending"), // pending, confirmed, converted, cancelled
+  source: text("source").notNull().default("manual"), // manual, api
+  externalId: text("external_id"), // third-party system's ID for sync
+  notes: text("notes"),
+  purchaseOrder: text("purchase_order"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
+  freight: decimal("freight", { precision: 10, scale: 2 }).notNull().default("0"),
+  discount: decimal("discount", { precision: 10, scale: 2 }).notNull().default("0"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0"),
+  convertedInvoiceId: varchar("converted_invoice_id").references(() => invoices.id),
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const salesOrderLineItems = pgTable("sales_order_line_items", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  salesOrderId: varchar("sales_order_id").references(() => salesOrders.id),
+  productId: varchar("product_id").references(() => products.id),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  productCode: text("product_code"),
+  cartoonBarcode: text("cartoon_barcode"),
+  packingSize: text("packing_size"),
+  category: text("category"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -365,6 +405,19 @@ export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
   createdAt: true,
 });
 
+export const insertSalesOrderSchema = createInsertSchema(salesOrders).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+  convertedInvoiceId: true,
+});
+
+export const insertSalesOrderLineItemSchema = createInsertSchema(salesOrderLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -392,3 +445,7 @@ export type CategoryMargin = typeof categoryMargins.$inferSelect;
 export type InsertCategoryMargin = z.infer<typeof insertCategoryMarginSchema>;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type SalesOrder = typeof salesOrders.$inferSelect;
+export type InsertSalesOrder = z.infer<typeof insertSalesOrderSchema>;
+export type SalesOrderLineItem = typeof salesOrderLineItems.$inferSelect;
+export type InsertSalesOrderLineItem = z.infer<typeof insertSalesOrderLineItemSchema>;
