@@ -1555,110 +1555,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const lineItems = await storage.getInvoiceLineItems(req.params.id);
 
-      // Collect unique product IDs from deleted invoice
-      const uniqueProductIds = new Set<string>();
-      for (const item of lineItems) {
-        if (item.productId && item.productId.trim() !== "") {
-          uniqueProductIds.add(item.productId);
-        }
-      }
-
-      // Fetch all invoices once (for efficiency)
-      const allInvoices = await storage.getInvoices(userId);
-
-      // Separate and sort invoices by type
-      const otherApInvoices = allInvoices
-        .filter(
-          (inv) => inv.invoiceType === "payable" && inv.id !== req.params.id,
-        )
-        .sort(
-          (a, b) =>
-            new Date(b.invoiceDate).getTime() -
-            new Date(a.invoiceDate).getTime(),
-        );
-
-      const otherArInvoices = allInvoices
-        .filter(
-          (inv) => inv.invoiceType === "receivable" && inv.id !== req.params.id,
-        )
-        .sort(
-          (a, b) =>
-            new Date(b.invoiceDate).getTime() -
-            new Date(a.invoiceDate).getTime(),
-        );
-
-      // Cache line items for all relevant invoices to avoid repeated queries
-      const lineItemsCache = new Map<string, any[]>();
-
-      // Fetch line items for AP invoices
-      for (const inv of otherApInvoices) {
-        if (!lineItemsCache.has(inv.id)) {
-          const items = await storage.getInvoiceLineItems(inv.id);
-          lineItemsCache.set(inv.id, items);
-        }
-      }
-
-      // Fetch line items for AR invoices
-      for (const inv of otherArInvoices) {
-        if (!lineItemsCache.has(inv.id)) {
-          const items = await storage.getInvoiceLineItems(inv.id);
-          lineItemsCache.set(inv.id, items);
-        }
-      }
-
-      // Build a map of product prices from other invoices
-      const productPriceMap = new Map<
-        string,
-        { basePrice: string; salesPrice: string }
-      >();
-
-      for (const productId of Array.from(uniqueProductIds)) {
-        // For AP invoices: find latest Base Price from cached line items
-        let latestBasePrice = "0.00";
-        try {
-          for (const otherInv of otherApInvoices) {
-            const cachedItems = lineItemsCache.get(otherInv.id) || [];
-            const matchingItem = cachedItems.find(
-              (li) => li.productId === productId,
-            );
-            if (matchingItem) {
-              latestBasePrice = matchingItem.unitPrice;
-              break; // Take the first match (most recent due to sort)
-            }
-          }
-        } catch (error) {
-          console.error(
-            `Error finding Base Price for product ${productId}:`,
-            error,
-          );
-        }
-
-        // For AR invoices: find latest Sales Price from cached line items
-        let latestSalesPrice = "0.00";
-        try {
-          for (const otherInv of otherArInvoices) {
-            const cachedItems = lineItemsCache.get(otherInv.id) || [];
-            const matchingItem = cachedItems.find(
-              (li) => li.productId === productId,
-            );
-            if (matchingItem) {
-              latestSalesPrice = matchingItem.unitPrice;
-              break; // Take the first match (most recent due to sort)
-            }
-          }
-        } catch (error) {
-          console.error(
-            `Error finding Sales Price for product ${productId}:`,
-            error,
-          );
-        }
-
-        productPriceMap.set(productId, {
-          basePrice: latestBasePrice,
-          salesPrice: latestSalesPrice,
-        });
-      }
-
       // Revert inventory changes for AP invoices (subtract added quantity)
       if (invoice.invoiceType === "payable") {
         for (const item of lineItems) {
@@ -1667,24 +1563,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const currentProduct = await storage.getProduct(item.productId);
               if (currentProduct) {
                 const newQty = currentProduct.qty - item.quantity;
-                const priceInfo = productPriceMap.get(item.productId);
-                const latestBasePrice = priceInfo?.basePrice || "0.00";
-
                 console.log(
                   `Reverting AP invoice deletion: Reducing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (removing ${item.quantity})`,
                 );
-                console.log(
-                  `Updating Base Price for product ${
-                    currentProduct.name
-                  } to $${parseFloat(latestBasePrice).toFixed(
-                    2,
-                  )} after AP invoice deletion`,
-                );
-
-                await storage.updateProduct(item.productId, {
-                  qty: newQty,
-                  basePrice: latestBasePrice,
-                });
+                // Update only quantity — prices are manually managed in inventory
+                await storage.updateProduct(item.productId, { qty: newQty });
               }
             } catch (inventoryError) {
               console.error(
@@ -1704,24 +1587,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const currentProduct = await storage.getProduct(item.productId);
               if (currentProduct) {
                 const newQty = currentProduct.qty + item.quantity;
-                const priceInfo = productPriceMap.get(item.productId);
-                const latestSalesPrice = priceInfo?.salesPrice || "0.00";
-
                 console.log(
                   `Reverting AR invoice deletion: Increasing inventory for product ${currentProduct.name}: ${currentProduct.qty} → ${newQty} (adding back ${item.quantity})`,
                 );
-                console.log(
-                  `Updating Sales Price for product ${
-                    currentProduct.name
-                  } to $${parseFloat(latestSalesPrice).toFixed(
-                    2,
-                  )} after AR invoice deletion`,
-                );
-
-                await storage.updateProduct(item.productId, {
-                  qty: newQty,
-                  salesPrice: latestSalesPrice,
-                });
+                // Update only quantity — prices are manually managed in inventory
+                await storage.updateProduct(item.productId, { qty: newQty });
               }
             } catch (inventoryError) {
               console.error(
