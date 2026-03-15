@@ -133,6 +133,7 @@ export const invoices = pgTable("invoices", {
   discount: decimal("discount", { precision: 10, scale: 2 })
     .default("0")
     .notNull(),
+  discountType: text("discount_type").default("percent").notNull(), // percent | amount
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue
   invoiceType: text("invoice_type").notNull().default("receivable"), // receivable (AR), payable (AP)

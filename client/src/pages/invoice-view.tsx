@@ -450,8 +450,11 @@ function InvoiceView() {
   const freight = toNumber(
     (invoice as any).freight || (invoice as any).freightAmount || 0,
   );
-  const discountPercent = toNumber((invoice as any).discount || 0);
-  const discountAmount = (netAmount * discountPercent) / 100;
+  const discountValue = toNumber((invoice as any).discount || 0);
+  const discountTypeVal: "percent" | "amount" = (invoice as any).discountType === "amount" ? "amount" : "percent";
+  const discountAmount = discountTypeVal === "percent"
+    ? (netAmount * discountValue) / 100
+    : discountValue;
   const totalInvoiceAmount = netAmount + freight - discountAmount;
 
   const billAddress =
@@ -931,7 +934,13 @@ function InvoiceView() {
                     </span>
                   </div>
                   <div>
-                    <strong>Discount ({discountPercent.toFixed(2)}%):</strong>{" "}
+                    <strong>
+                      Discount (
+                      {discountTypeVal === "percent"
+                        ? `${discountValue.toFixed(2)}%`
+                        : `$${discountValue.toFixed(2)}`}
+                      ):
+                    </strong>{" "}
                     <span style={{ float: "right", color: "#dc2626" }}>
                       -{formatCurrency(discountAmount)}
                     </span>

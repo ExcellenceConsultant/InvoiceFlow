@@ -116,6 +116,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const [invoiceNumberError, setInvoiceNumberError] = useState<string>("");
   const [selectedCustomerCategory, setSelectedCustomerCategory] = useState<string>("");
+  const [discountType, setDiscountType] = useState<"percent" | "amount">(
+    isEditMode ? (invoice?.discountType === "amount" ? "amount" : "percent") : "percent"
+  );
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -660,8 +663,11 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const onSubmit = (data: z.infer<typeof invoiceSchema>) => {
     const subtotal = calculateTotal();
     const freight = data.freight || 0;
-    const discountPercent = data.discount || 0;
-    const discountAmount = (subtotal * discountPercent) / 100;
+    const discountValue = data.discount || 0;
+    const discountAmount =
+      discountType === "percent"
+        ? (subtotal * discountValue) / 100
+        : discountValue;
     const total = subtotal + freight - discountAmount;
 
     console.log("Current line items on submit:", lineItems);
@@ -783,7 +789,8 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         ...invoiceFormData,
         subtotal: subtotal.toString(),
         freight: freight.toString(),
-        discount: discountPercent.toString(),
+        discount: discountValue.toString(),
+        discountType,
         total: total.toString(),
         status: isEditMode ? invoice.status : "draft",
         invoiceType: data.invoiceType,
@@ -1082,21 +1089,47 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                   name="discount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Discount %</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number(e.target.value))
-                          }
-                          placeholder="2.00"
-                          data-testid="input-discount"
-                        />
-                      </FormControl>
+                      <FormLabel>Discount</FormLabel>
+                      <div className="flex items-center gap-1">
+                        {/* % / $ toggle */}
+                        <div className="flex border rounded-md overflow-hidden shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setDiscountType("percent")}
+                            className={`px-2 py-1.5 text-xs font-medium transition-colors ${
+                              discountType === "percent"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            %
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDiscountType("amount")}
+                            className={`px-2 py-1.5 text-xs font-medium transition-colors ${
+                              discountType === "amount"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            $
+                          </button>
+                        </div>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                            placeholder={discountType === "percent" ? "0.00" : "0.00"}
+                            data-testid="input-discount"
+                          />
+                        </FormControl>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1933,16 +1966,18 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">
-                        Discount ({(form.watch("discount") || 0).toFixed(2)}%):
+                        Discount ({discountType === "percent"
+                          ? `${(form.watch("discount") || 0).toFixed(2)}%`
+                          : `$${(form.watch("discount") || 0).toFixed(2)}`}):
                       </span>
                       <span
                         className="font-medium text-red-600"
                         data-testid="invoice-discount-display"
                       >
-                        -
-                        {formatCurrency(
-                          (calculateTotal() * (form.watch("discount") || 0)) /
-                            100,
+                        -{formatCurrency(
+                          discountType === "percent"
+                            ? (calculateTotal() * (form.watch("discount") || 0)) / 100
+                            : (form.watch("discount") || 0),
                         )}
                       </span>
                     </div>
@@ -1957,8 +1992,9 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                         {formatCurrency(
                           calculateTotal() +
                             (form.watch("freight") || 0) -
-                            (calculateTotal() * (form.watch("discount") || 0)) /
-                              100,
+                            (discountType === "percent"
+                              ? (calculateTotal() * (form.watch("discount") || 0)) / 100
+                              : (form.watch("discount") || 0)),
                         )}
                       </span>
                     </div>
