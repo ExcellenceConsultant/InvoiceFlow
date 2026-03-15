@@ -1725,6 +1725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: invoiceData.subtotal,
         freight: invoiceData.freight,
         discount: invoiceData.discount,
+        discountType: invoiceData.discountType || "percent",
         notes: invoiceData.notes,
         total: invoiceData.total,
         status: invoiceData.status,

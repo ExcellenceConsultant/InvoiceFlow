@@ -179,6 +179,7 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
         notes: invoice.notes || DEFAULT_NOTES,
         bankDetails: invoice.bankDetails || DEFAULT_BANK_DETAILS,
       });
+      setDiscountType(invoice.discountType === "amount" ? "amount" : "percent");
     }
   }, [isEditMode, invoice, form]);
 
