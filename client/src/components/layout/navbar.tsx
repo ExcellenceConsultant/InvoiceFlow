@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import kitchenXpressLogo from "@assets/logo png _1762639803507.png";
-import { Bell, LogOut, ShoppingCart, TrendingUp } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export default function Navbar() {
@@ -15,29 +15,30 @@ export default function Navbar() {
       className="bg-card/80 glass-effect border-b border-border backdrop-blur-lg sticky top-0 z-50"
       data-testid="navbar"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-14">
+          <div className="flex items-center min-w-0">
             <Link
               href="/"
-              className="flex items-center space-x-2 mr-8 flex-shrink-0"
+              className="flex items-center space-x-2 mr-4 flex-shrink-0"
               data-testid="link-home"
             >
               <img
                 src={kitchenXpressLogo}
                 alt="Kitchen Xpress"
-                className="h-12 w-auto object-contain max-w-[120px]"
+                className="h-10 w-auto object-contain max-w-[100px]"
               />
-              <span className="text-xl font-bold text-foreground whitespace-nowrap">
+              <span className="text-lg font-bold text-foreground whitespace-nowrap">
                 InvoiceFlow
               </span>
             </Link>
 
-            <div className="hidden md:flex items-center space-x-6">
+            <div className="hidden md:flex items-center space-x-1">
               <Link href="/">
                 <Button
                   variant={location === "/" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-dashboard"
                 >
                   Dashboard
@@ -47,6 +48,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/invoices" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-invoices"
                 >
                   Invoices
@@ -56,9 +58,9 @@ export default function Navbar() {
                 <Button
                   variant={location === "/sales-orders" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-sales-orders"
                 >
-                  <ShoppingCart className="h-4 w-4 mr-1" />
                   Sales Orders
                 </Button>
               </Link>
@@ -66,6 +68,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/credit-memos" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-credit-memos"
                 >
                   Credit Memos
@@ -75,6 +78,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/accounts" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-accounts"
                 >
                   Accounts
@@ -84,6 +88,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/inventory" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-inventory"
                 >
                   Inventory
@@ -93,6 +98,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/price-rules" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-price-rules"
                 >
                   Price Rule
@@ -102,6 +108,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/schemes" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-schemes"
                 >
                   Schemes
@@ -113,6 +120,7 @@ export default function Navbar() {
                     location === "/quickbooks/sync" ? "default" : "ghost"
                   }
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-quickbooks-sync"
                 >
                   QB Sync
@@ -122,6 +130,7 @@ export default function Navbar() {
                 <Button
                   variant={location === "/users" ? "default" : "ghost"}
                   size="sm"
+                  className="text-xs px-3"
                   data-testid="link-users"
                 >
                   User/Development
@@ -132,9 +141,9 @@ export default function Navbar() {
                   <Button
                     variant={location === "/profitability" ? "default" : "ghost"}
                     size="sm"
+                    className="text-xs px-3"
                     data-testid="link-profitability"
                   >
-                    <TrendingUp className="h-4 w-4 mr-1" />
                     Profit
                   </Button>
                 </Link>
@@ -142,26 +151,19 @@ export default function Navbar() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
-            {/* QuickBooks Connection Status */}
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            {/* QuickBooks Connection Status — dot only */}
             <div
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-                isQuickBooksConnected
-                  ? "bg-accent/10 text-accent-foreground"
-                  : "bg-destructive/10 text-destructive-foreground"
-              }`}
+              title={isQuickBooksConnected ? "QB Connected" : "QB Disconnected"}
               data-testid="quickbooks-status"
             >
               <div
-                className={`w-2 h-2 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full ${
                   isQuickBooksConnected
-                    ? "bg-accent animate-pulse"
+                    ? "bg-green-500 animate-pulse"
                     : "bg-destructive"
                 }`}
               />
-              <span className="text-sm font-medium">
-                {isQuickBooksConnected ? "QB Connected" : "QB Disconnected"}
-              </span>
             </div>
 
             <Button
@@ -169,7 +171,7 @@ export default function Navbar() {
               size="sm"
               data-testid="button-notifications"
             >
-              <Bell size={18} />
+              <Bell size={16} />
             </Button>
 
             <Button
@@ -178,7 +180,7 @@ export default function Navbar() {
               onClick={logout}
               data-testid="button-logout"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
             </Button>
 
             <div
