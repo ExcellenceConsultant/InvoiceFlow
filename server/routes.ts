@@ -3912,8 +3912,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Parse categories filter (comma-separated string)
         const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
-        let invoices = await storage.getInvoices(userId);
-        
+        // Fetch invoices, customers, and products in parallel
+        let [invoices, customers, products] = await Promise.all([
+          storage.getInvoices(userId),
+          storage.getCustomers(userId),
+          storage.getProducts(userId),
+        ]);
+
         // Filter to AR invoices only (profitability applies to sales)
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
 
@@ -3932,18 +3937,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoices = invoices.filter((inv: any) => inv.customerId === customerId);
         }
 
-        // Fetch customers for lookup
-        const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
-
-        // Fetch products for category lookup only (margin is read from invoice_items)
-        const products = await storage.getProducts(userId);
         const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
-        // Fetch line items for each invoice
-        const invoicesWithItems = await Promise.all(
-          invoices.map(async (invoice: any) => {
-            const lineItems = await storage.getInvoiceLineItems(invoice.id);
+        // Batch fetch ALL line items in one query instead of N queries
+        const invoiceIds = invoices.map((inv: any) => inv.id);
+        const allLineItems = await storage.getInvoiceLineItemsByInvoiceIds(invoiceIds);
+        const lineItemsByInvoiceId = new Map<string, any[]>();
+        for (const item of allLineItems) {
+          const list = lineItemsByInvoiceId.get(item.invoiceId) || [];
+          list.push(item);
+          lineItemsByInvoiceId.set(item.invoiceId, list);
+        }
+
+        // Build invoice data using pre-fetched line items (no per-invoice DB calls)
+        const invoicesWithItems = invoices.map((invoice: any) => {
+            const lineItems = lineItemsByInvoiceId.get(invoice.id) || [];
             let validLineItems = lineItems.filter((item: any) => item.quantity > 0);
             
             // Apply category filter to line items
@@ -3990,8 +3999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               totalMargin,
               marginPercent: totalAmount > 0 ? (totalMargin / totalAmount) * 100 : 0,
             };
-          })
-        );
+          });
         
         // Filter out invoices with no line items after category filtering (if category filter is applied)
         const filteredInvoices = categoryFilter.length > 0 
@@ -4177,7 +4185,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Parse categories filter (comma-separated string)
         const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
-        let invoices = await storage.getInvoices(userId);
+        // Fetch invoices, customers, and products in parallel
+        let [invoices, customers, products] = await Promise.all([
+          storage.getInvoices(userId),
+          storage.getCustomers(userId),
+          storage.getProducts(userId),
+        ]);
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
 
         if (startDate) {
@@ -4194,12 +4207,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoices = invoices.filter((inv: any) => inv.customerId === customerId);
         }
 
-        const customers = await storage.getCustomers(userId);
         const customerMap = new Map(customers.map((c: any) => [c.id, c.name]));
-
-        // Fetch products for category lookup only (margin is read from invoice_items)
-        const products = await storage.getProducts(userId);
         const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
+
+        // Batch fetch ALL line items in one query
+        const invoiceIdsCust = invoices.map((inv: any) => inv.id);
+        const allLineItemsCust = await storage.getInvoiceLineItemsByInvoiceIds(invoiceIdsCust);
 
         // Aggregate by customer
         const customerData = new Map<string, {
@@ -4211,44 +4224,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalMargin: number;
         }>();
 
-        for (const invoice of invoices) {
-          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+        // Build a map of invoiceId -> customerId for counting
+        const invoiceCustomerMap = new Map(invoices.map((inv: any) => [inv.id, inv.customerId]));
+
+        for (const item of allLineItemsCust) {
+          if (item.quantity <= 0) continue;
+          if (productId && item.productId !== productId) continue;
           
-          for (const item of lineItems) {
-            if (item.quantity <= 0) continue;
-            if (productId && item.productId !== productId) continue;
-            
-            // Apply category filter
-            if (categoryFilter.length > 0) {
-              const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
-              if (!categoryFilter.includes(itemCategory)) continue;
-            }
-
-            const custId = invoice.customerId || "unknown";
-            const existing = customerData.get(custId) || {
-              customerId: custId,
-              customerName: customerMap.get(custId) || "Unknown",
-              totalInvoices: 0,
-              totalCartons: 0,
-              totalAmount: 0,
-              totalMargin: 0,
-            };
-
-            // Free products (rate <= 0) must always have zero margin
-            // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
-            const rate = parseFloat(item.unitPrice) || 0;
-            let marginPerCarton = 0;
-            if (rate > 0) {
-              const lineItemMargin = parseFloat(item.marginPerCarton as any);
-              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
-            }
-
-            existing.totalCartons += item.quantity;
-            existing.totalAmount += item.quantity * rate;
-            existing.totalMargin += item.quantity * marginPerCarton;
-            
-            customerData.set(custId, existing);
+          // Apply category filter
+          if (categoryFilter.length > 0) {
+            const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
+            if (!categoryFilter.includes(itemCategory)) continue;
           }
+
+          const custId = invoiceCustomerMap.get(item.invoiceId) || "unknown";
+          const existing = customerData.get(custId) || {
+            customerId: custId,
+            customerName: customerMap.get(custId) || "Unknown",
+            totalInvoices: 0,
+            totalCartons: 0,
+            totalAmount: 0,
+            totalMargin: 0,
+          };
+
+          // Free products (rate <= 0) must always have zero margin
+          // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
+          const rate = parseFloat(item.unitPrice) || 0;
+          let marginPerCarton = 0;
+          if (rate > 0) {
+            const lineItemMargin = parseFloat(item.marginPerCarton as any);
+            marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
+          }
+
+          existing.totalCartons += item.quantity;
+          existing.totalAmount += item.quantity * rate;
+          existing.totalMargin += item.quantity * marginPerCarton;
+          
+          customerData.set(custId, existing);
         }
 
         // Count invoices per customer
@@ -4320,7 +4332,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Parse categories filter (comma-separated string)
         const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
-        let invoices = await storage.getInvoices(userId);
+        // Fetch invoices and products in parallel
+        let [invoices, products] = await Promise.all([
+          storage.getInvoices(userId),
+          storage.getProducts(userId),
+        ]);
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
 
         if (startDate) {
@@ -4337,9 +4353,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoices = invoices.filter((inv: any) => inv.customerId === customerId);
         }
 
-        // Fetch products for category lookup only (margin is read from invoice_items)
-        const products = await storage.getProducts(userId);
         const productMap = new Map(products.map((p: any) => [p.id, p]));
+
+        // Batch fetch ALL line items in one query
+        const invoiceIdsProd = invoices.map((inv: any) => inv.id);
+        const allLineItemsProd = await storage.getInvoiceLineItemsByInvoiceIds(invoiceIdsProd);
 
         // Aggregate by product
         const productData = new Map<string, {
@@ -4354,52 +4372,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marginCount: number;
         }>();
 
-        for (const invoice of invoices) {
-          const lineItems = await storage.getInvoiceLineItems(invoice.id);
+        for (const item of allLineItemsProd) {
+          if (item.quantity <= 0) continue;
+
+          const prodId = item.productId || "unknown";
+          const product = productMap.get(prodId);
+          const productCategory = product?.category || "Uncategorized";
           
-          for (const item of lineItems) {
-            if (item.quantity <= 0) continue;
-
-            const prodId = item.productId || "unknown";
-            const product = productMap.get(prodId);
-            const productCategory = product?.category || "Uncategorized";
-            
-            // Apply category filter
-            if (categoryFilter.length > 0 && !categoryFilter.includes(productCategory)) {
-              continue;
-            }
-
-            const existing = productData.get(prodId) || {
-              productId: prodId,
-              itemCode: item.productCode || product?.itemCode || "",
-              productName: item.description || product?.name || "Unknown",
-              category: productCategory,
-              totalQty: 0,
-              totalAmount: 0,
-              totalMargin: 0,
-              marginSum: 0,
-              marginCount: 0,
-            };
-
-            // Free products (rate <= 0) must always have zero margin
-            // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
-            const rate = parseFloat(item.unitPrice) || 0;
-            let marginPerCarton = 0;
-            if (rate > 0) {
-              const lineItemMargin = parseFloat(item.marginPerCarton as any);
-              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
-            }
-            
-            existing.totalQty += item.quantity;
-            existing.totalAmount += item.quantity * rate;
-            existing.totalMargin += item.quantity * marginPerCarton;
-            if (marginPerCarton > 0) {
-              existing.marginSum += marginPerCarton;
-              existing.marginCount++;
-            }
-            
-            productData.set(prodId, existing);
+          // Apply category filter
+          if (categoryFilter.length > 0 && !categoryFilter.includes(productCategory)) {
+            continue;
           }
+
+          const existing = productData.get(prodId) || {
+            productId: prodId,
+            itemCode: item.productCode || product?.itemCode || "",
+            productName: item.description || product?.name || "Unknown",
+            category: productCategory,
+            totalQty: 0,
+            totalAmount: 0,
+            totalMargin: 0,
+            marginSum: 0,
+            marginCount: 0,
+          };
+
+          // Free products (rate <= 0) must always have zero margin
+          // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
+          const rate = parseFloat(item.unitPrice) || 0;
+          let marginPerCarton = 0;
+          if (rate > 0) {
+            const lineItemMargin = parseFloat(item.marginPerCarton as any);
+            marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
+          }
+          
+          existing.totalQty += item.quantity;
+          existing.totalAmount += item.quantity * rate;
+          existing.totalMargin += item.quantity * marginPerCarton;
+          if (marginPerCarton > 0) {
+            existing.marginSum += marginPerCarton;
+            existing.marginCount++;
+          }
+          
+          productData.set(prodId, existing);
         }
 
         const report = Array.from(productData.values()).map(p => ({
@@ -4468,7 +4482,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Parse categories filter (comma-separated string)
         const categoryFilter: string[] = categories ? (categories as string).split(",").filter(c => c.trim()) : [];
 
-        let invoices = await storage.getInvoices(userId);
+        // Fetch invoices and products in parallel
+        let [invoices, products] = await Promise.all([
+          storage.getInvoices(userId),
+          storage.getProducts(userId),
+        ]);
         invoices = invoices.filter((inv: any) => inv.invoiceType === "receivable");
 
         if (startDate) {
@@ -4485,51 +4503,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoices = invoices.filter((inv: any) => inv.customerId === customerId);
         }
 
-        // Fetch products for category lookup only (margin is read from invoice_items)
-        const products = await storage.getProducts(userId);
         const productCategoryMap = new Map(products.map((p: any) => [p.id, p.category || "Uncategorized"]));
 
         // Get unique categories for filter dropdown
         const categorySet = new Set(products.map((p: any) => p.category || "Uncategorized"));
         const allCategories = Array.from(categorySet).sort();
 
+        // Batch fetch ALL line items in one query
+        const invoiceIdsSum = invoices.map((inv: any) => inv.id);
+        const allLineItemsSum = await storage.getInvoiceLineItemsByInvoiceIds(invoiceIdsSum);
+
         let totalInvoices = 0;
         let totalRevenue = 0;
         let totalMargin = 0;
         const invoicesWithCategoryItems = new Set<string>();
 
-        for (const invoice of invoices) {
-          const lineItems = await storage.getInvoiceLineItems(invoice.id);
-          let invoiceHasCategoryItems = false;
+        for (const item of allLineItemsSum) {
+          if (item.quantity <= 0) continue;
           
-          for (const item of lineItems) {
-            if (item.quantity <= 0) continue;
-            
-            // Apply category filter
-            if (categoryFilter.length > 0) {
-              const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
-              if (!categoryFilter.includes(itemCategory)) continue;
-            }
-            
-            invoiceHasCategoryItems = true;
-            const qty = item.quantity || 0;
-            const rate = parseFloat(item.unitPrice) || 0;
-            
-            // Free products (rate <= 0) must always have zero margin
-            // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
-            let marginPerCarton = 0;
-            if (rate > 0) {
-              const lineItemMargin = parseFloat(item.marginPerCarton as any);
-              marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
-            }
-            
-            totalRevenue += qty * rate;
-            totalMargin += qty * marginPerCarton;
+          // Apply category filter
+          if (categoryFilter.length > 0) {
+            const itemCategory = productCategoryMap.get(item.productId) || "Uncategorized";
+            if (!categoryFilter.includes(itemCategory)) continue;
           }
           
-          if (invoiceHasCategoryItems) {
-            invoicesWithCategoryItems.add(invoice.id);
+          invoicesWithCategoryItems.add(item.invoiceId);
+          const qty = item.quantity || 0;
+          const rate = parseFloat(item.unitPrice) || 0;
+          
+          // Free products (rate <= 0) must always have zero margin
+          // IMPORTANT: Use ONLY stored invoice_items.margin_per_carton - never fallback to inventory
+          let marginPerCarton = 0;
+          if (rate > 0) {
+            const lineItemMargin = parseFloat(item.marginPerCarton as any);
+            marginPerCarton = (!isNaN(lineItemMargin) && lineItemMargin >= 0) ? lineItemMargin : 0;
           }
+          
+          totalRevenue += qty * rate;
+          totalMargin += qty * marginPerCarton;
         }
 
         totalInvoices = categoryFilter.length > 0 ? invoicesWithCategoryItems.size : invoices.length;

@@ -40,7 +40,7 @@ import {
   type SalesOrderLineItem,
   type User,
 } from "@shared/schema";
-import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import { IStorage } from "./storage";
 
@@ -486,6 +486,14 @@ export class DatabaseStorage implements IStorage {
 
   async getAllInvoiceLineItems(): Promise<InvoiceLineItem[]> {
     return await db.select().from(invoiceLineItems);
+  }
+
+  async getInvoiceLineItemsByInvoiceIds(invoiceIds: string[]): Promise<InvoiceLineItem[]> {
+    if (invoiceIds.length === 0) return [];
+    return await db
+      .select()
+      .from(invoiceLineItems)
+      .where(inArray(invoiceLineItems.invoiceId, invoiceIds));
   }
 
   async getInvoiceLineItem(id: string): Promise<InvoiceLineItem | undefined> {

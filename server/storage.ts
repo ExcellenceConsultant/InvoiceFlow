@@ -99,6 +99,7 @@ export interface IStorage {
   // Invoice Line Items
   getInvoiceLineItems(invoiceId: string): Promise<InvoiceLineItem[]>;
   getAllInvoiceLineItems(): Promise<InvoiceLineItem[]>;
+  getInvoiceLineItemsByInvoiceIds(invoiceIds: string[]): Promise<InvoiceLineItem[]>;
   createLineItem(lineItem: InsertInvoiceLineItem): Promise<InvoiceLineItem>;
   deleteLineItem(id: string): Promise<boolean>;
   deleteInvoiceLineItemsByInvoiceId(invoiceId: string): Promise<boolean>;
