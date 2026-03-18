@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   decimal,
   integer,
   jsonb,
@@ -272,6 +273,7 @@ export const salesOrders = pgTable("sales_orders", {
   source: text("source").notNull().default("manual"), // manual, api
   externalId: text("external_id"), // third-party system's ID for sync
   notes: text("notes"),
+  orderDate: date("order_date"),
   purchaseOrder: text("purchase_order"),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
   freight: decimal("freight", { precision: 10, scale: 2 }).notNull().default("0"),

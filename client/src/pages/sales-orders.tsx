@@ -136,6 +136,7 @@ export default function SalesOrders() {
   const [formStatus, setFormStatus] = useState<SOStatus>("pending");
   const [formPO, setFormPO] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formDate, setFormDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [formFreight, setFormFreight] = useState("0");
   const [formDiscount, setFormDiscount] = useState("0");
   const [formLineItems, setFormLineItems] = useState<LineItem[]>([emptyLineItem()]);
@@ -207,6 +208,7 @@ export default function SalesOrders() {
     setFormStatus("pending");
     setFormPO("");
     setFormNotes("");
+    setFormDate(new Date().toISOString().split("T")[0]);
     setFormFreight("0");
     setFormDiscount("0");
     setFormLineItems([emptyLineItem()]);
@@ -228,6 +230,7 @@ export default function SalesOrders() {
       setFormStatus(fullOrder.status);
       setFormPO(fullOrder.purchaseOrder || "");
       setFormNotes(fullOrder.notes || "");
+      setFormDate(fullOrder.orderDate ? fullOrder.orderDate.split("T")[0] : new Date().toISOString().split("T")[0]);
       setFormFreight(fullOrder.freight || "0");
       setFormDiscount(fullOrder.discount || "0");
       setFormLineItems(
@@ -293,6 +296,7 @@ export default function SalesOrders() {
         customerName,
         status: formStatus,
         purchaseOrder: formPO || null,
+        orderDate: formDate || null,
         notes: formNotes || null,
         freight: formFreight || "0",
         discount: formDiscount || "0",
@@ -609,6 +613,16 @@ export default function SalesOrders() {
                   />
                 </div>
               )}
+
+              {/* Order Date */}
+              <div className="space-y-1.5">
+                <Label>Order Date</Label>
+                <Input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
+              </div>
 
               {/* Status */}
               <div className="space-y-1.5">
