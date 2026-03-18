@@ -22,7 +22,7 @@ interface SalesOrder {
   orderNumber: string;
   customerId?: string | null;
   customerName?: string | null;
-  purchaseOrder?: string | null;
+  salesOrder?: string | null;
   createdAt: string;
   lineItems: SOLineItem[];
 }
@@ -313,7 +313,7 @@ export default function SalesOrderPackingList() {
                 {order.createdAt ? formatDateMMDDYYYY(order.createdAt) : "—"}
               </div>
               <div className="info-detail">
-                <strong>Purchase Order</strong> : {order.purchaseOrder || "—"}
+                <strong>Sales Order</strong> : {order.salesOrder || "—"}
               </div>
             </div>
           </div>

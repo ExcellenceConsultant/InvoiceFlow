@@ -274,7 +274,7 @@ export const salesOrders = pgTable("sales_orders", {
   externalId: text("external_id"), // third-party system's ID for sync
   notes: text("notes"),
   orderDate: date("order_date"),
-  purchaseOrder: text("purchase_order"),
+  salesOrder: text("purchase_order"),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
   freight: decimal("freight", { precision: 10, scale: 2 }).notNull().default("0"),
   discount: decimal("discount", { precision: 10, scale: 2 }).notNull().default("0"),

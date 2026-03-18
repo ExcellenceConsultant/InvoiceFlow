@@ -61,7 +61,7 @@ interface SalesOrder {
   status: string;
   source: string;
   notes?: string | null;
-  purchaseOrder?: string | null;
+  salesOrder?: string | null;
   subtotal: string;
   freight: string;
   discount: string;
@@ -426,7 +426,7 @@ export default function SalesOrderView() {
                 {order.createdAt ? formatDateMMDDYYYY(order.createdAt) : "—"}
               </div>
               <div className="info-detail">
-                <strong>Purchase Order</strong> : {order.purchaseOrder || "—"}
+                <strong>Sales Order</strong> : {order.salesOrder || "—"}
               </div>
               <div className="info-detail">
                 <strong>Status</strong> :{" "}

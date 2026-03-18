@@ -76,7 +76,7 @@ interface SalesOrder {
   source: string;
   externalId?: string | null;
   notes?: string | null;
-  purchaseOrder?: string | null;
+  salesOrder?: string | null;
   subtotal: string;
   freight: string;
   discount: string;
@@ -229,7 +229,7 @@ export default function SalesOrders() {
       setFormCustomerId(fullOrder.customerId || "");
       setFormCustomerName(fullOrder.customerName || "");
       setFormStatus(fullOrder.status);
-      setFormPO(fullOrder.purchaseOrder || "");
+      setFormPO(fullOrder.salesOrder || "");
       setFormNotes(fullOrder.notes || "");
       setFormDate(fullOrder.orderDate ? fullOrder.orderDate.split("T")[0] : new Date().toISOString().split("T")[0]);
       setFormFreight(fullOrder.freight || "0");
@@ -296,7 +296,7 @@ export default function SalesOrders() {
         customerId,
         customerName,
         status: formStatus,
-        purchaseOrder: formPO || null,
+        salesOrder: formPO || null,
         orderDate: formDate || null,
         notes: formNotes || null,
         freight: formFreight || "0",
@@ -916,7 +916,7 @@ function OrderDetail({ order, customers }: { order: SalesOrder; customers: Custo
         </div>
         <div>
           <p className="text-muted-foreground text-xs">Sales Order</p>
-          <p className="font-medium">{order.purchaseOrder || "—"}</p>
+          <p className="font-medium">{order.salesOrder || "—"}</p>
         </div>
         <div>
           <p className="text-muted-foreground text-xs">Created</p>
