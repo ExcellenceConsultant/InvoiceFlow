@@ -124,6 +124,7 @@ export default function SalesOrders() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SalesOrder | null>(null);
   const [convertTarget, setConvertTarget] = useState<SalesOrder | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   const canEdit = user?.role !== "viewer";
   const canDelete = ["super_admin", "admin"].includes(user?.role || "");
@@ -217,20 +218,29 @@ export default function SalesOrders() {
     setCreateOpen(true);
   }
 
-  function openEdit(order: SalesOrder) {
-    setFormCustomerId(order.customerId || "");
-    setFormCustomerName(order.customerName || "");
-    setFormStatus(order.status);
-    setFormPO(order.purchaseOrder || "");
-    setFormNotes(order.notes || "");
-    setFormFreight(order.freight || "0");
-    setFormDiscount(order.discount || "0");
-    setFormLineItems(
-      (order.lineItems || []).length > 0
-        ? order.lineItems!.map((li) => ({ ...li }))
-        : [emptyLineItem()]
-    );
-    setEditOrder(order);
+  async function openEdit(order: SalesOrder) {
+    setEditLoading(true);
+    try {
+      const res = await fetch(`/api/sales-orders/${order.id}`, { credentials: "include" });
+      const fullOrder: SalesOrder = await res.json();
+      setFormCustomerId(fullOrder.customerId || "");
+      setFormCustomerName(fullOrder.customerName || "");
+      setFormStatus(fullOrder.status);
+      setFormPO(fullOrder.purchaseOrder || "");
+      setFormNotes(fullOrder.notes || "");
+      setFormFreight(fullOrder.freight || "0");
+      setFormDiscount(fullOrder.discount || "0");
+      setFormLineItems(
+        (fullOrder.lineItems || []).length > 0
+          ? fullOrder.lineItems!.map((li) => ({ ...li }))
+          : [emptyLineItem()]
+      );
+      setEditOrder(fullOrder);
+    } catch {
+      toast({ title: "Failed to load sales order details", variant: "destructive" });
+    } finally {
+      setEditLoading(false);
+    }
   }
 
   function calcTotals() {
