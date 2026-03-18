@@ -221,7 +221,7 @@ export default function SalesOrders() {
   async function openEdit(order: SalesOrder) {
     setEditLoading(true);
     try {
-      const res = await fetch(`/api/sales-orders/${order.id}`, { credentials: "include" });
+      const res = await apiRequest("GET", `/api/sales-orders/${order.id}`);
       const fullOrder: SalesOrder = await res.json();
       setFormCustomerId(fullOrder.customerId || "");
       setFormCustomerName(fullOrder.customerName || "");
