@@ -627,7 +627,7 @@ export default function SalesOrders() {
 
               {/* PO */}
               <div className="space-y-1.5">
-                <Label>Purchase Order #</Label>
+                <Label>Sales Order</Label>
                 <Input placeholder="Optional" value={formPO} onChange={(e) => setFormPO(e.target.value)} />
               </div>
             </div>
@@ -900,7 +900,7 @@ function OrderDetail({ order, customers }: { order: SalesOrder; customers: Custo
           <p className="font-medium">{displayName}</p>
         </div>
         <div>
-          <p className="text-muted-foreground text-xs">Purchase Order</p>
+          <p className="text-muted-foreground text-xs">Sales Order</p>
           <p className="font-medium">{order.purchaseOrder || "—"}</p>
         </div>
         <div>
