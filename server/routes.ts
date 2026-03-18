@@ -5037,6 +5037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const updated = await storage.updateSalesOrder(existing.id, {
             customerName: order.customerName || existing.customerName,
             notes: order.notes || existing.notes,
+            orderDate: order.orderDate || existing.orderDate,
             purchaseOrder: order.purchaseOrder || existing.purchaseOrder,
             subtotal: order.subtotal || existing.subtotal,
             freight: order.freight || existing.freight,
@@ -5085,6 +5086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: "api",
         externalId: order.externalId || null,
         notes: order.notes || null,
+        orderDate: order.orderDate || null,
         purchaseOrder: order.purchaseOrder || null,
         subtotal: order.subtotal || "0",
         freight: order.freight || "0",
