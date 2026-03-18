@@ -119,3 +119,32 @@ export function formatDateUS(dateInput: string | Date): string {
     return String(dateInput);
   }
 }
+
+/**
+ * Format a date string or Date object as MM-DD-YYYY (with dashes)
+ * Handles both timestamp strings and date-only strings without timezone shift
+ */
+export function formatDateMMDDYYYY(dateInput: string | Date): string {
+  if (!dateInput) return '';
+  try {
+    const dateString = dateInput instanceof Date ? dateInput.toISOString() : dateInput;
+    const isoPattern = /^\d{4}-\d{2}-\d{2}/;
+    if (isoPattern.test(dateString)) {
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-');
+      const y = parseInt(year);
+      const m = parseInt(month);
+      const d = parseInt(day);
+      if (isNaN(y) || isNaN(m) || isNaN(d)) return String(dateInput);
+      return `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}-${y}`;
+    }
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return String(dateInput);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}-${day}-${year}`;
+  } catch {
+    return String(dateInput);
+  }
+}

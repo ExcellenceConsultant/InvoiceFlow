@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { formatDateWithoutTimezone } from "@/lib/dateUtils";
+import { formatDateMMDDYYYY } from "@/lib/dateUtils";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useEffect } from "react";
@@ -310,7 +310,7 @@ export default function SalesOrderPackingList() {
               </div>
               <div className="info-detail">
                 <strong>Order Date</strong> :{" "}
-                {order.createdAt ? formatDateWithoutTimezone(order.createdAt) : "—"}
+                {order.createdAt ? formatDateMMDDYYYY(order.createdAt) : "—"}
               </div>
               <div className="info-detail">
                 <strong>Purchase Order</strong> : {order.purchaseOrder || "—"}

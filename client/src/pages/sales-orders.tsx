@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateMMDDYYYY } from "@/lib/dateUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -435,7 +436,7 @@ export default function SalesOrders() {
                           ${parseFloat(order.total || "0").toFixed(2)}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {formatDateMMDDYYYY(order.createdAt)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
@@ -919,7 +920,7 @@ function OrderDetail({ order, customers }: { order: SalesOrder; customers: Custo
         </div>
         <div>
           <p className="text-muted-foreground text-xs">Created</p>
-          <p className="font-medium">{new Date(order.createdAt).toLocaleString()}</p>
+          <p className="font-medium">{formatDateMMDDYYYY(order.createdAt)}</p>
         </div>
         {order.externalId && (
           <div>
