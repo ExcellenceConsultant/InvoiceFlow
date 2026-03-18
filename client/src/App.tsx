@@ -22,6 +22,8 @@ import QuickBooksCallback from "@/pages/quickbooks-callback";
 import QuickBooksSync from "@/pages/quickbooks-sync";
 import UserManagement from "@/pages/user-management";
 import SalesOrders from "@/pages/sales-orders";
+import SalesOrderView from "@/pages/sales-order-view";
+import SalesOrderPackingList from "@/pages/sales-order-packing-list";
 import Profitability from "@/pages/profitability";
 import ProfitInvoiceView from "@/pages/profit-invoice-view";
 import ApiKeys from "@/pages/api-keys";
@@ -51,6 +53,8 @@ function Router() {
     location.startsWith("/invoices/") && location !== "/invoices";
   const isCreditMemoView =
     location.startsWith("/credit-memos/") && location !== "/credit-memos";
+  const isSalesOrderView =
+    location.startsWith("/sales-orders/") && location !== "/sales-orders";
 
   // Show loading state
   if (isLoading) {
@@ -59,7 +63,7 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-secondary/20">
-      {isAuthenticated && !isInvoiceView && !isCreditMemoView && <Navbar />}
+      {isAuthenticated && !isInvoiceView && !isCreditMemoView && !isSalesOrderView && <Navbar />}
       <Switch>
         <Route path="/login">
           {isAuthenticated ? <Dashboard /> : <Login />}
@@ -108,6 +112,12 @@ function Router() {
         </Route>
         <Route path="/sales-orders">
           <ProtectedRoute component={SalesOrders} />
+        </Route>
+        <Route path="/sales-orders/:id/packing-list">
+          {(params) => <ProtectedRoute component={SalesOrderPackingList} {...params} />}
+        </Route>
+        <Route path="/sales-orders/:id">
+          {(params) => <ProtectedRoute component={SalesOrderView} {...params} />}
         </Route>
         <Route path="/users">
           <ProtectedRoute component={UserManagement} />

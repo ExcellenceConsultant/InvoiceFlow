@@ -430,7 +430,7 @@ export default function SalesOrders() {
                               size="sm"
                               className="h-7 w-7 p-0"
                               title="View"
-                              onClick={() => setViewOrder(order)}
+                              onClick={() => setLocation(`/sales-orders/${order.id}`)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
