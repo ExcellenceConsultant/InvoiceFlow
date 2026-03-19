@@ -42,6 +42,7 @@ export interface IStorage {
   // Customers
   getCustomers(userId: string): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
+  findCustomerByName(name: string): Promise<Customer | undefined>;
   createCustomer(
     customer: InsertCustomer & { userId: string },
   ): Promise<Customer>;
@@ -275,6 +276,12 @@ export class MemStorage implements IStorage {
 
   async getCustomer(id: string): Promise<Customer | undefined> {
     return this.customers.get(id);
+  }
+
+  async findCustomerByName(name: string): Promise<Customer | undefined> {
+    return Array.from(this.customers.values()).find(
+      (c) => c.name && c.name.toLowerCase() === name.toLowerCase()
+    );
   }
 
   async createCustomer(

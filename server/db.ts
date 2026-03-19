@@ -1,9 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 const connectionString = process.env.INVOICEFLOW_DB_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 
@@ -19,5 +16,8 @@ try {
   console.log(`[db] Source: ${process.env.INVOICEFLOW_DB_URL ? "INVOICEFLOW_DB_URL" : process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL" : "DATABASE_URL"}`);
 } catch {}
 
-export const pool = new Pool({ connectionString });
-export const db = drizzle({ client: pool, schema });
+const sql = neon(connectionString);
+export const db = drizzle({ client: sql, schema });
+
+// Keep pool export as compatibility shim for session store
+export const pool = { query: sql } as any;

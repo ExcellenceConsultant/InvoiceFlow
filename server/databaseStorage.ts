@@ -166,6 +166,15 @@ export class DatabaseStorage implements IStorage {
     return customer;
   }
 
+  async findCustomerByName(name: string): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(sql`LOWER(${customers.name}) = LOWER(${name})`)
+      .limit(1);
+    return customer;
+  }
+
   async createCustomer(
     insertCustomer: InsertCustomer & { userId: string },
   ): Promise<Customer> {

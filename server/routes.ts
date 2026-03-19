@@ -5067,16 +5067,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Try to match customer by name
+      // Find customer by name directly (single query, no full table scan)
       let customerId: string | null = null;
       if (order.customerName) {
-        const allCustomers = await storage.getCustomers(auth.userId);
-        const matched = allCustomers.find(
-          (c) => c.name && c.name.toLowerCase() === order.customerName.toLowerCase()
-        );
+        const matched = await storage.findCustomerByName(order.customerName);
         if (matched) customerId = matched.id;
       }
 
+      // Run order number lookup in parallel with customer lookup already done
       const orderNumber = order.orderNumber || await storage.getNextSalesOrderNumber(auth.userId);
       const createdOrder = await storage.createSalesOrder({
         orderNumber,
@@ -5096,9 +5094,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: auth.userId,
       });
 
-      const createdItems = [];
-      for (const item of lineItems) {
-        const li = await storage.createSalesOrderLineItem({
+      // Insert all line items in parallel instead of one by one
+      const createdItems = await Promise.all(
+        lineItems.map((item: any) => storage.createSalesOrderLineItem({
           salesOrderId: createdOrder.id,
           productId: item.productId || null,
           description: item.description || item.name || "Item",
@@ -5109,9 +5107,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cartoonBarcode: item.cartoonBarcode || null,
           packingSize: item.packingSize || null,
           category: item.category || null,
-        });
-        createdItems.push(li);
-      }
+        }))
+      );
 
       res.status(201).json({ success: true, action: "created", data: { ...createdOrder, lineItems: createdItems } });
     } catch (error) {
