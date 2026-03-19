@@ -5072,7 +5072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (order.customerName) {
         const allCustomers = await storage.getCustomers(auth.userId);
         const matched = allCustomers.find(
-          (c) => c.name.toLowerCase() === order.customerName.toLowerCase()
+          (c) => c.name && c.name.toLowerCase() === order.customerName.toLowerCase()
         );
         if (matched) customerId = matched.id;
       }
