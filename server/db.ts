@@ -13,5 +13,11 @@ if (!connectionString) {
   );
 }
 
+try {
+  const url = new URL(connectionString);
+  console.log(`[db] Connecting to: ${url.hostname} / database: ${url.pathname.slice(1)}`);
+  console.log(`[db] Source: ${process.env.INVOICEFLOW_DB_URL ? "INVOICEFLOW_DB_URL" : process.env.NEON_DATABASE_URL ? "NEON_DATABASE_URL" : "DATABASE_URL"}`);
+} catch {}
+
 export const pool = new Pool({ connectionString });
 export const db = drizzle({ client: pool, schema });
