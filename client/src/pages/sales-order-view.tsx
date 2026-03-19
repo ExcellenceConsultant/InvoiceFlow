@@ -78,6 +78,8 @@ export default function SalesOrderView() {
   const { data: order, isLoading } = useQuery<SalesOrder>({
     queryKey: [`/api/sales-orders/${id}`],
     enabled: !!id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: customers = [] } = useQuery<any[]>({

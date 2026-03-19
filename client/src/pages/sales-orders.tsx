@@ -169,8 +169,9 @@ export default function SalesOrders() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest("PUT", `/api/sales-orders/${id}`, data),
-    onSuccess: () => {
+    onSuccess: (_: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sales-orders/${variables.id}`] });
       setEditOrder(null);
       resetForm();
       toast({ title: "Sales order updated" });
@@ -180,8 +181,9 @@ export default function SalesOrders() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/sales-orders/${id}`),
-    onSuccess: () => {
+    onSuccess: (_: any, id: string) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sales-orders/${id}`] });
       setDeleteTarget(null);
       toast({ title: "Sales order deleted" });
     },
@@ -190,9 +192,10 @@ export default function SalesOrders() {
 
   const convertMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/sales-orders/${id}/convert`, {}),
-    onSuccess: async (res: any) => {
+    onSuccess: async (res: any, id: string) => {
       const data = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sales-orders/${id}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setConvertTarget(null);
       toast({

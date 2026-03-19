@@ -33,6 +33,8 @@ export default function SalesOrderPackingList() {
 
   const { data: order } = useQuery<SalesOrder>({
     queryKey: [`/api/sales-orders/${id}`],
+    staleTime: 0,
+    refetchOnMount: "always",
     enabled: !!id,
   });
 
