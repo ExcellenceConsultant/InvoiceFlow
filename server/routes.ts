@@ -5035,6 +5035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (existing && existing.status !== "converted") {
           // Update existing
           const updated = await storage.updateSalesOrder(existing.id, {
+            orderNumber: order.orderNumber || existing.orderNumber,
             customerName: order.customerName || existing.customerName,
             notes: order.notes || existing.notes,
             orderDate: order.orderDate || existing.orderDate,
@@ -5047,20 +5048,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           if (lineItems.length > 0) {
             await storage.deleteSalesOrderLineItems(existing.id);
-            for (const item of lineItems) {
-              await storage.createSalesOrderLineItem({
-                salesOrderId: existing.id,
-                productId: item.productId || null,
-                description: item.description || item.name || "Item",
-                quantity: item.quantity || 1,
-                unitPrice: item.unitPrice || item.price || "0",
-                lineTotal: item.lineTotal || String((item.quantity || 1) * parseFloat(item.unitPrice || item.price || "0")),
-                productCode: item.productCode || item.sku || null,
-                cartoonBarcode: item.cartoonBarcode || null,
-                packingSize: item.packingSize || null,
-                category: item.category || null,
-              });
-            }
+            await Promise.all(lineItems.map((item: any) => storage.createSalesOrderLineItem({
+              salesOrderId: existing.id,
+              productId: item.productId || null,
+              description: item.description || item.name || "Item",
+              quantity: item.quantity || 1,
+              unitPrice: item.unitPrice || item.price || "0",
+              lineTotal: item.lineTotal || String((item.quantity || 1) * parseFloat(item.unitPrice || item.price || "0")),
+              productCode: item.productCode || item.sku || null,
+              cartoonBarcode: item.cartoonBarcode || null,
+              packingSize: item.packingSize || null,
+              category: item.category || null,
+            })));
           }
           const updatedItems = await storage.getSalesOrderLineItems(existing.id);
           return res.json({ success: true, action: "updated", data: { ...updated, lineItems: updatedItems } });
