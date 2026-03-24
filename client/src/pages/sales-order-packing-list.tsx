@@ -359,6 +359,7 @@ export default function SalesOrderPackingList() {
 
           {page.showSummary && (
             <div className="text-right mt-4 space-y-1">
+              <div><strong>Total Qty: {totalCartons}</strong></div>
               <div><strong>Total Carton: {totalCartons}</strong></div>
             </div>
           )}

@@ -487,6 +487,7 @@ export default function SalesOrderView() {
               <div className="summary-section">
                 <div className="summary-left">
                   <div><strong>Total Carton:</strong> {totalCartons}</div>
+                  <div><strong>Total Qty:</strong> {totalCartons}</div>
                   <div><strong>Net Weight LBS:</strong> {netWeightLbs.toFixed(0)} LBS</div>
                   <div><strong>Gross Weight LBS:</strong> {grossWeightLbs.toFixed(0)} LBS</div>
                   <div style={{ marginTop: "10px" }}>

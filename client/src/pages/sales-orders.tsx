@@ -793,7 +793,7 @@ export default function SalesOrders() {
             <Separator />
 
             {/* Totals */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-1.5">
                 <Label>Freight ($)</Label>
                 <Input
@@ -811,6 +811,12 @@ export default function SalesOrders() {
                   value={formDiscount}
                   onChange={(e) => setFormDiscount(e.target.value)}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Total Qty</Label>
+                <div className="h-10 flex items-center px-3 bg-muted rounded-md font-semibold">
+                  {formLineItems.reduce((sum, li) => sum + (Number(li.quantity) || 0), 0)}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Total</Label>
