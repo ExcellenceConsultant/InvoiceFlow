@@ -146,6 +146,7 @@ export default function SalesOrders() {
   const [formCustomerId, setFormCustomerId] = useState("");
   const [formCustomerName, setFormCustomerName] = useState("");
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [productSearchOpenIdx, setProductSearchOpenIdx] = useState<number | null>(null);
   const [formStatus, setFormStatus] = useState<SOStatus>("pending");
   const [formPO, setFormPO] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -754,25 +755,58 @@ export default function SalesOrders() {
                       className="grid grid-cols-[2fr_2fr_80px_100px_100px_36px] gap-2 items-center"
                     >
                       {/* Product */}
-                      <Select
-                        value={item.productId || "__none__"}
-                        onValueChange={(v) => {
-                          if (v && v !== "__none__") selectProduct(idx, v);
-                          else updateLineItem(idx, "productId", null);
-                        }}
+                      <Popover
+                        open={productSearchOpenIdx === idx}
+                        onOpenChange={(open) => setProductSearchOpenIdx(open ? idx : null)}
                       >
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Select Product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Select Product</SelectItem>
-                          {filteredProducts.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name} {p.itemCode ? `(${p.itemCode})` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="h-9 w-full justify-between font-normal text-xs px-2"
+                          >
+                            <span className="truncate">
+                              {item.productId
+                                ? (() => { const p = products.find((p) => p.id === item.productId); return p ? `${p.name}${p.itemCode ? ` (${p.itemCode})` : ""}` : "Select Product"; })()
+                                : "Select Product"}
+                            </span>
+                            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search product..." className="text-xs" />
+                            <CommandList>
+                              <CommandEmpty>No product found.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="__none__"
+                                  onSelect={() => {
+                                    updateLineItem(idx, "productId", null);
+                                    setProductSearchOpenIdx(null);
+                                  }}
+                                >
+                                  <Check className={`mr-2 h-3 w-3 ${!item.productId ? "opacity-100" : "opacity-0"}`} />
+                                  Select Product
+                                </CommandItem>
+                                {filteredProducts.map((p) => (
+                                  <CommandItem
+                                    key={p.id}
+                                    value={`${p.name} ${p.itemCode ?? ""}`}
+                                    onSelect={() => {
+                                      selectProduct(idx, p.id);
+                                      setProductSearchOpenIdx(null);
+                                    }}
+                                  >
+                                    <Check className={`mr-2 h-3 w-3 ${item.productId === p.id ? "opacity-100" : "opacity-0"}`} />
+                                    {p.name} {p.itemCode ? `(${p.itemCode})` : ""}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
 
                       {/* Description */}
                       <Input
