@@ -48,7 +48,18 @@ import {
   ShoppingCart,
   Globe,
   CheckCircle,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLocation } from "wouter";
 import type { Customer, Product } from "@shared/schema";
 
@@ -134,6 +145,7 @@ export default function SalesOrders() {
   // Form state for create/edit
   const [formCustomerId, setFormCustomerId] = useState("");
   const [formCustomerName, setFormCustomerName] = useState("");
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [formStatus, setFormStatus] = useState<SOStatus>("pending");
   const [formPO, setFormPO] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -586,24 +598,57 @@ export default function SalesOrders() {
               {/* Customer */}
               <div className="space-y-1.5">
                 <Label>Customer</Label>
-                <Select
-                  value={formCustomerId || "__none__"}
-                  onValueChange={(v) => setFormCustomerId(v === "__none__" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— No customer —</SelectItem>
-                    {customers
-                      .filter((c) => c.type === "customer" && c.isActive)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate">
+                        {formCustomerId
+                          ? customers.find((c) => c.id === formCustomerId)?.name ?? "— No customer —"
+                          : "— No customer —"}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search customer..." />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="__none__"
+                            onSelect={() => {
+                              setFormCustomerId("");
+                              setCustomerSearchOpen(false);
+                            }}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${!formCustomerId ? "opacity-100" : "opacity-0"}`} />
+                            — No customer —
+                          </CommandItem>
+                          {customers
+                            .filter((c) => c.type === "customer" && c.isActive)
+                            .map((c) => (
+                              <CommandItem
+                                key={c.id}
+                                value={c.name}
+                                onSelect={() => {
+                                  setFormCustomerId(c.id);
+                                  setCustomerSearchOpen(false);
+                                }}
+                              >
+                                <Check className={`mr-2 h-4 w-4 ${formCustomerId === c.id ? "opacity-100" : "opacity-0"}`} />
+                                {c.name}
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Customer name fallback */}
