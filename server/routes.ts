@@ -4970,6 +4970,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       for (const item of lineItems) {
+        let netWt = item.netWeightKgs || null;
+        let grossWt = item.grossWeightKgs || null;
+
+        if (item.productId && (!netWt || parseFloat(netWt) === 0) && (!grossWt || parseFloat(grossWt) === 0)) {
+          const product = await storage.getProduct(item.productId);
+          if (product) {
+            netWt = product.netWeight ? String(product.netWeight) : null;
+            grossWt = product.grossWeight ? String(product.grossWeight) : null;
+            await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
+          }
+        } else if (item.productId) {
+          const product = await storage.getProduct(item.productId);
+          if (product) {
+            await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
+          }
+        }
+
         await storage.createInvoiceLineItem({
           invoiceId: invoice.id,
           productId: item.productId || null,
@@ -4981,8 +4998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productCode: item.productCode || null,
           cartoonBarcode: item.cartoonBarcode || null,
           packingSize: item.packingSize || null,
-          grossWeightKgs: null,
-          netWeightKgs: null,
+          grossWeightKgs: grossWt,
+          netWeightKgs: netWt,
           category: item.category || null,
           isFreeFromScheme: false,
           isSchemeDescription: false,
@@ -4991,16 +5008,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marginUpdatedBy: null,
           marginUpdatedAt: null,
         });
-      }
-
-      // Update stock for AR invoice
-      for (const item of lineItems) {
-        if (item.productId) {
-          const product = await storage.getProduct(item.productId);
-          if (product) {
-            await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
-          }
-        }
       }
 
       await storage.updateSalesOrder(order.id, {
