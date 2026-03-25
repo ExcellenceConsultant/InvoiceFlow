@@ -954,42 +954,40 @@ function InvoiceView() {
                 </div>
               </div>
 
-              {/* Notes Section */}
+              {/* Notes Section — fixed standard notes, always shown */}
               <div className="notes-section">
                 <div className="notes-label">Notes:</div>
                 <div className="notes-box">
-                  {((invoice as any).notes || "")
-                    .split("\n")
-                    .filter((line: string) => line.trim())
-                    .map((line: string, idx: number) => {
-                      const cleanLine = line.replace(/^\d+\.\s*/, "").trim();
-                      return (
-                        <div className="notes-line" key={idx}>
-                          <span className="notes-number">{idx + 1}.</span>
-                          <span>{cleanLine}</span>
-                        </div>
-                      );
-                    })}
+                  {[
+                    "All matters related to this invoice or the goods shall be governed by the laws of Pennsylvania, and all disputes related here to shall be adjudicated exclusively in the state or federal courts located in Pennsylvania.",
+                    "Overdue balances subject to finance charge of 2 % per month.",
+                    "I understand and accept that cheque image deposited through ACH debits are valid mode of payment.",
+                    "Final Sale",
+                  ].map((line, idx) => (
+                    <div className="notes-line" key={idx}>
+                      <span className="notes-number">{idx + 1}.</span>
+                      <span>{line}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Bank Details Section */}
-              {(invoice as any).bankDetails &&
-                (invoice as any).bankDetails.trim() && (
-                  <div className="bank-details-section">
-                    <div className="bank-details-label">BANK DETAILS:</div>
-                    <div className="bank-details-box">
-                      {((invoice as any).bankDetails || "")
-                        .split("\n")
-                        .filter((line: string) => line.trim())
-                        .map((line: string, idx: number) => (
-                          <div key={idx} style={{ marginBottom: "4px" }}>
-                            {line}
-                          </div>
-                        ))}
+              {/* Bank Details Section — always shown with fixed details */}
+              <div className="bank-details-section">
+                <div className="bank-details-label">BANK DETAILS:</div>
+                <div className="bank-details-box">
+                  {[
+                    "BANK NAME : JPMORGAN CHASE BANK",
+                    "BANK ADDRESS : P O Box 182051, Columbus, OH 43218 - 2051.",
+                    "ACCOUNT NUMBER : 000000589988131",
+                    "ROUTING NUMBER : 083000137",
+                  ].map((line, idx) => (
+                    <div key={idx} style={{ marginBottom: "4px" }}>
+                      {line}
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
+              </div>
 
               {/* Footer */}
               <div className="footer-section">

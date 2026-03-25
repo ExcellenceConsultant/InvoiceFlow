@@ -4963,7 +4963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invoiceDate,
         dueDate,
         paymentTerms: 30,
-        notes: order.notes || `Converted from Sales Order ${order.orderNumber}`,
+        notes: order.notes || null,
         bankDetails: null,
         quickbooksInvoiceId: null,
         userId: user.userId,
