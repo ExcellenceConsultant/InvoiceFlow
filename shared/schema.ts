@@ -299,6 +299,8 @@ export const salesOrderLineItems = pgTable("sales_order_line_items", {
   cartoonBarcode: text("cartoon_barcode"),
   packingSize: text("packing_size"),
   category: text("category"),
+  netWeightKgs: decimal("net_weight_kgs", { precision: 10, scale: 3 }),
+  grossWeightKgs: decimal("gross_weight_kgs", { precision: 10, scale: 3 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

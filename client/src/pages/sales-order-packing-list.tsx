@@ -163,12 +163,17 @@ export default function SalesOrderPackingList() {
   // Group by category
   const groupedItems: { [category: string]: SOLineItem[] } = {};
   let totalCartons = 0;
+  let netWeightLbs = 0;
+  let grossWeightLbs = 0;
 
   lineItems.forEach((item) => {
     const category = item.category || "Uncategorized";
     if (!groupedItems[category]) groupedItems[category] = [];
     groupedItems[category].push(item);
-    totalCartons += Number(item.quantity) || 0;
+    const qty = Number(item.quantity) || 0;
+    totalCartons += qty;
+    netWeightLbs += (Number(item.netWeightKgs) || 0) * qty;
+    grossWeightLbs += (Number(item.grossWeightKgs) || 0) * qty;
   });
 
   // Sort items alphabetically within each category
@@ -361,6 +366,8 @@ export default function SalesOrderPackingList() {
             <div className="text-right mt-4 space-y-1">
               <div><strong>Total Qty: {totalCartons}</strong></div>
               <div><strong>Total Carton: {totalCartons}</strong></div>
+              <div><strong>Net Weight LBS: {netWeightLbs.toFixed(0)} LBS</strong></div>
+              <div><strong>Gross Weight LBS: {grossWeightLbs.toFixed(0)} LBS</strong></div>
             </div>
           )}
 

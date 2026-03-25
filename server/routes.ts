@@ -4843,6 +4843,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cartoonBarcode: item.cartoonBarcode || null,
           packingSize: item.packingSize || null,
           category: item.category || null,
+          netWeightKgs: item.netWeightKgs || null,
+          grossWeightKgs: item.grossWeightKgs || null,
         });
         createdLineItems.push(li);
       }
@@ -4891,6 +4893,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cartoonBarcode: item.cartoonBarcode || null,
             packingSize: item.packingSize || null,
             category: item.category || null,
+            netWeightKgs: item.netWeightKgs || null,
+            grossWeightKgs: item.grossWeightKgs || null,
           });
         }
       }
@@ -5117,6 +5121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               cartoonBarcode: item.cartoonBarcode || null,
               packingSize: item.packingSize || null,
               category: item.category || null,
+              netWeightKgs: item.netWeightKgs || null,
+              grossWeightKgs: item.grossWeightKgs || null,
             })));
           }
           const updatedItems = await storage.getSalesOrderLineItems(existing.id);
@@ -5164,6 +5170,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cartoonBarcode: item.cartoonBarcode || null,
           packingSize: item.packingSize || null,
           category: item.category || null,
+          netWeightKgs: item.netWeightKgs || null,
+          grossWeightKgs: item.grossWeightKgs || null,
         }))
       );
 
@@ -5210,6 +5218,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cartoonBarcode: item.cartoonBarcode || null,
             packingSize: item.packingSize || null,
             category: item.category || null,
+            netWeightKgs: item.netWeightKgs || null,
+            grossWeightKgs: item.grossWeightKgs || null,
           });
         }
       }

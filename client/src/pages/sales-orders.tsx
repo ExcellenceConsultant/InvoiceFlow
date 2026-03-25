@@ -76,6 +76,8 @@ interface LineItem {
   cartoonBarcode?: string | null;
   packingSize?: string | null;
   category?: string | null;
+  netWeightKgs?: string | null;
+  grossWeightKgs?: string | null;
 }
 
 interface SalesOrder {
@@ -295,6 +297,8 @@ export default function SalesOrders() {
       item.packingSize = product.packingSize || null;
       item.category = product.category || null;
       item.cartoonBarcode = product.cartoonBarcode || null;
+      item.netWeightKgs = product.netWeight || null;
+      item.grossWeightKgs = product.grossWeight || null;
       item.unitPrice = product.salesPrice || product.basePrice || "0";
       item.lineTotal = (Number(item.quantity) * parseFloat(item.unitPrice)).toFixed(2);
       updated[index] = item;
@@ -872,7 +876,7 @@ export default function SalesOrders() {
             <Separator />
 
             {/* Totals */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>Freight ($)</Label>
                 <Input
@@ -892,15 +896,29 @@ export default function SalesOrders() {
                 />
               </div>
               <div className="space-y-1.5">
+                <Label>Total</Label>
+                <div className="h-10 flex items-center px-3 bg-muted rounded-md font-bold text-lg">
+                  ${calcTotals().total}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mt-3">
+              <div className="space-y-1.5">
                 <Label>Total Qty</Label>
                 <div className="h-10 flex items-center px-3 bg-muted rounded-md font-semibold">
                   {formLineItems.reduce((sum, li) => sum + (Number(li.quantity) || 0), 0)}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Total</Label>
-                <div className="h-10 flex items-center px-3 bg-muted rounded-md font-bold text-lg">
-                  ${calcTotals().total}
+                <Label>Net Weight LBS</Label>
+                <div className="h-10 flex items-center px-3 bg-muted rounded-md font-semibold">
+                  {formLineItems.reduce((sum, li) => sum + (parseFloat(li.netWeightKgs || "0")) * (Number(li.quantity) || 0), 0).toFixed(0)} LBS
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Gross Weight LBS</Label>
+                <div className="h-10 flex items-center px-3 bg-muted rounded-md font-semibold">
+                  {formLineItems.reduce((sum, li) => sum + (parseFloat(li.grossWeightKgs || "0")) * (Number(li.quantity) || 0), 0).toFixed(0)} LBS
                 </div>
               </div>
             </div>
