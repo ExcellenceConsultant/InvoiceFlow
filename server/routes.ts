@@ -1512,7 +1512,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ invoice: createdInvoice, lineItems: createdLineItems });
+      // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
+      const actualSubtotalCreate = createdLineItems.reduce((sum: number, li: any) => sum + parseFloat(String(li.lineTotal || 0)), 0);
+      const freightValCreate = parseFloat(String(invoice.freight || 0));
+      const discountValCreate = parseFloat(String(invoice.discount || 0));
+      const discountTypeCreate = invoice.discountType || "percent";
+      const discountAmountCreate = discountTypeCreate === "percent" ? (actualSubtotalCreate * discountValCreate) / 100 : discountValCreate;
+      const actualTotalCreate = Math.max(0, actualSubtotalCreate + freightValCreate - discountAmountCreate);
+      const correctedInvoice = await storage.updateInvoice(createdInvoice.id, {
+        subtotal: actualSubtotalCreate.toFixed(2),
+        total: actualTotalCreate.toFixed(2),
+        updatedAt: new Date(),
+      });
+
+      res.json({ invoice: correctedInvoice || createdInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice creation error:", error);
       const err = error as any;
@@ -1946,7 +1959,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ invoice: updatedInvoice, lineItems: createdLineItems });
+      // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
+      const actualSubtotalUpdate = createdLineItems.reduce((sum: number, li: any) => sum + parseFloat(String(li.lineTotal || 0)), 0);
+      const freightValUpdate = parseFloat(String(invoiceData.freight || 0));
+      const discountValUpdate = parseFloat(String(invoiceData.discount || 0));
+      const discountTypeUpdate = invoiceData.discountType || "percent";
+      const discountAmountUpdate = discountTypeUpdate === "percent" ? (actualSubtotalUpdate * discountValUpdate) / 100 : discountValUpdate;
+      const actualTotalUpdate = Math.max(0, actualSubtotalUpdate + freightValUpdate - discountAmountUpdate);
+      const correctedUpdatedInvoice = await storage.updateInvoice(invoiceId, {
+        subtotal: actualSubtotalUpdate.toFixed(2),
+        total: actualTotalUpdate.toFixed(2),
+        updatedAt: new Date(),
+      });
+
+      res.json({ invoice: correctedUpdatedInvoice || updatedInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice update error:", error);
       const err = error as any;
