@@ -4785,8 +4785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/sales-orders", isAuthenticated, async (req, res) => {
     try {
-      const user = (req as any).user;
-      const orders = await storage.getSalesOrders(user.userId);
+      const orders = await storage.getSalesOrders();
       res.json(orders);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch sales orders" });
@@ -4807,6 +4806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sales-orders", isAuthenticated, async (req, res) => {
     try {
       const user = (req as any).user;
+      if (!user || !user.userId) return res.status(401).json({ message: "Unauthorized" });
       const { order, lineItems } = req.body;
       if (!order || !lineItems) return res.status(400).json({ message: "Order and line items are required" });
 

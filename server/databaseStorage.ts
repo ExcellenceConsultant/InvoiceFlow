@@ -874,11 +874,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Sales Orders
-  async getSalesOrders(userId: string): Promise<SalesOrder[]> {
+  async getSalesOrders(userId?: string): Promise<SalesOrder[]> {
+    if (userId) {
+      return db
+        .select()
+        .from(salesOrders)
+        .where(eq(salesOrders.userId, userId))
+        .orderBy(desc(salesOrders.createdAt));
+    }
     return db
       .select()
       .from(salesOrders)
-      .where(eq(salesOrders.userId, userId))
       .orderBy(desc(salesOrders.createdAt));
   }
 

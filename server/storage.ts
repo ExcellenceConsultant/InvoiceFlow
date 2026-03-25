@@ -158,7 +158,7 @@ export interface IStorage {
   updateApiKeyLastUsed(id: string): Promise<void>;
 
   // Sales Orders
-  getSalesOrders(userId: string): Promise<SalesOrder[]>;
+  getSalesOrders(userId?: string): Promise<SalesOrder[]>;
   getSalesOrder(id: string): Promise<SalesOrder | undefined>;
   getSalesOrderByExternalId(externalId: string, userId: string): Promise<SalesOrder | undefined>;
   getSalesOrderLineItems(salesOrderId: string): Promise<SalesOrderLineItem[]>;
