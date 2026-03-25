@@ -21,6 +21,28 @@ import { registerAuthRoutes } from "./authRoutes";
 import { quickBooksService } from "./services/quickbooks";
 import { storage } from "./storage";
 
+/**
+ * Computes invoice subtotal and total from saved line items.
+ * Single source of truth for route-level recalculation so that POST and PUT
+ * routes use identical arithmetic (prevents 1-cent rounding drift).
+ */
+function computeInvoiceTotals(
+  lineItems: InvoiceLineItem[],
+  freight: string | number | null | undefined,
+  discount: string | number | null | undefined,
+  discountType: string | null | undefined,
+): { subtotal: string; total: string } {
+  const subtotal = lineItems.reduce((sum, li) => sum + parseFloat(li.lineTotal ?? "0"), 0);
+  const freightAmt = parseFloat(String(freight || 0));
+  const discountAmt = parseFloat(String(discount || 0));
+  const discountDeduction =
+    (discountType ?? "percent") === "percent"
+      ? Math.round(subtotal * discountAmt) / 100
+      : discountAmt;
+  const total = Math.max(0, subtotal + freightAmt - discountDeduction);
+  return { subtotal: subtotal.toFixed(2), total: total.toFixed(2) };
+}
+
 // Configure multer for file uploads (memory storage) with limits
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1514,18 +1536,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
-      const actualSubtotalCreate = createdLineItems.reduce(
-        (sum: number, li: InvoiceLineItem) => sum + parseFloat(li.lineTotal ?? "0"),
-        0,
-      );
-      const freightValCreate = parseFloat(String(invoice.freight || 0));
-      const discountValCreate = parseFloat(String(invoice.discount || 0));
-      const discountTypeCreate = invoice.discountType || "percent";
-      const discountAmountCreate = discountTypeCreate === "percent" ? (actualSubtotalCreate * discountValCreate) / 100 : discountValCreate;
-      const actualTotalCreate = Math.max(0, actualSubtotalCreate + freightValCreate - discountAmountCreate);
+      const recalcCreate = computeInvoiceTotals(createdLineItems, invoice.freight, invoice.discount, invoice.discountType);
       const correctedInvoice = await storage.updateInvoice(createdInvoice.id, {
-        subtotal: actualSubtotalCreate.toFixed(2),
-        total: actualTotalCreate.toFixed(2),
+        subtotal: recalcCreate.subtotal,
+        total: recalcCreate.total,
         updatedAt: new Date(),
       });
 
@@ -1964,18 +1978,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
-      const actualSubtotalUpdate = createdLineItems.reduce(
-        (sum: number, li: InvoiceLineItem) => sum + parseFloat(li.lineTotal ?? "0"),
-        0,
-      );
-      const freightValUpdate = parseFloat(String(invoiceData.freight || 0));
-      const discountValUpdate = parseFloat(String(invoiceData.discount || 0));
-      const discountTypeUpdate = invoiceData.discountType || "percent";
-      const discountAmountUpdate = discountTypeUpdate === "percent" ? (actualSubtotalUpdate * discountValUpdate) / 100 : discountValUpdate;
-      const actualTotalUpdate = Math.max(0, actualSubtotalUpdate + freightValUpdate - discountAmountUpdate);
+      const recalcUpdate = computeInvoiceTotals(createdLineItems, invoiceData.freight, invoiceData.discount, invoiceData.discountType);
       const correctedUpdatedInvoice = await storage.updateInvoice(invoiceId, {
-        subtotal: actualSubtotalUpdate.toFixed(2),
-        total: actualTotalUpdate.toFixed(2),
+        subtotal: recalcUpdate.subtotal,
+        total: recalcUpdate.total,
         updatedAt: new Date(),
       });
 
