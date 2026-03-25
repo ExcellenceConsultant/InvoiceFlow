@@ -1536,24 +1536,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Recalculate subtotal/total from actual saved line items (including any auto-added scheme
-      // items) and persist the corrected values.  A separate correction write is necessary here
-      // because free-scheme items are appended after the initial createInvoice call, so the
-      // authoritative line-item sum is only known once all items are committed.
+      // items).  A separate correction write is necessary because free-scheme items are appended
+      // after the initial createInvoice call, so the authoritative line-item sum is only known
+      // once all items are committed.  If the correction write fails the whole handler fails so
+      // no partial/stale state is silently returned to the caller.
+      const recalcCreate = computeInvoiceTotals(createdLineItems, invoice.freight, invoice.discount, invoice.discountType);
       let finalInvoice = createdInvoice;
-      try {
-        const recalcCreate = computeInvoiceTotals(createdLineItems, invoice.freight, invoice.discount, invoice.discountType);
-        if (
-          recalcCreate.subtotal !== String(createdInvoice.subtotal) ||
-          recalcCreate.total !== String(createdInvoice.total)
-        ) {
-          finalInvoice = (await storage.updateInvoice(createdInvoice.id, {
-            subtotal: recalcCreate.subtotal,
-            total: recalcCreate.total,
-            updatedAt: new Date(),
-          })) ?? createdInvoice;
-        }
-      } catch (recalcErr: unknown) {
-        console.error("Invoice subtotal correction failed (invoice already created):", (recalcErr as Error).message);
+      if (
+        recalcCreate.subtotal !== String(createdInvoice.subtotal) ||
+        recalcCreate.total !== String(createdInvoice.total)
+      ) {
+        finalInvoice = (await storage.updateInvoice(createdInvoice.id, {
+          subtotal: recalcCreate.subtotal,
+          total: recalcCreate.total,
+          updatedAt: new Date(),
+        })) ?? createdInvoice;
       }
 
       res.json({ invoice: finalInvoice, lineItems: createdLineItems });
@@ -1992,22 +1989,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Recalculate subtotal/total from the actual saved line items.  The primary updateInvoice
       // above persists invoice header fields; this correction write persists the authoritative
-      // line-item-derived totals only when they differ from the stored values.
+      // line-item-derived totals only when they differ from the stored values.  If the correction
+      // write fails the whole handler fails via the outer catch, keeping the error surface explicit.
+      const recalcUpdate = computeInvoiceTotals(createdLineItems, invoiceData.freight, invoiceData.discount, invoiceData.discountType);
       let finalUpdatedInvoice = updatedInvoice;
-      try {
-        const recalcUpdate = computeInvoiceTotals(createdLineItems, invoiceData.freight, invoiceData.discount, invoiceData.discountType);
-        if (
-          recalcUpdate.subtotal !== String(updatedInvoice?.subtotal) ||
-          recalcUpdate.total !== String(updatedInvoice?.total)
-        ) {
-          finalUpdatedInvoice = (await storage.updateInvoice(invoiceId, {
-            subtotal: recalcUpdate.subtotal,
-            total: recalcUpdate.total,
-            updatedAt: new Date(),
-          })) ?? updatedInvoice;
-        }
-      } catch (recalcErr: unknown) {
-        console.error("Invoice subtotal correction failed (invoice already updated):", (recalcErr as Error).message);
+      if (
+        recalcUpdate.subtotal !== String(updatedInvoice?.subtotal) ||
+        recalcUpdate.total !== String(updatedInvoice?.total)
+      ) {
+        finalUpdatedInvoice = (await storage.updateInvoice(invoiceId, {
+          subtotal: recalcUpdate.subtotal,
+          total: recalcUpdate.total,
+          updatedAt: new Date(),
+        })) ?? updatedInvoice;
       }
 
       res.json({ invoice: finalUpdatedInvoice, lineItems: createdLineItems });
