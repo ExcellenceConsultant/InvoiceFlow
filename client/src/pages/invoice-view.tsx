@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { DEFAULT_USER_ID } from "@/lib/constants";
 import { formatDateUS } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Invoice, InvoiceLineItem } from "@shared/schema";
+import { Invoice, InvoiceLineItem, Product } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Package, Printer, Tag } from "lucide-react";
 import { useEffect } from "react";
@@ -98,22 +98,39 @@ function InvoiceView() {
     },
   });
 
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
   const isLoading = invoiceLoading || lineItemsLoading;
-  const rawLineItems = (lineItemsRaw || []).map((item) => ({
-    ...item,
-    quantity: toNumber((item as any).quantity),
-    unitPrice: toNumber((item as any).unitPrice),
-    lineTotal: toNumber((item as any).lineTotal),
-    packingSize: (item as any).packingSize || "",
-    productCode: (item as any).productCode || "",
-    netWeightKgs: toNumber((item as any).netWeightKgs),
-    grossWeightKgs: toNumber((item as any).grossWeightKgs),
-    category: (item as any).category || "",
-    isFreeFromScheme: (item as any).isFreeFromScheme || false,
-    schemeId: (item as any).schemeId || null,
-    isSchemeDescription: (item as any).isSchemeDescription || false,
-    schemeDescription: (item as any).schemeDescription || "",
-  }));
+  const rawLineItems = (lineItemsRaw || []).map((item) => {
+    const netWt = toNumber((item as any).netWeightKgs);
+    const grossWt = toNumber((item as any).grossWeightKgs);
+    let finalNetWt = netWt;
+    let finalGrossWt = grossWt;
+    if ((item as any).productId && netWt === 0 && grossWt === 0) {
+      const product = products.find((p) => p.id === (item as any).productId);
+      if (product) {
+        finalNetWt = toNumber(product.netWeight);
+        finalGrossWt = toNumber(product.grossWeight);
+      }
+    }
+    return {
+      ...item,
+      quantity: toNumber((item as any).quantity),
+      unitPrice: toNumber((item as any).unitPrice),
+      lineTotal: toNumber((item as any).lineTotal),
+      packingSize: (item as any).packingSize || "",
+      productCode: (item as any).productCode || "",
+      netWeightKgs: finalNetWt,
+      grossWeightKgs: finalGrossWt,
+      category: (item as any).category || "",
+      isFreeFromScheme: (item as any).isFreeFromScheme || false,
+      schemeId: (item as any).schemeId || null,
+      isSchemeDescription: (item as any).isSchemeDescription || false,
+      schemeDescription: (item as any).schemeDescription || "",
+    };
+  });
 
   // fix Uncategorized by inheriting from matching product
   for (const item of rawLineItems) {
