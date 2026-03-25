@@ -1535,15 +1535,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
-      const recalcCreate = computeInvoiceTotals(createdLineItems, invoice.freight, invoice.discount, invoice.discountType);
-      const correctedInvoice = await storage.updateInvoice(createdInvoice.id, {
-        subtotal: recalcCreate.subtotal,
-        total: recalcCreate.total,
-        updatedAt: new Date(),
-      });
+      // Recalculate subtotal/total from actual saved line items (including any auto-added scheme
+      // items) and persist the corrected values.  A separate correction write is necessary here
+      // because free-scheme items are appended after the initial createInvoice call, so the
+      // authoritative line-item sum is only known once all items are committed.
+      let finalInvoice = createdInvoice;
+      try {
+        const recalcCreate = computeInvoiceTotals(createdLineItems, invoice.freight, invoice.discount, invoice.discountType);
+        if (
+          recalcCreate.subtotal !== String(createdInvoice.subtotal) ||
+          recalcCreate.total !== String(createdInvoice.total)
+        ) {
+          finalInvoice = (await storage.updateInvoice(createdInvoice.id, {
+            subtotal: recalcCreate.subtotal,
+            total: recalcCreate.total,
+            updatedAt: new Date(),
+          })) ?? createdInvoice;
+        }
+      } catch (recalcErr: unknown) {
+        console.error("Invoice subtotal correction failed (invoice already created):", (recalcErr as Error).message);
+      }
 
-      res.json({ invoice: correctedInvoice ?? createdInvoice, lineItems: createdLineItems });
+      res.json({ invoice: finalInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice creation error:", error);
       const err = error as any;
@@ -1977,15 +1990,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
-      const recalcUpdate = computeInvoiceTotals(createdLineItems, invoiceData.freight, invoiceData.discount, invoiceData.discountType);
-      const correctedUpdatedInvoice = await storage.updateInvoice(invoiceId, {
-        subtotal: recalcUpdate.subtotal,
-        total: recalcUpdate.total,
-        updatedAt: new Date(),
-      });
+      // Recalculate subtotal/total from the actual saved line items.  The primary updateInvoice
+      // above persists invoice header fields; this correction write persists the authoritative
+      // line-item-derived totals only when they differ from the stored values.
+      let finalUpdatedInvoice = updatedInvoice;
+      try {
+        const recalcUpdate = computeInvoiceTotals(createdLineItems, invoiceData.freight, invoiceData.discount, invoiceData.discountType);
+        if (
+          recalcUpdate.subtotal !== String(updatedInvoice?.subtotal) ||
+          recalcUpdate.total !== String(updatedInvoice?.total)
+        ) {
+          finalUpdatedInvoice = (await storage.updateInvoice(invoiceId, {
+            subtotal: recalcUpdate.subtotal,
+            total: recalcUpdate.total,
+            updatedAt: new Date(),
+          })) ?? updatedInvoice;
+        }
+      } catch (recalcErr: unknown) {
+        console.error("Invoice subtotal correction failed (invoice already updated):", (recalcErr as Error).message);
+      }
 
-      res.json({ invoice: correctedUpdatedInvoice ?? updatedInvoice, lineItems: createdLineItems });
+      res.json({ invoice: finalUpdatedInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice update error:", error);
       const err = error as any;
