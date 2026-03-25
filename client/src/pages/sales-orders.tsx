@@ -254,7 +254,19 @@ export default function SalesOrders() {
       setFormDiscount(fullOrder.discount || "0");
       setFormLineItems(
         (fullOrder.lineItems || []).length > 0
-          ? fullOrder.lineItems!.map((li) => ({ ...li }))
+          ? fullOrder.lineItems!.map((li) => {
+              if (li.productId && (!li.netWeightKgs || parseFloat(li.netWeightKgs) === 0) && (!li.grossWeightKgs || parseFloat(li.grossWeightKgs) === 0)) {
+                const product = products.find((p) => p.id === li.productId);
+                if (product) {
+                  return {
+                    ...li,
+                    netWeightKgs: product.netWeight || li.netWeightKgs,
+                    grossWeightKgs: product.grossWeight || li.grossWeightKgs,
+                  };
+                }
+              }
+              return { ...li };
+            })
           : [emptyLineItem()]
       );
       setEditOrder(fullOrder);
