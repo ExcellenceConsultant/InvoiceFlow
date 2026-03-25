@@ -48,7 +48,16 @@ export async function runInvoiceSubtotalBackfill(): Promise<void> {
         GROUP BY invoice_id
       ) AS line_sums
       WHERE i.id = line_sums.invoice_id
-        AND ABS(i.subtotal::numeric - line_sums.actual_sum) > 0.005
+        AND (
+          ABS(i.subtotal::numeric - line_sums.actual_sum) > 0.005
+          OR ABS(i.total::numeric - GREATEST(0, line_sums.actual_sum
+               + COALESCE(i.freight::numeric, 0)
+               - CASE
+                   WHEN i.discount_type = 'percent'
+                     THEN ROUND(line_sums.actual_sum * COALESCE(i.discount::numeric, 0) / 100, 2)
+                   ELSE COALESCE(i.discount::numeric, 0)
+                 END)) > 0.005
+        )
       RETURNING i.invoice_number
     `);
     const rows = (result as unknown as { rows: { invoice_number: string }[] }).rows ?? [];
