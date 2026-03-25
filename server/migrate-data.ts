@@ -22,6 +22,44 @@ function findFile(filename: string): string | null {
   return null;
 }
 
+/**
+ * Idempotent backfill: recalculates stored subtotal/total for any invoice where
+ * the stored subtotal does not match the sum of its line items.
+ * Introduced to fix invoices 1626 and 1879 which had stale stored values.
+ * Safe to run on every startup — it only updates rows that are actually wrong.
+ */
+export async function runInvoiceSubtotalBackfill(): Promise<void> {
+  try {
+    const result = await db.execute(sql`
+      UPDATE invoices i
+      SET
+        subtotal = line_sums.actual_sum,
+        total    = GREATEST(0, line_sums.actual_sum
+                             + COALESCE(i.freight::numeric, 0)
+                             - CASE
+                                 WHEN i.discount_type = 'percent'
+                                   THEN ROUND(line_sums.actual_sum * COALESCE(i.discount::numeric, 0) / 100, 2)
+                                 ELSE COALESCE(i.discount::numeric, 0)
+                               END),
+        updated_at = NOW()
+      FROM (
+        SELECT invoice_id, ROUND(COALESCE(SUM(line_total::numeric), 0), 2) AS actual_sum
+        FROM invoice_line_items
+        GROUP BY invoice_id
+      ) AS line_sums
+      WHERE i.id = line_sums.invoice_id
+        AND ABS(i.subtotal::numeric - line_sums.actual_sum) > 0.005
+      RETURNING i.invoice_number
+    `);
+    const rows = (result as unknown as { rows: { invoice_number: string }[] }).rows ?? [];
+    if (rows.length > 0) {
+      console.log(`[backfill] Fixed subtotal/total for ${rows.length} invoice(s): ${rows.map((r) => r.invoice_number).join(", ")}`);
+    }
+  } catch (err: any) {
+    console.error("[backfill] Invoice subtotal backfill failed:", err?.message);
+  }
+}
+
 export function registerMigrationRoutes(app: Express) {
   app.post("/api/admin/migrate-data", async (req, res) => {
     const { secret, schemaOnly } = req.body;

@@ -8,6 +8,7 @@ import {
   insertProductSchemeSchema,
   insertProductVariantSchema,
   insertSalesOrderSchema,
+  type InvoiceLineItem,
 } from "@shared/schema";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
@@ -1513,7 +1514,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
-      const actualSubtotalCreate = createdLineItems.reduce((sum: number, li: any) => sum + parseFloat(String(li.lineTotal || 0)), 0);
+      const actualSubtotalCreate = createdLineItems.reduce(
+        (sum: number, li: InvoiceLineItem) => sum + parseFloat(li.lineTotal ?? "0"),
+        0,
+      );
       const freightValCreate = parseFloat(String(invoice.freight || 0));
       const discountValCreate = parseFloat(String(invoice.discount || 0));
       const discountTypeCreate = invoice.discountType || "percent";
@@ -1525,7 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date(),
       });
 
-      res.json({ invoice: correctedInvoice || createdInvoice, lineItems: createdLineItems });
+      res.json({ invoice: correctedInvoice ?? createdInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice creation error:", error);
       const err = error as any;
@@ -1960,7 +1964,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Recalculate subtotal and total from the actual saved line items to ensure stored values always match
-      const actualSubtotalUpdate = createdLineItems.reduce((sum: number, li: any) => sum + parseFloat(String(li.lineTotal || 0)), 0);
+      const actualSubtotalUpdate = createdLineItems.reduce(
+        (sum: number, li: InvoiceLineItem) => sum + parseFloat(li.lineTotal ?? "0"),
+        0,
+      );
       const freightValUpdate = parseFloat(String(invoiceData.freight || 0));
       const discountValUpdate = parseFloat(String(invoiceData.discount || 0));
       const discountTypeUpdate = invoiceData.discountType || "percent";
@@ -1972,7 +1979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date(),
       });
 
-      res.json({ invoice: correctedUpdatedInvoice || updatedInvoice, lineItems: createdLineItems });
+      res.json({ invoice: correctedUpdatedInvoice ?? updatedInvoice, lineItems: createdLineItems });
     } catch (error) {
       console.error("Invoice update error:", error);
       const err = error as any;

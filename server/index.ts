@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { registerMigrationRoutes } from "./migrate-data";
+import { registerMigrationRoutes, runInvoiceSubtotalBackfill } from "./migrate-data";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -38,6 +38,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await runInvoiceSubtotalBackfill();
   registerMigrationRoutes(app);
   const server = await registerRoutes(app);
 
