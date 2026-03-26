@@ -4972,17 +4972,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const item of lineItems) {
         let netWt = item.netWeightKgs || null;
         let grossWt = item.grossWeightKgs || null;
+        let productSchemeDescription: string | null = null;
 
-        if (item.productId && (!netWt || parseFloat(netWt) === 0) && (!grossWt || parseFloat(grossWt) === 0)) {
+        if (item.productId) {
           const product = await storage.getProduct(item.productId);
           if (product) {
-            netWt = product.netWeight ? String(product.netWeight) : null;
-            grossWt = product.grossWeight ? String(product.grossWeight) : null;
-            await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
-          }
-        } else if (item.productId) {
-          const product = await storage.getProduct(item.productId);
-          if (product) {
+            if ((!netWt || parseFloat(netWt) === 0) && (!grossWt || parseFloat(grossWt) === 0)) {
+              netWt = product.netWeight ? String(product.netWeight) : null;
+              grossWt = product.grossWeight ? String(product.grossWeight) : null;
+            }
+            if (product.schemeDescription && product.schemeDescription.trim()) {
+              productSchemeDescription = product.schemeDescription.trim();
+            }
             await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
           }
         }
@@ -5008,6 +5009,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marginUpdatedBy: null,
           marginUpdatedAt: null,
         });
+
+        if (productSchemeDescription) {
+          await storage.createInvoiceLineItem({
+            invoiceId: invoice.id,
+            productId: item.productId || null,
+            variantId: null,
+            description: productSchemeDescription,
+            quantity: 0,
+            unitPrice: "0.00",
+            lineTotal: "0.00",
+            productCode: item.productCode || null,
+            cartoonBarcode: null,
+            packingSize: null,
+            grossWeightKgs: null,
+            netWeightKgs: null,
+            category: item.category || null,
+            isFreeFromScheme: false,
+            isSchemeDescription: true,
+            schemeId: null,
+            marginPerCarton: null,
+            marginUpdatedBy: null,
+            marginUpdatedAt: null,
+          });
+        }
       }
 
       await storage.updateSalesOrder(order.id, {
