@@ -558,6 +558,12 @@ function InvoiceView() {
       );
       if (relatedSchemeDesc) {
         allRows.push({ type: "schemeDesc", item: relatedSchemeDesc });
+      } else if (item.productId) {
+        // Fallback: show scheme description from product master data (covers old/converted invoices)
+        const masterProduct = products.find((p: any) => p.id === item.productId);
+        if (masterProduct?.schemeDescription?.trim()) {
+          allRows.push({ type: "schemeDesc", item: { ...item, description: masterProduct.schemeDescription.trim() } });
+        }
       }
     });
   });

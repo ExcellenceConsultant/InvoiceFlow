@@ -485,8 +485,10 @@ export default function SalesOrderView() {
                     </tr>
                     {sd && (
                       <tr>
-                        <td colSpan={7} style={{ padding: "2px 8px 4px 8px", fontSize: "10px", color: "#1d4ed8", background: "#eff6ff" }}>
-                          <strong>Scheme:</strong> {sd}
+                        <td style={{ border: "none" }}></td>
+                        <td style={{ border: "none" }}></td>
+                        <td colSpan={5} style={{ fontSize: "inherit", fontStyle: "italic", textAlign: "left", backgroundColor: "white", color: "inherit", padding: "1px 8px 4px 8px" }}>
+                          {sd}
                         </td>
                       </tr>
                     )}

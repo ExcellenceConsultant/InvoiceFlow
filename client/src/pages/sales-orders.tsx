@@ -1101,10 +1101,9 @@ function OrderDetail({ order, customers, products }: { order: SalesOrder; custom
                         <td className="px-3 py-2 text-right font-medium">${parseFloat(li.lineTotal || "0").toFixed(2)}</td>
                       </tr>
                       {sd && (
-                        <tr className="bg-blue-50 dark:bg-blue-950/20">
-                          <td colSpan={5} className="px-3 py-1.5">
-                            <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wide mr-2">Scheme:</span>
-                            <span className="text-xs text-blue-700 dark:text-blue-300">{sd}</span>
+                        <tr>
+                          <td colSpan={5} className="px-3 py-1 text-xs italic text-muted-foreground">
+                            {sd}
                           </td>
                         </tr>
                       )}
