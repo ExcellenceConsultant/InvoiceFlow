@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { formatDateMMDDYYYY } from "@/lib/dateUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -560,7 +560,7 @@ export default function SalesOrders() {
               )}
             </DialogDescription>
           </DialogHeader>
-          {viewOrder && <OrderDetail order={viewOrder} customers={customers} />}
+          {viewOrder && <OrderDetail order={viewOrder} customers={customers} products={products} />}
           <DialogFooter className="flex-col sm:flex-row gap-2">
             {canConvert &&
               viewOrder?.status !== "converted" &&
@@ -1032,7 +1032,7 @@ export default function SalesOrders() {
   );
 }
 
-function OrderDetail({ order, customers }: { order: SalesOrder; customers: Customer[] }) {
+function OrderDetail({ order, customers, products }: { order: SalesOrder; customers: Customer[]; products: Product[] }) {
   const customer = customers.find((c) => c.id === order.customerId);
   const displayName = customer?.name || order.customerName || "—";
 
@@ -1088,15 +1088,29 @@ function OrderDetail({ order, customers }: { order: SalesOrder; customers: Custo
                 </tr>
               </thead>
               <tbody>
-                {order.lineItems.map((li, i) => (
-                  <tr key={i} className="border-t">
-                    <td className="px-3 py-2">{li.description}</td>
-                    <td className="px-3 py-2 font-mono text-muted-foreground">{li.productCode || "—"}</td>
-                    <td className="px-3 py-2 text-right">{li.quantity}</td>
-                    <td className="px-3 py-2 text-right">${parseFloat(li.unitPrice || "0").toFixed(2)}</td>
-                    <td className="px-3 py-2 text-right font-medium">${parseFloat(li.lineTotal || "0").toFixed(2)}</td>
-                  </tr>
-                ))}
+                {order.lineItems.map((li, i) => {
+                  const prod = li.productId ? products.find((p) => p.id === li.productId) : null;
+                  const sd = prod?.schemeDescription?.trim() || null;
+                  return (
+                    <Fragment key={i}>
+                      <tr className="border-t">
+                        <td className="px-3 py-2">{li.description}</td>
+                        <td className="px-3 py-2 font-mono text-muted-foreground">{li.productCode || "—"}</td>
+                        <td className="px-3 py-2 text-right">{li.quantity}</td>
+                        <td className="px-3 py-2 text-right">${parseFloat(li.unitPrice || "0").toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-medium">${parseFloat(li.lineTotal || "0").toFixed(2)}</td>
+                      </tr>
+                      {sd && (
+                        <tr className="bg-blue-50 dark:bg-blue-950/20">
+                          <td colSpan={5} className="px-3 py-1.5">
+                            <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wide mr-2">Scheme:</span>
+                            <span className="text-xs text-blue-700 dark:text-blue-300">{sd}</span>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { formatDateMMDDYYYY } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
@@ -84,6 +85,10 @@ export default function SalesOrderView() {
 
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers"],
+  });
+
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
   });
 
   useEffect(() => {
@@ -465,8 +470,11 @@ export default function SalesOrderView() {
                     );
                   }
                   const item = row.item;
+                  const prod = item.productId ? products.find((p: any) => p.id === item.productId) : null;
+                  const sd = prod?.schemeDescription?.trim() || null;
                   return (
-                    <tr key={`item-${pageIndex}-${idx}`}>
+                    <Fragment key={`item-${pageIndex}-${idx}`}>
+                    <tr>
                       <td style={{ textAlign: "center" }}>{row.srNo}</td>
                       <td>{item.productCode || "—"}</td>
                       <td>{item.packingSize ? item.packingSize.replace(/GM/g, "G") : "—"}</td>
@@ -475,6 +483,14 @@ export default function SalesOrderView() {
                       <td style={{ textAlign: "center" }}>{formatCurrency(item.unitPrice)}</td>
                       <td style={{ textAlign: "center" }}>{formatCurrency(item.lineTotal)}</td>
                     </tr>
+                    {sd && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: "2px 8px 4px 8px", fontSize: "10px", color: "#1d4ed8", background: "#eff6ff" }}>
+                          <strong>Scheme:</strong> {sd}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
