@@ -765,9 +765,11 @@ export default function SalesOrders() {
                   const filteredProducts = lineItemCategoryFilter === "__all__"
                     ? products
                     : products.filter((p) => p.category === lineItemCategoryFilter);
+                  const selectedProduct = item.productId ? products.find((p) => p.id === item.productId) : null;
+                  const schemeDesc = selectedProduct?.schemeDescription?.trim() || null;
                   return (
+                    <div key={idx} className="space-y-1">
                     <div
-                      key={idx}
                       className="grid grid-cols-[2fr_2fr_80px_100px_100px_36px] gap-2 items-center"
                     >
                       {/* Product */}
@@ -868,6 +870,15 @@ export default function SalesOrders() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
+                    {schemeDesc && (
+                      <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <div className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wide mb-0.5">
+                          Scheme Description
+                        </div>
+                        <div className="text-xs text-blue-700 dark:text-blue-300">{schemeDesc}</div>
+                      </div>
+                    )}
                     </div>
                   );
                 })}
