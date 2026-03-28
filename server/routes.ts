@@ -3322,13 +3322,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(400).json({ message: "Customer not found" });
           }
 
-          // Find or create customer
-          const qbCustomer = await findOrCreateCustomer(
-            validQbConfig,
-            customer.name,
-            customer.id,
-            storage,
-          );
+          // Find or create customer — use stored QB ID directly if available (avoids name-lookup failures)
+          const qbCustomer = (customer as any).quickbooksCustomerId
+            ? { Id: (customer as any).quickbooksCustomerId, DisplayName: customer.name }
+            : await findOrCreateCustomer(validQbConfig, customer.name, customer.id, storage);
 
           // Build invoice line items (exclude 0-quantity scheme placeholders)
           const qbLineItems = [];
