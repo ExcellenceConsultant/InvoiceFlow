@@ -3387,6 +3387,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
+          // Add discount line item for AR invoices if discount exists (QB account ID: 143)
+          const invoiceSubtotal = parseFloat(String(invoice.subtotal || 0));
+          const discountValue = parseFloat(String((invoice as any).discount || 0));
+          const discountType = (invoice as any).discountType || "percent";
+          const discountDollar = discountType === "percent"
+            ? Math.round(invoiceSubtotal * discountValue) / 100
+            : Math.round(discountValue * 100) / 100;
+          if (discountDollar > 0) {
+            qbLineItems.push({
+              Amount: discountDollar,
+              DetailType: "DiscountLineDetail",
+              DiscountLineDetail: {
+                DiscountAccountRef: {
+                  value: "143",
+                  name: "Discount",
+                },
+                PercentBased: false,
+              },
+            });
+          }
+
           const invoiceData = {
             CustomerRef: { value: qbCustomer.Id, name: qbCustomer.DisplayName },
             TxnDate: invoice.invoiceDate.toISOString().split("T")[0],
