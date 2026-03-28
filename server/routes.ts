@@ -4120,16 +4120,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Invoice not found" });
         }
 
-        // Verify invoice belongs to user
-        if (invoice.userId !== userId) {
-          return res.status(403).json({ message: "Access denied" });
-        }
-
         // Fetch customer info
         const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
 
         // Fetch products for additional data only (margin is read from invoice_items)
-        const products = await storage.getProducts(userId);
+        const products = await storage.getProducts(invoice.userId || userId);
         const productMap = new Map(products.map((p: any) => [p.id, p]));
 
         // Fetch line items
