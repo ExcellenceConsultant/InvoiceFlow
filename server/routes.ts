@@ -4969,6 +4969,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: user.userId,
       });
 
+      // Pre-fetch all products for margin snapshotting (avoid N+1 queries)
+      const allProductsForMargin = await storage.getProducts(user.userId);
+      const productMarginMap = new Map(allProductsForMargin.map((p: any) => [
+        p.id,
+        p.marginPerCarton ? parseFloat(p.marginPerCarton) : 0
+      ]));
+
+      // Pre-fetch customer category and category margins for margin resolution
+      let soCustomerCategory = "";
+      let soCategoryMarginsList: any[] = [];
+      if (order.customerId) {
+        const soCustomer = await storage.getCustomer(order.customerId);
+        if (soCustomer?.customerCategory) {
+          soCustomerCategory = soCustomer.customerCategory;
+          soCategoryMarginsList = await storage.getCategoryMarginsByCategory(soCustomerCategory);
+        }
+      }
+
       for (const item of lineItems) {
         let netWt = item.netWeightKgs || null;
         let grossWt = item.grossWeightKgs || null;
@@ -4985,6 +5003,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
               productSchemeDescription = product.schemeDescription.trim();
             }
             await storage.updateProduct(item.productId, { qty: Math.max(0, (product.qty || 0) - item.quantity) });
+          }
+        }
+
+        // MARGIN SNAPSHOT: Resolve margin using same 3-priority logic as standard invoice creation
+        // Priority: 1) Category+Product margin  2) Category global margin  3) Inventory product margin
+        const unitPriceNum = parseFloat(String(item.unitPrice)) || 0;
+        let soSnapshotMargin = "0";
+        if (unitPriceNum > 0 && item.productId) {
+          let marginResolved = false;
+          if (soCustomerCategory && soCategoryMarginsList.length > 0) {
+            const productCategoryMargin = soCategoryMarginsList.find(
+              (m: any) => m.productId === item.productId
+            );
+            if (productCategoryMargin) {
+              soSnapshotMargin = String(parseFloat(productCategoryMargin.marginAmount) || 0);
+              marginResolved = true;
+            }
+            if (!marginResolved) {
+              const globalCategoryMargin = soCategoryMarginsList.find(
+                (m: any) => m.productId === null
+              );
+              if (globalCategoryMargin) {
+                soSnapshotMargin = String(parseFloat(globalCategoryMargin.marginAmount) || 0);
+                marginResolved = true;
+              }
+            }
+          }
+          if (!marginResolved) {
+            const inventoryMargin = productMarginMap.get(item.productId) || 0;
+            soSnapshotMargin = inventoryMargin.toString();
           }
         }
 
@@ -5005,7 +5053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isFreeFromScheme: false,
           isSchemeDescription: false,
           schemeId: null,
-          marginPerCarton: null,
+          marginPerCarton: soSnapshotMargin,
           marginUpdatedBy: null,
           marginUpdatedAt: null,
         });
@@ -5028,7 +5076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isFreeFromScheme: false,
             isSchemeDescription: true,
             schemeId: null,
-            marginPerCarton: null,
+            marginPerCarton: "0",
             marginUpdatedBy: null,
             marginUpdatedAt: null,
           });
