@@ -224,6 +224,14 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
+  async findProductByItemCode(itemCode: string): Promise<Product | undefined> {
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(eq(products.itemCode, itemCode));
+    return product;
+  }
+
   async createProduct(
     insertProduct: InsertProduct & { userId: string },
   ): Promise<Product> {

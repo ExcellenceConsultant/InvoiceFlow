@@ -56,6 +56,7 @@ export interface IStorage {
   getProducts(userId: string): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   getProductByQuickbooksItemId(quickbooksItemId: string): Promise<Product | undefined>;
+  findProductByItemCode(itemCode: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct & { userId: string }): Promise<Product>;
   updateProduct(
     id: string,
@@ -340,6 +341,10 @@ export class MemStorage implements IStorage {
 
   async getProductByQuickbooksItemId(quickbooksItemId: string): Promise<Product | undefined> {
     return Array.from(this.products.values()).find(p => p.quickbooksItemId === quickbooksItemId);
+  }
+
+  async findProductByItemCode(itemCode: string): Promise<Product | undefined> {
+    return Array.from(this.products.values()).find(p => p.itemCode === itemCode);
   }
 
   async createProduct(

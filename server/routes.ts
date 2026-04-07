@@ -5157,6 +5157,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper used by external sales-order endpoints:
+  // Resolves productId from an incoming line-item — uses provided id if present,
+  // otherwise looks up by item_code (productCode / sku) in the products table.
+  async function resolveExternalProductId(item: any): Promise<string | null> {
+    if (item.productId) return item.productId;
+    const code = item.productCode || item.sku;
+    if (!code) return null;
+    const found = await storage.findProductByItemCode(code);
+    return found?.id ?? null;
+  }
+
   // External: Get all sales orders
   app.get("/api/external/sales-orders", async (req, res) => {
     try {
@@ -5203,9 +5214,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           if (lineItems.length > 0) {
             await storage.deleteSalesOrderLineItems(existing.id);
-            await Promise.all(lineItems.map((item: any) => storage.createSalesOrderLineItem({
+            await Promise.all(lineItems.map(async (item: any) => storage.createSalesOrderLineItem({
               salesOrderId: existing.id,
-              productId: item.productId || null,
+              productId: await resolveExternalProductId(item),
               description: item.description || item.name || "Item",
               quantity: item.quantity || 1,
               unitPrice: item.unitPrice || item.price || "0",
@@ -5252,9 +5263,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Insert all line items in parallel instead of one by one
       const createdItems = await Promise.all(
-        lineItems.map((item: any) => storage.createSalesOrderLineItem({
+        lineItems.map(async (item: any) => storage.createSalesOrderLineItem({
           salesOrderId: createdOrder.id,
-          productId: item.productId || null,
+          productId: await resolveExternalProductId(item),
           description: item.description || item.name || "Item",
           quantity: item.quantity || 1,
           unitPrice: item.unitPrice || item.price || "0",
@@ -5302,7 +5313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const item of lineItems) {
           await storage.createSalesOrderLineItem({
             salesOrderId: existing.id,
-            productId: item.productId || null,
+            productId: await resolveExternalProductId(item),
             description: item.description || item.name || "Item",
             quantity: item.quantity || 1,
             unitPrice: item.unitPrice || item.price || "0",
