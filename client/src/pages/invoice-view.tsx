@@ -552,18 +552,12 @@ function InvoiceView() {
       srCounter++;
       allRows.push({ type: "item", item, srNo: srCounter, isScheme: false });
 
-      // Add scheme description right after the product if it exists
+      // Add scheme description right after the product only if it was explicitly saved as a line item
       const relatedSchemeDesc = schemeDescItems.find(
         (sd) => sd.productId === item.productId,
       );
       if (relatedSchemeDesc) {
         allRows.push({ type: "schemeDesc", item: relatedSchemeDesc });
-      } else if (item.productId) {
-        // Fallback: show scheme description from product master data (covers old/converted invoices)
-        const masterProduct = products.find((p: any) => p.id === item.productId);
-        if (masterProduct?.schemeDescription?.trim()) {
-          allRows.push({ type: "schemeDesc", item: { ...item, description: masterProduct.schemeDescription.trim() } });
-        }
       }
     });
   });
