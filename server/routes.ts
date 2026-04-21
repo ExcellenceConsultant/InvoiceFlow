@@ -5335,6 +5335,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── External Schemes API Endpoints ──────────────────────────────────────
+
+  // GET /api/external/schemes — List all schemes (with usage counts)
+  app.get("/api/external/schemes", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const schemes = await storage.getProductSchemes(auth.userId);
+      const usageCounts = await storage.getSchemeUsageCounts(auth.userId);
+      const data = schemes.map((s: any) => ({
+        ...s,
+        usageCount: usageCounts[s.id] || 0,
+      }));
+      res.json({ success: true, count: data.length, data });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch schemes" });
+    }
+  });
+
+  // GET /api/external/schemes/:id — Get a single scheme by ID
+  app.get("/api/external/schemes/:id", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const scheme = await storage.getProductScheme(req.params.id);
+      if (!scheme) return res.status(404).json({ message: "Scheme not found" });
+      res.json({ success: true, data: scheme });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch scheme" });
+    }
+  });
+
+  // POST /api/external/schemes — Create a new scheme
+  // Body: { name, description?, buyQuantity, freeQuantity, productId?, productIds?, isActive? }
+  app.post("/api/external/schemes", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const { name, description, buyQuantity, freeQuantity, productId, productIds, isActive } = req.body;
+      if (!name || buyQuantity === undefined || freeQuantity === undefined) {
+        return res.status(400).json({ message: "name, buyQuantity, and freeQuantity are required" });
+      }
+      const scheme = await storage.createScheme({
+        name,
+        description: description || null,
+        buyQuantity: parseInt(String(buyQuantity), 10),
+        freeQuantity: parseInt(String(freeQuantity), 10),
+        productId: productId || null,
+        productIds: productIds || null,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        userId: auth.userId,
+      });
+      res.status(201).json({ success: true, data: scheme });
+    } catch (error) {
+      console.error("External scheme create error:", error);
+      res.status(500).json({ message: "Failed to create scheme" });
+    }
+  });
+
+  // PATCH /api/external/schemes/:id — Update an existing scheme
+  // Body: any subset of { name, description, buyQuantity, freeQuantity, productId, productIds, isActive }
+  app.patch("/api/external/schemes/:id", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const existing = await storage.getProductScheme(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Scheme not found" });
+      const updates: Record<string, any> = {};
+      if (req.body.name !== undefined) updates.name = req.body.name;
+      if (req.body.description !== undefined) updates.description = req.body.description;
+      if (req.body.buyQuantity !== undefined) updates.buyQuantity = parseInt(String(req.body.buyQuantity), 10);
+      if (req.body.freeQuantity !== undefined) updates.freeQuantity = parseInt(String(req.body.freeQuantity), 10);
+      if (req.body.productId !== undefined) updates.productId = req.body.productId;
+      if (req.body.productIds !== undefined) updates.productIds = req.body.productIds;
+      if (req.body.isActive !== undefined) updates.isActive = Boolean(req.body.isActive);
+      const updated = await storage.updateScheme(req.params.id, updates);
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update scheme" });
+    }
+  });
+
+  // DELETE /api/external/schemes/:id — Delete a scheme (also detaches from invoice history)
+  app.delete("/api/external/schemes/:id", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const success = await storage.deleteScheme(req.params.id);
+      if (!success) return res.status(404).json({ message: "Scheme not found" });
+      res.json({ success: true, message: "Scheme deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete scheme" });
+    }
+  });
+
   // ─── External Price Rule API Endpoints ───────────────────────────────────
 
   // GET /api/external/price-rules — List all price rules (with product details)

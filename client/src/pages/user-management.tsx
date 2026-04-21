@@ -522,6 +522,33 @@ export default function UserManagement() {
                 </div>
               </div>
 
+              {/* Schemes endpoints */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Schemes</p>
+                <div className="space-y-2">
+                  {[
+                    { label: "GET — List all schemes (with usage counts)", path: "/api/external/schemes", key: "sc-get" },
+                    { label: "GET — Get scheme by ID", path: "/api/external/schemes/:id", key: "sc-get-id" },
+                    { label: "POST — Create new scheme", path: "/api/external/schemes", key: "sc-post" },
+                    { label: "PATCH — Update scheme", path: "/api/external/schemes/:id", key: "sc-patch" },
+                    { label: "DELETE — Delete scheme by ID", path: "/api/external/schemes/:id", key: "sc-delete" },
+                  ].map(({ label, path, key }) => {
+                    const url = `${window.location.origin}${path}`;
+                    return (
+                      <div key={key} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                          <code className="text-xs font-mono break-all">{url}</code>
+                        </div>
+                        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => copyToClipboard(url)}>
+                          {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Price Rule endpoints */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Price Rules</p>
@@ -622,6 +649,89 @@ export default function UserManagement() {
                 {
                   title: "5. Delete a price rule by ID",
                   curl: `curl -X DELETE "${window.location.origin}/api/external/price-rules/PRICE-RULE-UUID" \\
+  -H "Authorization: Bearer YOUR_API_KEY"`,
+                },
+              ].map(({ title, curl }) => (
+                <div key={title} className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">{title}</p>
+                  <div className="relative bg-muted rounded-md p-3">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-all pr-8">{curl}</pre>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(curl)}
+                    >
+                      {copied ? <CheckCircle className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Schemes API — cURL Examples */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                Schemes API — cURL Examples
+              </CardTitle>
+              <CardDescription>
+                Replace <code className="text-xs bg-muted px-1 rounded">YOUR_API_KEY</code> with your actual API key below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                {
+                  title: "1. List all schemes (with usage counts)",
+                  curl: `curl -X GET "${window.location.origin}/api/external/schemes" \\
+  -H "Authorization: Bearer YOUR_API_KEY"`,
+                },
+                {
+                  title: "2. Get a single scheme by ID",
+                  curl: `curl -X GET "${window.location.origin}/api/external/schemes/SCHEME-UUID" \\
+  -H "Authorization: Bearer YOUR_API_KEY"`,
+                },
+                {
+                  title: "3. Create a new scheme (Buy 10 Get 1 Free)",
+                  curl: `curl -X POST "${window.location.origin}/api/external/schemes" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Buy 10 Get 1 Free",
+    "description": "Purchase 10 cartons and get 1 free",
+    "buyQuantity": 10,
+    "freeQuantity": 1,
+    "isActive": true
+  }'`,
+                },
+                {
+                  title: "4. Create a product-specific scheme",
+                  curl: `curl -X POST "${window.location.origin}/api/external/schemes" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Buy 20 Get 2 Free - Sauce",
+    "description": "Applicable to Sauce SKUs only",
+    "buyQuantity": 20,
+    "freeQuantity": 2,
+    "productIds": ["PRODUCT-UUID-1", "PRODUCT-UUID-2"],
+    "isActive": true
+  }'`,
+                },
+                {
+                  title: "5. Update a scheme (e.g. deactivate it)",
+                  curl: `curl -X PATCH "${window.location.origin}/api/external/schemes/SCHEME-UUID" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "isActive": false
+  }'`,
+                },
+                {
+                  title: "6. Delete a scheme by ID",
+                  curl: `curl -X DELETE "${window.location.origin}/api/external/schemes/SCHEME-UUID" \\
   -H "Authorization: Bearer YOUR_API_KEY"`,
                 },
               ].map(({ title, curl }) => (
