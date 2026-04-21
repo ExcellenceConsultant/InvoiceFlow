@@ -497,26 +497,149 @@ export default function UserManagement() {
               </CardTitle>
               <CardDescription>Use your API key as a Bearer token to access these endpoints from external systems.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-4">
+              {/* Sales Order endpoints */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sales Orders</p>
+                <div className="space-y-2">
+                  {[
+                    { label: "GET — List all sales orders", path: "/api/external/sales-orders", key: "so-get" },
+                    { label: "POST — Create / sync sales order", path: "/api/external/sales-orders", key: "so-post" },
+                  ].map(({ label, path, key }) => {
+                    const url = `${window.location.origin}${path}`;
+                    return (
+                      <div key={key} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                          <code className="text-xs font-mono break-all">{url}</code>
+                        </div>
+                        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => copyToClipboard(url)}>
+                          {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Price Rule endpoints */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Price Rules</p>
+                <div className="space-y-2">
+                  {[
+                    { label: "GET — List all price rules", path: "/api/external/price-rules", key: "pr-get" },
+                    { label: "GET — Rules by category", path: "/api/external/price-rules/category/:category", key: "pr-cat" },
+                    { label: "POST — Create / update price rule", path: "/api/external/price-rules", key: "pr-post" },
+                    { label: "DELETE — Delete price rule by ID", path: "/api/external/price-rules/:id", key: "pr-delete" },
+                  ].map(({ label, path, key }) => {
+                    const url = `${window.location.origin}${path}`;
+                    return (
+                      <div key={key} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                          <code className="text-xs font-mono break-all">{url}</code>
+                        </div>
+                        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => copyToClipboard(url)}>
+                          {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reference endpoints */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Reference Data</p>
+                <div className="space-y-2">
+                  {[
+                    { label: "Products (with item codes)", path: "/api/external/products", key: "products" },
+                    { label: "Customers", path: "/api/external/customers", key: "customers" },
+                  ].map(({ label, path, key }) => {
+                    const url = `${window.location.origin}${path}`;
+                    return (
+                      <div key={key} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+                          <code className="text-xs font-mono break-all">{url}</code>
+                        </div>
+                        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => copyToClipboard(url)}>
+                          {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Price Rule API — cURL Examples */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                Price Rule API — cURL Examples
+              </CardTitle>
+              <CardDescription>
+                Replace <code className="text-xs bg-muted px-1 rounded">YOUR_API_KEY</code> with your actual API key below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               {[
-                { label: "Products", path: "/api/external/products", key: "products" },
-                { label: "Customers", path: "/api/external/customers", key: "customers" },
-                { label: "Sales Orders (GET — list)", path: "/api/external/sales-orders", key: "so-get" },
-                { label: "Sales Orders (POST — create/sync)", path: "/api/external/sales-orders", key: "so-post" },
-              ].map(({ label, path, key }) => {
-                const url = `${window.location.origin}${path}`;
-                return (
-                  <div key={key} className="flex items-center justify-between bg-muted rounded-md px-3 py-2 gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
-                      <code className="text-xs font-mono break-all">{url}</code>
-                    </div>
-                    <Button variant="ghost" size="sm" className="shrink-0" onClick={() => copyToClipboard(url)}>
-                      {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {
+                  title: "1. List all price rules",
+                  curl: `curl -X GET "${window.location.origin}/api/external/price-rules" \\
+  -H "Authorization: Bearer YOUR_API_KEY"`,
+                },
+                {
+                  title: "2. Get price rules for a specific customer category",
+                  curl: `curl -X GET "${window.location.origin}/api/external/price-rules/category/Wholesale" \\
+  -H "Authorization: Bearer YOUR_API_KEY"`,
+                },
+                {
+                  title: "3. Create or update a price rule (using product item code)",
+                  curl: `curl -X POST "${window.location.origin}/api/external/price-rules" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "customerCategory": "Wholesale",
+    "productCode": "ITEM-001",
+    "customPrice": "45.00"
+  }'`,
+                },
+                {
+                  title: "4. Create or update a price rule (using product ID)",
+                  curl: `curl -X POST "${window.location.origin}/api/external/price-rules" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "customerCategory": "Retail",
+    "productId": "PRODUCT-UUID-HERE",
+    "customPrice": "55.00"
+  }'`,
+                },
+                {
+                  title: "5. Delete a price rule by ID",
+                  curl: `curl -X DELETE "${window.location.origin}/api/external/price-rules/PRICE-RULE-UUID" \\
+  -H "Authorization: Bearer YOUR_API_KEY"`,
+                },
+              ].map(({ title, curl }) => (
+                <div key={title} className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">{title}</p>
+                  <div className="relative bg-muted rounded-md p-3">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-all pr-8">{curl}</pre>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2 h-6 w-6 p-0"
+                      onClick={() => copyToClipboard(curl)}
+                    >
+                      {copied ? <CheckCircle className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
                     </Button>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </CardContent>
           </Card>
 

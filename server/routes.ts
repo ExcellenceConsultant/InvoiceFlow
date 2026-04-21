@@ -5112,7 +5112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use("/api/external", (req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
     if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
@@ -5332,6 +5332,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, data: { ...updated, lineItems: updatedItems } });
     } catch (error) {
       res.status(500).json({ message: "Failed to update sales order" });
+    }
+  });
+
+  // ─── External Price Rule API Endpoints ───────────────────────────────────
+
+  // GET /api/external/price-rules — List all price rules (with product details)
+  app.get("/api/external/price-rules", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const rules = await storage.getPriceRules();
+      const products = await storage.getProducts(auth.userId);
+      const productMap = new Map(products.map((p: any) => [p.id, p]));
+      const enriched = rules.map((r: any) => ({
+        ...r,
+        product: productMap.has(r.productId) ? {
+          id: (productMap.get(r.productId) as any).id,
+          name: (productMap.get(r.productId) as any).name,
+          itemCode: (productMap.get(r.productId) as any).itemCode,
+        } : null,
+      }));
+      res.json({ success: true, count: enriched.length, data: enriched });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price rules" });
+    }
+  });
+
+  // GET /api/external/price-rules/category/:category — Rules for a specific category
+  app.get("/api/external/price-rules/category/:category", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const rules = await storage.getPriceRulesByCategory(req.params.category);
+      res.json({ success: true, count: rules.length, data: rules });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price rules by category" });
+    }
+  });
+
+  // POST /api/external/price-rules — Create or update (upsert) a price rule
+  // Body: { customerCategory, productId?, productCode?, customPrice }
+  app.post("/api/external/price-rules", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const { customerCategory, productId, productCode, customPrice } = req.body;
+      if (!customerCategory || customPrice === undefined || customPrice === null) {
+        return res.status(400).json({ message: "customerCategory and customPrice are required" });
+      }
+      // Resolve productId from productCode if not provided
+      let resolvedProductId: string | null = productId || null;
+      if (!resolvedProductId && productCode) {
+        const found = await storage.findProductByItemCode(productCode);
+        resolvedProductId = found?.id ?? null;
+      }
+      if (!resolvedProductId) {
+        return res.status(400).json({ message: "productId or productCode is required and must match an existing product" });
+      }
+      const rule = await storage.upsertPriceRule(customerCategory, resolvedProductId, String(customPrice));
+      res.status(201).json({ success: true, data: rule });
+    } catch (error) {
+      console.error("External price rule upsert error:", error);
+      res.status(500).json({ message: "Failed to upsert price rule" });
+    }
+  });
+
+  // DELETE /api/external/price-rules/:id — Delete a price rule by ID
+  app.delete("/api/external/price-rules/:id", async (req, res) => {
+    try {
+      const auth = await authenticateApiKey(req, res);
+      if (!auth) return;
+      const success = await storage.deletePriceRule(req.params.id);
+      if (!success) return res.status(404).json({ message: "Price rule not found" });
+      res.json({ success: true, message: "Price rule deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete price rule" });
     }
   });
 
