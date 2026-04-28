@@ -147,6 +147,7 @@ export default function SalesOrders() {
   // Form state for create/edit
   const [formCustomerId, setFormCustomerId] = useState("");
   const [formCustomerName, setFormCustomerName] = useState("");
+  const [formCustomerCategory, setFormCustomerCategory] = useState<string | null>(null);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [productSearchOpenIdx, setProductSearchOpenIdx] = useState<number | null>(null);
   const [formStatus, setFormStatus] = useState<SOStatus>("pending");
@@ -168,6 +169,12 @@ export default function SalesOrders() {
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+
+  // Price rules for the currently selected customer's category
+  const { data: priceRulesForCategory = [] } = useQuery<any[]>({
+    queryKey: ["/api/price-rules/category", formCustomerCategory],
+    enabled: !!formCustomerCategory,
   });
 
   const createMutation = useMutation({
@@ -224,6 +231,7 @@ export default function SalesOrders() {
   function resetForm() {
     setFormCustomerId("");
     setFormCustomerName("");
+    setFormCustomerCategory(null);
     setFormStatus("pending");
     setFormPO("");
     setFormNotes("");
@@ -246,6 +254,9 @@ export default function SalesOrders() {
       const fullOrder: SalesOrder = await res.json();
       setFormCustomerId(fullOrder.customerId || "");
       setFormCustomerName(fullOrder.customerName || "");
+      // Resolve category from the customer list so price rules load correctly
+      const editCustomer = customers.find((c) => c.id === fullOrder.customerId);
+      setFormCustomerCategory(editCustomer?.customerCategory || null);
       setFormStatus(fullOrder.status);
       setFormPO(fullOrder.salesOrder || "");
       setFormNotes(fullOrder.notes || "");
@@ -297,6 +308,14 @@ export default function SalesOrders() {
     });
   }
 
+  // Returns the custom price for a product based on the selected customer's category,
+  // or null if no price rule exists (caller falls back to inventory price).
+  function getPriceRulePrice(productId: string): number | null {
+    if (!formCustomerCategory || !priceRulesForCategory.length) return null;
+    const rule = priceRulesForCategory.find((r: any) => r.productId === productId);
+    return rule ? parseFloat(rule.customPrice) : null;
+  }
+
   function selectProduct(index: number, productId: string) {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
@@ -311,7 +330,11 @@ export default function SalesOrders() {
       item.cartoonBarcode = product.cartoonBarcode || null;
       item.netWeightKgs = product.netWeight || null;
       item.grossWeightKgs = product.grossWeight || null;
-      item.unitPrice = product.salesPrice || product.basePrice || "0";
+      // Use price rule if available for this customer's category, otherwise fall back to inventory
+      const priceRulePrice = getPriceRulePrice(productId);
+      item.unitPrice = priceRulePrice !== null
+        ? String(priceRulePrice)
+        : (product.salesPrice || product.basePrice || "0");
       item.lineTotal = (Number(item.quantity) * parseFloat(item.unitPrice)).toFixed(2);
       updated[index] = item;
       return updated;
@@ -640,6 +663,7 @@ export default function SalesOrders() {
                             value="__none__"
                             onSelect={() => {
                               setFormCustomerId("");
+                              setFormCustomerCategory(null);
                               setCustomerSearchOpen(false);
                             }}
                           >
@@ -654,6 +678,7 @@ export default function SalesOrders() {
                                 value={c.name}
                                 onSelect={() => {
                                   setFormCustomerId(c.id);
+                                  setFormCustomerCategory(c.customerCategory || null);
                                   setCustomerSearchOpen(false);
                                 }}
                               >
