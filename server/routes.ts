@@ -5432,23 +5432,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── External Price Rule API Endpoints ───────────────────────────────────
 
-  // GET /api/external/price-rules — List all price rules (with product details)
+  // GET /api/external/price-rules — All customers with their applicable price-rule products
   app.get("/api/external/price-rules", async (req, res) => {
     try {
       const auth = await authenticateApiKey(req, res);
       if (!auth) return;
-      const rules = await storage.getPriceRules();
-      const products = await storage.getProducts(auth.userId);
+
+      // Fetch all three datasets in parallel
+      const [rules, products, allCustomers] = await Promise.all([
+        storage.getPriceRules(),
+        storage.getProducts(auth.userId),
+        storage.getCustomers(auth.userId),
+      ]);
+
+      // Build a product lookup map  id → product
       const productMap = new Map(products.map((p: any) => [p.id, p]));
-      const enriched = rules.map((r: any) => ({
-        ...r,
-        product: productMap.has(r.productId) ? {
-          id: (productMap.get(r.productId) as any).id,
-          name: (productMap.get(r.productId) as any).name,
-          itemCode: (productMap.get(r.productId) as any).itemCode,
-        } : null,
-      }));
-      res.json({ success: true, count: enriched.length, data: enriched });
+
+      // Build a category → rules lookup map
+      const rulesByCategory = new Map<string, any[]>();
+      for (const r of rules as any[]) {
+        const bucket = rulesByCategory.get(r.customerCategory) ?? [];
+        const prod = productMap.get(r.productId) as any;
+        bucket.push({
+          ruleId: r.id,
+          productId: r.productId,
+          productName: prod?.name ?? null,
+          itemCode: prod?.itemCode ?? null,
+          customPrice: r.customPrice,
+        });
+        rulesByCategory.set(r.customerCategory, bucket);
+      }
+
+      // One entry per customer — include only type=customer records
+      const data = (allCustomers as any[])
+        .filter((c: any) => c.type === "customer")
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          customerCategory: c.customerCategory ?? null,
+          products: c.customerCategory
+            ? (rulesByCategory.get(c.customerCategory) ?? [])
+            : [],
+        }));
+
+      res.json({ success: true, count: data.length, data });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch price rules" });
     }
