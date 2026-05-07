@@ -2596,7 +2596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 );
                 
                 // Verify the found item's SKU actually matches to prevent wrong linking
-                if (existingItem && existingItem.Sku !== product.itemCode) {
+                if (existingItem && existingItem.Sku?.trim() !== product.itemCode?.trim()) {
                   console.log(`SKU mismatch: expected ${product.itemCode}, found ${existingItem.Sku}. Will create new item.`);
                   existingItem = null;
                 }
@@ -3220,7 +3220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 );
                 
                 // Verify the found item's SKU actually matches to prevent wrong linking
-                if (existingItem && existingItem.Sku !== product.itemCode) {
+                if (existingItem && existingItem.Sku?.trim() !== product.itemCode?.trim()) {
                   console.log(`SKU mismatch: expected ${product.itemCode}, found ${existingItem.Sku}. Will create new item.`);
                   existingItem = null;
                 }
