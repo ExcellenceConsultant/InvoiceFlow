@@ -4871,10 +4871,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/sales-orders/:id", isAuthenticated, async (req, res) => {
     try {
-      const user = (req as any).user;
       const existing = await storage.getSalesOrder(req.params.id);
       if (!existing) return res.status(404).json({ message: "Sales order not found" });
-      if (existing.userId !== user.userId) return res.status(403).json({ message: "Forbidden" });
       if (existing.status === "converted") return res.status(400).json({ message: "Cannot edit a converted sales order" });
 
       const { order, lineItems } = req.body;

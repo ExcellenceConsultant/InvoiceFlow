@@ -140,7 +140,8 @@ export default function SalesOrders() {
   const [convertTarget, setConvertTarget] = useState<SalesOrder | null>(null);
   const [editLoading, setEditLoading] = useState(false);
 
-  const canEdit = user?.role !== "viewer";
+  const canCreate = user?.role !== "viewer";
+  const canEdit = !!user;
   const canDelete = ["super_admin", "admin"].includes(user?.role || "");
   const canConvert = user?.role !== "viewer";
 
@@ -400,7 +401,7 @@ export default function SalesOrders() {
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
-          {canEdit && (
+          {canCreate && (
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" />
               New Sales Order
