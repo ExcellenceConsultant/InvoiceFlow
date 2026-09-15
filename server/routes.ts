@@ -43,6 +43,51 @@ function computeInvoiceTotals(
   return { subtotal: subtotal.toFixed(2), total: total.toFixed(2) };
 }
 
+const OVERDUE_CREDIT_HOLD_MESSAGE =
+  "This customer has outstanding payments overdue by 90+ days. You cannot create new Invoice or Sales Order.";
+
+async function getCustomerCreditHold(customerId: string, userId: string) {
+  const customerInvoices = (await storage.getInvoices(userId)).filter(
+    (invoice) =>
+      invoice.customerId === customerId &&
+      invoice.invoiceType === "receivable" &&
+      invoice.status !== "paid",
+  );
+
+  const today = new Date();
+  const todayUtc = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+  );
+
+  let maxOverdueDays = 0;
+  for (const invoice of customerInvoices) {
+    let dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+    if (!dueDate || Number.isNaN(dueDate.getTime())) {
+      dueDate = new Date(invoice.invoiceDate);
+      dueDate.setUTCDate(dueDate.getUTCDate() + 30);
+    }
+
+    const dueDateUtc = Date.UTC(
+      dueDate.getUTCFullYear(),
+      dueDate.getUTCMonth(),
+      dueDate.getUTCDate(),
+    );
+    const overdueDays = Math.max(
+      0,
+      Math.floor((todayUtc - dueDateUtc) / (1000 * 60 * 60 * 24)),
+    );
+    maxOverdueDays = Math.max(maxOverdueDays, overdueDays);
+  }
+
+  return {
+    blocked: maxOverdueDays >= 90,
+    maxOverdueDays,
+    message: maxOverdueDays >= 90 ? OVERDUE_CREDIT_HOLD_MESSAGE : null,
+  };
+}
+
 // Configure multer for file uploads (memory storage) with limits
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1270,6 +1315,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get(
+    "/api/customers/:id/transaction-eligibility",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const user = (req as any).user;
+        const customer = await storage.getCustomer(req.params.id);
+        if (!customer) {
+          return res.status(404).json({ message: "Customer not found" });
+        }
+        res.json(await getCustomerCreditHold(req.params.id, user.userId));
+      } catch (error) {
+        console.error("Failed to check customer transaction eligibility:", error);
+        res.status(500).json({ message: "Failed to check customer eligibility" });
+      }
+    },
+  );
+
   app.post("/api/invoices", isAuthenticated, async (req, res) => {
     try {
       console.log(
@@ -1306,6 +1369,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check inventory for AR invoices before creating
       if (invoice.invoiceType === "receivable") {
+        if (invoiceData.customerId) {
+          const creditHold = await getCustomerCreditHold(
+            invoiceData.customerId,
+            user.userId,
+          );
+          if (creditHold.blocked) {
+            return res.status(400).json(creditHold);
+          }
+        }
+
         const outOfStockProducts = [];
 
         for (const item of lineItems) {
@@ -4823,6 +4896,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { order, lineItems } = req.body;
       if (!order || !lineItems) return res.status(400).json({ message: "Order and line items are required" });
 
+      if (order.customerId) {
+        const creditHold = await getCustomerCreditHold(order.customerId, user.userId);
+        if (creditHold.blocked) {
+          return res.status(400).json(creditHold);
+        }
+      }
+
       const orderNumber = order.orderNumber || await storage.getNextSalesOrderNumber(user.userId);
 
       const createdOrder = await storage.createSalesOrder({
@@ -5233,10 +5313,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Find customer by name directly (single query, no full table scan)
-      let customerId: string | null = null;
-      if (order.customerName) {
+      let customerId: string | null = order.customerId || null;
+      if (!customerId && order.customerName) {
         const matched = await storage.findCustomerByName(order.customerName);
         if (matched) customerId = matched.id;
+      }
+
+      if (customerId) {
+        const creditHold = await getCustomerCreditHold(customerId, auth.userId);
+        if (creditHold.blocked) {
+          return res.status(400).json(creditHold);
+        }
       }
 
       // Run order number lookup in parallel with customer lookup already done

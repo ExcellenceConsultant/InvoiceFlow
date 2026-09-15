@@ -65,6 +65,9 @@ import type { Customer, Product } from "@shared/schema";
 
 type SOStatus = "pending" | "confirmed" | "converted" | "cancelled";
 
+const OVERDUE_CREDIT_HOLD_MESSAGE =
+  "This customer has outstanding payments overdue by 90+ days. You cannot create new Invoice or Sales Order.";
+
 interface LineItem {
   id?: string;
   productId?: string | null;
@@ -171,6 +174,23 @@ export default function SalesOrders() {
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
+
+  const { data: customerEligibility, isLoading: eligibilityLoading } = useQuery<{
+    blocked: boolean;
+    maxOverdueDays: number;
+    message: string | null;
+  }>({
+    queryKey: [
+      "/api/customers",
+      formCustomerId,
+      "transaction-eligibility",
+    ],
+    enabled: createOpen && !editOrder && !!formCustomerId,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const isCustomerCreditBlocked =
+    createOpen && !editOrder && customerEligibility?.blocked === true;
 
   // Price rules for the currently selected customer's category
   const { data: priceRulesForCategory = [] } = useQuery<any[]>({
@@ -692,6 +712,14 @@ export default function SalesOrders() {
                     </Command>
                   </PopoverContent>
                 </Popover>
+                {isCustomerCreditBlocked && (
+                  <p
+                    className="text-sm font-medium text-red-600"
+                    data-testid="customer-credit-hold-message"
+                  >
+                    {customerEligibility?.message || OVERDUE_CREDIT_HOLD_MESSAGE}
+                  </p>
+                )}
               </div>
 
               {/* Customer name fallback */}
@@ -984,12 +1012,16 @@ export default function SalesOrders() {
               Cancel
             </Button>
             <Button
-              disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={
+                createMutation.isPending ||
+                updateMutation.isPending ||
+                (!editOrder && (eligibilityLoading || isCustomerCreditBlocked))
+              }
               onClick={() => {
                 const payload = buildPayload();
                 if (editOrder) {
                   updateMutation.mutate({ id: editOrder.id, data: payload });
-                } else {
+                } else if (!isCustomerCreditBlocked) {
                   createMutation.mutate(payload);
                 }
               }}

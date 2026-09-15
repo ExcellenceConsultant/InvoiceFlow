@@ -83,6 +83,9 @@ interface Props {
   onSuccess: () => void;
 }
 
+const OVERDUE_CREDIT_HOLD_MESSAGE =
+  "This customer has outstanding payments overdue by 90+ days. You cannot create new Invoice or Sales Order.";
+
 export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const isEditMode = !!invoice;
   const [lineItems, setLineItems] = useState([
@@ -238,6 +241,30 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   const { data: allInvoices } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
   });
+
+  const selectedCustomerId = form.watch("customerId");
+  const selectedInvoiceType = form.watch("invoiceType");
+  const { data: customerEligibility, isLoading: eligibilityLoading } = useQuery<{
+    blocked: boolean;
+    maxOverdueDays: number;
+    message: string | null;
+  }>({
+    queryKey: [
+      "/api/customers",
+      selectedCustomerId,
+      "transaction-eligibility",
+    ],
+    enabled:
+      !isEditMode &&
+      selectedInvoiceType === "receivable" &&
+      !!selectedCustomerId,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const isCustomerCreditBlocked =
+    !isEditMode &&
+    selectedInvoiceType === "receivable" &&
+    customerEligibility?.blocked === true;
 
   // Set invoice number based on invoice type (only for new invoices)
   useEffect(() => {
@@ -662,6 +689,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
   };
 
   const onSubmit = (data: z.infer<typeof invoiceSchema>) => {
+    if (!isEditMode && data.invoiceType === "receivable" && isCustomerCreditBlocked) {
+      return;
+    }
+
     const subtotal = calculateTotal();
     const freight = data.freight || 0;
     const discountValue = data.discount || 0;
@@ -940,6 +971,14 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                             ))}
                         </SelectContent>
                       </Select>
+                      {isCustomerCreditBlocked && (
+                        <p
+                          className="text-sm font-medium text-red-600"
+                          data-testid="customer-credit-hold-message"
+                        >
+                          {customerEligibility?.message || OVERDUE_CREDIT_HOLD_MESSAGE}
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -2008,7 +2047,10 @@ export default function InvoiceForm({ invoice, onClose, onSuccess }: Props) {
                     type="submit"
                     className="flex-1"
                     disabled={
-                      createInvoiceMutation.isPending || !!invoiceNumberError
+                      createInvoiceMutation.isPending ||
+                      !!invoiceNumberError ||
+                      eligibilityLoading ||
+                      isCustomerCreditBlocked
                     }
                     data-testid="button-save-draft"
                   >
